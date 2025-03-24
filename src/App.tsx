@@ -1,35 +1,51 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// App.tsx
 
-function App() {
-  const [count, setCount] = useState(0)
+import React, { useState, ChangeEvent } from 'react';
+import * as XLSX from 'xlsx';
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>idt</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+interface ExcelRow {
+  [key: string]: string | number | boolean | null;
 }
 
-export default App
+const App: React.FC = () => {
+  const [excelData, setExcelData] = useState<ExcelRow[] | null>(null);
+
+  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      // 最初のシート名を取得
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+
+      // シートをJSONに変換
+      const jsonData: ExcelRow[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+      setExcelData(jsonData);
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+      <h2>Excel アップロード &rarr; JSON表示</h2>
+      <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
+
+      {excelData && (
+        <div style={{ marginTop: '20px' }}>
+          <h3>変換されたJSONデータ:</h3>
+          <pre style={{ background: '#f0f0f0', padding: '10px', overflowX: 'auto' }}>
+            {JSON.stringify(excelData, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
