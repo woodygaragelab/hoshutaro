@@ -22,8 +22,6 @@ type Equipment = {
   month12: string;
 };
 
-// API Gateway のエンドポイントを設定してください
-// const API_URL = 'https://qww7m39kui.execute-api.ap-northeast-1.amazonaws.com/idtxls';
 const API_URL = 'https://c1w211b5p9.execute-api.ap-northeast-1.amazonaws.com/default/idMaxHoshi';
 
 const App: React.FC = () => {
@@ -47,13 +45,13 @@ const App: React.FC = () => {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // DynamoDB から全データを取得
+  // データ取得
   const fetchData = async () => {
     try {
       const res = await axios.get<Equipment[]>(API_URL);
       setItems(res.data);
     } catch (err) {
-      console.error('データ取得エラー', err);
+      console.error('データ取得エラー:', err);
     }
   };
 
@@ -61,7 +59,7 @@ const App: React.FC = () => {
     fetchData();
   }, []);
 
-  // フォーム入力変更ハンドラ
+  // フォーム入力ハンドラ
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -72,14 +70,11 @@ const App: React.FC = () => {
     e.preventDefault();
     try {
       if (editingId) {
-        // 更新
         await axios.put(API_URL, { id: editingId, ...formData });
         setEditingId(null);
       } else {
-        // 追加
         await axios.post(API_URL, formData);
       }
-      // フォームリセット＆データ再取得
       setFormData({
         number: '',
         name: '',
@@ -99,7 +94,7 @@ const App: React.FC = () => {
       });
       fetchData();
     } catch (err) {
-      console.error('保存エラー', err);
+      console.error('保存エラー:', err);
     }
   };
 
@@ -147,9 +142,7 @@ const App: React.FC = () => {
               />
             );
           })}
-          <button type="submit">
-            {editingId ? '更新' : '追加'}
-          </button>
+          <button type="submit">{editingId ? '更新' : '追加'}</button>
         </div>
       </form>
 
