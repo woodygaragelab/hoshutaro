@@ -1,7 +1,6 @@
 // src/App.tsx
 
 import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react';
-import axios from 'axios';
 
 type Equipment = {
   id: string;
@@ -48,8 +47,16 @@ const App: React.FC = () => {
   // データ取得
   const fetchData = async () => {
     try {
-      const res = await axios.get<Equipment[]>(API_URL);
-      setItems(res.data);
+      //console.log("API start");
+      const res = await fetch(API_URL, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      //console.log("res=",res);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data: Equipment[] = await res.json();
+      //console.log("data=",data);
+      setItems(data);
     } catch (err) {
       console.error('データ取得エラー:', err);
     }
@@ -69,12 +76,20 @@ const App: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      if (editingId) {
-        await axios.put(API_URL, { id: editingId, ...formData });
-        setEditingId(null);
-      } else {
-        await axios.post(API_URL, formData);
-      }
+      const method = editingId ? 'PUT' : 'POST';
+      const bodyPayload = editingId
+        ? { id: editingId, ...formData }
+        : formData;
+
+      const res = await fetch(API_URL, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload),
+      });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      // リセット & 再取得
+      setEditingId(null);
       setFormData({
         number: '',
         name: '',
@@ -110,7 +125,7 @@ const App: React.FC = () => {
       <h2>設備点検一覧</h2>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           <input
             name="number"
             placeholder="設備番号"
@@ -138,7 +153,7 @@ const App: React.FC = () => {
                 placeholder={`${i + 1}月点検結果`}
                 value={(formData as any)[key]}
                 onChange={handleChange}
-                style={{ width: '80px' }}
+                style={{ width: 80 }}
               />
             );
           })}
