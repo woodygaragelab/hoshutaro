@@ -122,7 +122,7 @@ const App: React.FC = () => {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>設備点検一覧</h2>
+      <h2>保守太郎</h2>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
