@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星取表モック</title>
+    <!-- Bootstrap CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="mb-4">星取表</h1>
+        <div class="top-controls-wrapper">
+            <div class="search-container">
+                <input type="search" id="search-input" class="form-control form-control-sm" placeholder="実施項目を検索...">
+            </div>
+
+            <div class="form-check form-switch">
+                <label class="form-check-label" for="view-mode-switch">星取</label>
+                <input class="form-check-input" type="checkbox" role="switch" id="view-mode-switch">
+                <label class="form-check-label" for="view-mode-switch">コスト</label>
+            </div>
+
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    表示設定
+                </button>
+                <ul class="dropdown-menu">
+                    <li><h6 class="dropdown-header">表示設定</h6></li>
+                    <li>
+                        <div class="form-check form-switch px-4">
+                            <input class="form-check-input" type="checkbox" id="show-bom-code-check" checked>
+                            <label class="form-check-label" for="show-bom-code-check">BOMコード</label>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="form-check form-switch px-4">
+                            <input class="form-check-input" type="checkbox" id="show-cycle-check" checked>
+                            <label class="form-check-label" for="show-cycle-check">周期</label>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="year-operations-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                    年度操作
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="year-operations-btn">
+                    <li><a class="dropdown-item" id="add-year-btn" href="#">追加</a></li>
+                    <li><a class="dropdown-item" id="delete-year-btn" href="#">削除</a></li>
+                </ul>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="data-operations-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                    データ操作
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="data-operations-btn">
+                    <li><a class="dropdown-item" id="export-data-btn" href="#"><i class="bi bi-box-arrow-down me-2"></i>エクスポート (JSON)</a></li>
+                    <li><a class="dropdown-item" id="import-data-btn" href="#"><i class="bi bi-box-arrow-in-up me-2"></i>インポート (JSON)</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" id="reset-data-btn" href="#"><i class="bi bi-arrow-counterclockwise me-2"></i>データを初期化</a></li>
+                </ul>
+            </div>
+
+            <div id="legend-status" class="legend-container ms-auto">
+                <small><strong>凡例:</strong><span class="mx-2">〇: 計画</span><span class="actual-mark mx-2">●: 実績</span><span class="summary-mark mx-2">〇 ●: 集計</span></small>
+            </div>
+            <div id="legend-cost" class="legend-container ms-auto" style="display: none;">
+                <small><strong>凡例 (単位: 千円):</strong><span class="mx-2 cost-plan">(123)</span>: 計画<span class="mx-2 cost-actual">(123)</span>: 実績</small>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="table table-bordered table-hover">
+                <thead id="table-header"></thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ★追加: ファイルインポート用の非表示要素 -->
+    <input type="file" id="import-file-input" style="display: none;" accept=".json,application/json">
+
+    <div id="edit-menu" class="list-group">
+        <button type="button" class="list-group-item list-group-item-action py-1" data-action="plan_only">[〇] 計画のみ</button>
+        <button type="button" class="list-group-item list-group-item-action py-1" data-action="actual_only">[●] 実績のみ</button>
+        <button type="button" class="list-group-item list-group-item-action py-1" data-action="plan_and_actual">[〇●] 計画と実績</button>
+        <button type="button" class="list-group-item list-group-item-action py-1" data-action="clear">[ ] 削除</button>
+    </div>
+
+    <div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index: 1100">
+        <div id="save-toast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <svg class="rounded me-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice" focusable="false"><rect width="100%" height="100%" fill="#007aff"></rect></svg>
+                <strong class="me-auto">通知</strong>
+                <small>たった今</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                保存しました。
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="operation-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modal-title"></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="modal-body"></div>
+          <div class="modal-footer" id="modal-footer"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,99 @@
+{
+  "P-101": {
+    "id": "P-101",
+    "hierarchy": {
+      "plant": "第一製油所",
+      "area": "Aエリア",
+      "unit": "原油蒸留ユニット"
+    },
+    "specifications": [
+      { "key": "機器名称", "value": "原油供給ポンプ", "order": 1 },
+      { "key": "型式", "value": "遠心式", "order": 2 },
+      { "key": "流量", "value": "500 m3/h", "order": 3 },
+      { "key": "圧力", "value": "1.0 MPa", "order": 4 },
+      { "key": "メーカー", "value": "日本ポンプ製造", "order": 5 }
+    ],
+    "maintenances": {
+      "2023-05-15": { "planned": true, "actual": true, "cost": 500000 },
+      "2024-01-20": { "planned": false, "actual": true, "cost": 150000 },
+      "2024-09-10": { "planned": true, "actual": false, "cost": null }
+    }
+  },
+  "E-201": {
+    "id": "E-201",
+    "hierarchy": {
+      "plant": "第一製油所",
+      "area": "Aエリア",
+      "unit": "原油蒸留ユニット"
+    },
+    "specifications": [
+      { "key": "機器名称", "value": "熱交換器", "order": 1 },
+      { "key": "型式", "value": "多管円筒式", "order": 2 },
+      { "key": "伝熱面積", "value": "100 m2", "order": 3 },
+      { "key": "最高使用圧力", "value": "1.5 MPa", "order": 4 },
+      { "key": "メーカー", "value": "東京熱機", "order": 5 }
+    ],
+    "maintenances": {
+      "2023-08-22": { "planned": true, "actual": true, "cost": 800000 },
+      "2025-02-15": { "planned": true, "actual": false, "cost": null }
+    }
+  },
+  "T-301": {
+    "id": "T-301",
+    "hierarchy": {
+      "plant": "第一製油所",
+      "area": "Bエリア",
+      "unit": "接触改質ユニット"
+    },
+    "specifications": [
+      { "key": "機器名称", "value": "蒸留塔", "order": 1 },
+      { "key": "直径", "value": "3.5 m", "order": 2 },
+      { "key": "高さ", "value": "40 m", "order": 3 },
+      { "key": "材質", "value": "SUS316L", "order": 4 },
+      { "key": "メーカー", "value": "大阪鉄工", "order": 5 }
+    ],
+    "maintenances": {
+      "2022-11-10": { "planned": true, "actual": true, "cost": 5000000 },
+      "2026-11-01": { "planned": true, "actual": false, "cost": null }
+    }
+  },
+  "R-401": {
+    "id": "R-401",
+    "hierarchy": {
+      "plant": "第一製油所",
+      "area": "Bエリア",
+      "unit": "接触改質ユニット"
+    },
+    "specifications": [
+      { "key": "機器名称", "value": "反応器", "order": 1 },
+      { "key": "形式", "value": "固定床式", "order": 2 },
+      { "key": "容量", "value": "50 m3", "order": 3 },
+      { "key": "最高使用温度", "value": "550 °C", "order": 4 },
+      { "key": "メーカー", "value": "未来重工", "order": 5 }
+    ],
+    "maintenances": {
+      "2023-02-20": { "planned": true, "actual": true, "cost": 2500000 },
+      "2024-03-15": { "planned": false, "actual": true, "cost": 300000 },
+      "2025-03-01": { "planned": true, "actual": false, "cost": null }
+    }
+  },
+  "TK-501": {
+    "id": "TK-501",
+    "hierarchy": {
+      "plant": "第一製油所",
+      "area": "Cエリア",
+      "unit": "製品貯蔵エリア"
+    },
+    "specifications": [
+      { "key": "機器名称", "value": "ナフサ貯蔵タンク", "order": 1 },
+      { "key": "形式", "value": "浮き屋根式", "order": 2 },
+      { "key": "容量", "value": "10,000 kL", "order": 3 },
+      { "key": "直径", "value": "30 m", "order": 4 },
+      { "key": "メーカー", "value": "横浜タンク", "order": 5 }
+    ],
+    "maintenances": {
+      "2021-09-01": { "planned": true, "actual": true, "cost": 12000000 },
+      "2031-09-01": { "planned": true, "actual": false, "cost": null }
+    }
+  }
+}
