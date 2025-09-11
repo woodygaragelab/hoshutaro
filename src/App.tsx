@@ -4,8 +4,9 @@ import rawData from './data/equipments.json';
 import { HierarchicalData, RawEquipment } from './types';
 import TableRow from './components/TableRow';
 import { transformData } from './utils/dataTransformer';
-import { Switch, FormControlLabel, TextField, Button, Menu, MenuItem, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, InputLabel, Snackbar, Alert } from '@mui/material';
-
+import { Switch, FormControlLabel, TextField, Button, Menu, MenuItem, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, InputLabel, Snackbar, Alert, IconButton } from '@mui/material';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import { BsDownload, BsUpload } from 'react-icons/bs';
 import { MdRefresh } from 'react-icons/md';
 
@@ -36,6 +37,8 @@ const App: React.FC = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('info');
 
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showBomCode, setShowBomCode] = useState(true);
+  const [showCycle, setShowCycle] = useState(true);
 
   useEffect(() => {
     const [transformed, sortedYears] = transformData(rawData as { [id: string]: RawEquipment });
@@ -207,6 +210,48 @@ const App: React.FC = () => {
     showSnackbar('データを初期化しました。', 'success');
   };
 
+  const handleToggle = (id: string) => {
+    const toggleRecursively = (items: HierarchicalData[]): HierarchicalData[] => {
+      return items.map(item => {
+        if (item.id === id) {
+          return { ...item, isOpen: !item.isOpen };
+        }
+        if (item.children && item.children.length > 0) {
+          return { ...item, children: toggleRecursively(item.children) };
+        }
+        return item;
+      });
+    };
+    setMaintenanceData(prevData => toggleRecursively(prevData));
+  };
+
+  const areAllRowsExpanded = (): boolean => {
+    const check = (items: HierarchicalData[]): boolean => {
+      return items.every(item => {
+        if (!item.children || item.children.length === 0) {
+          return true;
+        }
+        return item.isOpen && check(item.children);
+      });
+    };
+    return check(maintenanceData);
+  };
+
+  const handleToggleAll = () => {
+    const shouldExpand = !areAllRowsExpanded();
+    const toggleAllRecursively = (items: HierarchicalData[], open: boolean): HierarchicalData[] => {
+      return items.map(item => {
+        const newItem = { ...item };
+        if (newItem.children && newItem.children.length > 0) {
+          newItem.isOpen = open;
+          newItem.children = toggleAllRecursively(newItem.children, open);
+        }
+        return newItem;
+      });
+    };
+    setMaintenanceData(prevData => toggleAllRecursively(prevData, shouldExpand));
+  };
+
   const filterData = (data: HierarchicalData[], term: string): HierarchicalData[] => {
     if (!term) return data;
 
@@ -237,11 +282,15 @@ const App: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <FormControlLabel
-          control={<Switch checked={viewMode === 'cost'} onChange={handleViewModeChange} />}
-          label={viewMode === 'status' ? '星取' : 'コスト'}
-          labelPlacement="start"
-        />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span>星取</span>
+          <Switch
+            checked={viewMode === 'cost'}
+            onChange={handleViewModeChange}
+            color="primary"
+          />
+          <span>コスト</span>
+        </div>
 
         {/* Display Settings Dropdown */}
         <Button
@@ -256,9 +305,12 @@ const App: React.FC = () => {
           open={Boolean(displaySettingsAnchorEl)}
           onClose={() => handleMenuClose(setDisplaySettingsAnchorEl)}
         >
-          <MenuItem disabled>表示設定</MenuItem>
-          <FormControlLabel control={<Switch defaultChecked />} label="BOMコード" />
-          <FormControlLabel control={<Switch defaultChecked />} label="周期" />
+          <MenuItem>
+            <FormControlLabel control={<Switch checked={showBomCode} onChange={(e) => setShowBomCode(e.target.checked)} />} label="BOMコード" />
+          </MenuItem>
+          <MenuItem>
+            <FormControlLabel control={<Switch checked={showCycle} onChange={(e) => setShowCycle(e.target.checked)} />} label="周期" />
+          </MenuItem>
         </Menu>
 
         {/* Year Operations Dropdown */}
@@ -318,17 +370,20 @@ const App: React.FC = () => {
               <th className="task-name-col">
                 <div className="task-header-content">
                   <span>実施項目</span>
+                  <IconButton onClick={handleToggleAll} size="small" title={areAllRowsExpanded() ? "すべて閉じる" : "すべて展開"}>
+                    {areAllRowsExpanded() ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                  </IconButton>
                 </div>
               </th>
-              <th className="bom-code-col">BOMコード</th>
-              <th className="cycle-col">周期(年)</th>
+              {showBomCode && <th className="bom-code-col">BOMコード</th>}
+              {showCycle && <th className="cycle-col">周期(年)</th>}
               {years.map(year => (
                 <th key={year} className="year-col">{`${year}年度`}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {displayedMaintenanceData.map(item => <TableRow key={item.id} item={item} allYears={years} viewMode={viewMode} onUpdateItem={handleUpdateItem} />)}
+            {displayedMaintenanceData.map(item => <TableRow key={item.id} item={item} allYears={years} viewMode={viewMode} onUpdateItem={handleUpdateItem} showBomCode={showBomCode} showCycle={showCycle} onToggle={handleToggle} />)}
           </tbody>
         </table>
       </div>

@@ -49,7 +49,15 @@ body {
 .task-name-col, .bom-code-col, .cycle-col { position: sticky; z-index: 1; }
 .task-name-col { left: 0; }
 .bom-code-col { left: 250px; }
-.cycle-col { left: 400px; }
+
+th.task-name-col + th.cycle-col,
+td.task-name-col + td.cycle-col {
+  left: 250px;
+}
+th.bom-code-col + th.cycle-col,
+td.bom-code-col + td.cycle-col {
+  left: 400px;
+}
 
 .table td.task-name-col, .table th.task-name-col { background-color: #fff; }
 .table td.bom-code-col, .table th.bom-code-col { background-color: #f8f9fa; }
