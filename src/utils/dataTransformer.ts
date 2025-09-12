@@ -44,6 +44,7 @@ export const transformData = (data: { [id: string]: RawEquipment }): [Hierarchic
         task: item.specifications.find(s => s.key === '機器名称')?.value || item.id,
         level: hierarchyKeys.length + 1,
         bomCode: item.id, // Temporary, will be reassigned
+        specifications: item.specifications, // Add specifications to equipment node
         children: [],
         results: {},
         rolledUpResults: {}, // Initialized

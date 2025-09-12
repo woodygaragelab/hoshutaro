@@ -4,6 +4,7 @@ export interface HierarchicalData {
   level: number;
   bomCode: string;
   cycle?: number;
+  specifications: { key: string; value: string; order: number }[];
   children: any[];
   results: { [year: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };
   rolledUpResults: { [year: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };

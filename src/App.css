@@ -195,3 +195,43 @@ tr:hover .cycle-col-content .action-icon {
 .loading-overlay.show {
     display: flex; /* Shown with a class */
 }
+
+/* Specifications Styles */
+.specifications-row td {
+  background-color: #f9f9f9;
+  padding: 8px 16px !important;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6; /* Add a bottom border */
+}
+
+.specifications-content {
+  padding-left: 40px; /* Adjust to align with task text */
+}
+
+.specifications-content strong {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.specifications-content ul {
+  list-style-type: none;
+  padding-left: 10px;
+  margin: 5px 0 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.specifications-content li {
+  font-size: 0.85rem;
+}
+
+.spec-key {
+  font-weight: bold;
+  margin-right: 8px;
+  color: #555;
+}
+
+.spec-value {
+  color: #333;
+}

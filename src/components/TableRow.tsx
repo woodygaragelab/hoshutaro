@@ -10,10 +10,11 @@ interface TableRowProps {
   onUpdateItem: (updatedItem: HierarchicalData) => void; // Callback to update parent state
   showBomCode: boolean;
   showCycle: boolean;
+  showSpecifications: boolean;
   onToggle: (id: string) => void;
 }
 
-const TableRow: React.FC<TableRowProps> = ({ item, allYears, viewMode, onUpdateItem, showBomCode, showCycle, onToggle }) => {
+const TableRow: React.FC<TableRowProps> = ({ item, allYears, viewMode, onUpdateItem, showBomCode, showCycle, showSpecifications, onToggle }) => {
   
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [taskInputValue, setTaskInputValue] = useState(item.task);
@@ -68,18 +69,21 @@ const TableRow: React.FC<TableRowProps> = ({ item, allYears, viewMode, onUpdateI
   };
 
   const handleRowClick = () => {
-    if (item.children.length > 0) {
+    // Only toggle if the item has children or specifications to show
+    if (item.children.length > 0 || (item.specifications && item.specifications.length > 0)) {
       onToggle(item.id);
     }
   };
 
+  const totalColumns = 1 + (showBomCode ? 1 : 0) + (showCycle ? 1 : 0) + allYears.length;
+
   return (
     <React.Fragment>
-      <tr data-id={item.id} className={`level-${item.level} ${item.children.length > 0 ? 'has-children' : ''}`} onClick={handleRowClick}>
+      <tr data-id={item.id} className={`level-${item.level} ${item.children.length > 0 || (item.specifications && item.specifications.length > 0) ? 'has-children' : ''}`} onClick={handleRowClick}>
         <td className="task-name-col">
           <div className="task-name-content" style={{ paddingLeft: `${(item.level - 1) * 20 + 5}px` }}>
             <span className="toggle-icon">
-              {item.children.length > 0 ? (item.isOpen ? '▼' : '▶') : ''}
+              {(item.children.length > 0 || (item.specifications && item.specifications.length > 0)) ? (item.isOpen ? '▼' : '▶') : ''}
             </span>
             <div className="task-text-container" onClick={handleTaskClick}>
               {isEditingTask ? (
@@ -132,8 +136,29 @@ const TableRow: React.FC<TableRowProps> = ({ item, allYears, viewMode, onUpdateI
           />
         ))}
       </tr>
+      {/* Specifications Row */}
+      {item.isOpen && showSpecifications && item.specifications && item.specifications.length > 0 && (
+        <tr className="specifications-row">
+          <td colSpan={totalColumns}>
+            <div className="specifications-content">
+              <strong>仕様:</strong>
+              <ul>
+                {item.specifications
+                  .sort((a, b) => a.order - b.order)
+                  .map(spec => (
+                    <li key={spec.key}>
+                      <span className="spec-key">{spec.key}:</span>
+                      <span className="spec-value">{spec.value}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </td>
+        </tr>
+      )}
+      {/* Children Rows */}
       {item.isOpen && item.children && item.children.map(child => (
-        <TableRow key={child.id} item={child} allYears={allYears} viewMode={viewMode} onUpdateItem={onUpdateItem} showBomCode={showBomCode} showCycle={showCycle} onToggle={onToggle} />
+        <TableRow key={child.id} item={child} allYears={allYears} viewMode={viewMode} onUpdateItem={onUpdateItem} showBomCode={showBomCode} showCycle={showCycle} showSpecifications={showSpecifications} onToggle={onToggle} />
       ))}
     </React.Fragment>
   );

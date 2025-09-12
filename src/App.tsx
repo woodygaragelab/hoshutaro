@@ -39,6 +39,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showBomCode, setShowBomCode] = useState(true);
   const [showCycle, setShowCycle] = useState(true);
+  const [showSpecifications, setShowSpecifications] = useState(true);
 
   useEffect(() => {
     const [transformed, sortedYears] = transformData(rawData as { [id: string]: RawEquipment });
@@ -311,6 +312,9 @@ const App: React.FC = () => {
           <MenuItem>
             <FormControlLabel control={<Switch checked={showCycle} onChange={(e) => setShowCycle(e.target.checked)} />} label="周期" />
           </MenuItem>
+          <MenuItem>
+            <FormControlLabel control={<Switch checked={showSpecifications} onChange={(e) => setShowSpecifications(e.target.checked)} />} label="仕様" />
+          </MenuItem>
         </Menu>
 
         {/* Year Operations Dropdown */}
@@ -383,7 +387,7 @@ const App: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {displayedMaintenanceData.map(item => <TableRow key={item.id} item={item} allYears={years} viewMode={viewMode} onUpdateItem={handleUpdateItem} showBomCode={showBomCode} showCycle={showCycle} onToggle={handleToggle} />)}
+            {displayedMaintenanceData.map(item => <TableRow key={item.id} item={item} allYears={years} viewMode={viewMode} onUpdateItem={handleUpdateItem} showBomCode={showBomCode} showCycle={showCycle} showSpecifications={showSpecifications} onToggle={handleToggle} />)}
           </tbody>
         </table>
       </div>
