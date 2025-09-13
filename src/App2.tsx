@@ -30,7 +30,7 @@ const App2: React.FC = () => {
   return (
     <div>
       <h1>App2　（APIを呼んでBackend DBから設備データを取得するサンプル）</h1>
-      <p>APIのURL: {APIURL}</p>
+      <p>API(Lambda)のURL: {APIURL}</p>
       <p>APIからのレスポンス:</p>
       {error && <p>エラー: {error}</p>}
       <pre>{data ? JSON.stringify(data, null, 2) : 'Loading...'}</pre>
