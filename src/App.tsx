@@ -3,6 +3,7 @@ import './App.css';
 import rawData from './data/equipments.json';
 import { HierarchicalData, RawEquipment } from './types';
 import TableRow from './components/TableRow';
+import TableHeader from './components/TableHeader';
 import { transformData } from './utils/dataTransformer';
 import { Switch, FormControlLabel, TextField, Button, Menu, MenuItem, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, InputLabel, Snackbar, Alert, SelectChangeEvent, FormControl, Grid } from '@mui/material';
 import { BsDownload, BsUpload } from 'react-icons/bs';
@@ -242,6 +243,22 @@ const App: React.FC = () => {
 
   const totalColumns = (showBomCode ? 1 : 0) + (showCycle ? 1 : 0) + timeHeaders.length + 1; // +1 for task name
 
+  const tableStyles = useMemo(() => {
+    const taskNameWidth = 250;
+    const bomCodeWidth = 150;
+
+    const bomCodeLeft = taskNameWidth;
+    let cycleLeft = taskNameWidth;
+    if (showBomCode) {
+      cycleLeft += bomCodeWidth;
+    }
+
+    return {
+      '--bom-code-left': `${bomCodeLeft}px`,
+      '--cycle-left': `${cycleLeft}px`,
+    } as React.CSSProperties;
+  }, [showBomCode]);
+
   return (
     <div className="container-fluid">
       <h1 className="mb-4">星取表</h1>
@@ -304,7 +321,7 @@ const App: React.FC = () => {
             <FormControl sx={{ minWidth: 120 }} size="small">
               <InputLabel>スケール</InputLabel>
               <Select value={timeScale} label="スケール" onChange={(e: SelectChangeEvent) => setTimeScale(e.target.value as 'year' | 'month' | 'week' | 'day')}>
-                <MenuItem value="year">年度</MenuItem>
+                <MenuItem value="year">年</MenuItem>
                 <MenuItem value="month">月</MenuItem>
                 <MenuItem value="week">週</MenuItem>
                 <MenuItem value="day">日</MenuItem>
@@ -347,25 +364,28 @@ const App: React.FC = () => {
         </Grid>
       </div>
 
-      <div className="table-container">
+      <div className="table-container" style={tableStyles}>
         <table className="table table-bordered table-hover">
-          <thead>
-            <tr>
-              <th className="task-name-col">機器</th>
-              {showBomCode && <th className="bom-code-col">TAG No.</th>}
-              {showCycle && <th className="cycle-col">周期(年)</th>}
-              {timeHeaders.map(header => (
-                <th key={header} className="year-col">{timeScale === 'year' ? `${header}年度` : header}</th>
-              ))}
-            </tr>
-          </thead>
+          <TableHeader
+            timeHeaders={timeHeaders}
+            timeScale={timeScale}
+            showBomCode={showBomCode}
+            showCycle={showCycle}
+          />
           <tbody>
             {Object.entries(groupedData).map(([hierarchyPath, items]) => (
               <React.Fragment key={hierarchyPath}>
                 <tr className="group-header-row">
-                  <td colSpan={totalColumns}>{
-                    hierarchyPath
-                  }</td>
+                  <td
+                    className="group-header-sticky-cell"
+                    colSpan={1 + (showBomCode ? 1 : 0) + (showCycle ? 1 : 0)}
+                  >
+                    {hierarchyPath}
+                  </td>
+                  <td
+                    className="group-header-timeline-cell"
+                    colSpan={timeHeaders.length}
+                  />
                 </tr>
                 {items.map(item => (
                   <TableRow key={item.id} item={item} allTimeHeaders={timeHeaders} viewMode={viewMode} onUpdateItem={handleUpdateItem} showBomCode={showBomCode} showCycle={showCycle} />

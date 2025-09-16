@@ -79,8 +79,18 @@ const EditableCell: React.FC<EditableCellProps> = ({ item, timeHeader, viewMode,
     }
   };
 
+  const getTimeScale = (timeHeader: string): string => {
+    if (timeHeader.includes('-W')) return 'week';
+    if (timeHeader.length === 7) return 'month';
+    if (timeHeader.length === 10) return 'day';
+    return 'year';
+  };
+
+  const timeScale = getTimeScale(timeHeader);
+  const timeScaleClass = `time-col ${timeScale}-col`;
+
   return (
-    <td className={`year-col ${viewMode === 'cost' ? 'cost-mode' : ''}`} data-time-header={timeHeader} onClick={handleCellClick}>
+    <td className={`${timeScaleClass} ${viewMode === 'cost' ? 'cost-mode' : ''}`} data-time-header={timeHeader} onClick={handleCellClick}>
       {isEditing && item.children.length === 0 ? (
         viewMode === 'status' ? (
           <FormControl fullWidth variant="standard">
@@ -92,9 +102,9 @@ const EditableCell: React.FC<EditableCellProps> = ({ item, timeHeader, viewMode,
               autoFocus
               size="small"
             >
-              <MenuItem value="plan_only">〇: 計画のみ</MenuItem>
-              <MenuItem value="actual_only">●: 実績のみ</MenuItem>
-              <MenuItem value="plan_and_actual">◎: 計画と実績</MenuItem>
+              <MenuItem value="plan_only">〇: 計画</MenuItem>
+              <MenuItem value="actual_only">●: 実績</MenuItem>
+              <MenuItem value="plan_and_actual">◎: 両方</MenuItem>
               <MenuItem value="clear">[ ] 削除</MenuItem>
             </Select>
           </FormControl>

@@ -38,8 +38,8 @@ h1 {
 }
 
 .table {
-    table-layout: fixed;
-    border-collapse: separate; /* For sticky header styling */
+    table-layout: auto;
+    border-collapse: collapse; /* For sticky header styling */
 }
 
 .table th, .table td {
@@ -47,54 +47,80 @@ h1 {
     text-align: center;
     box-sizing: border-box;
     white-space: nowrap;
-    padding: 0.5rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.table thead tr {
+    height: 35px;
 }
 
 .table thead th {
     background-color: #f8f9fa;
+    z-index: 3; /* Raised z-index */
+    height: 35px;
+}
+
+.table thead tr:first-child th {
     position: sticky;
     top: 0;
-    z-index: 3; /* Raised z-index */
-    height: 40px;
+}
+
+.table thead tr:nth-child(2) th {
+    position: sticky;
+    top: 35px; /* 1行目の高さ分 */
 }
 
 /* --- Group Header Row --- */
 .group-header-row td {
-    position: sticky;
-    top: 40px; /* Height of the main header */
-    z-index: 2; /* Above sticky columns, below main header */
     background-color: #e9ecef;
+    position: sticky;
+    top: 70px; /* Fixed 2-row header height */
+    z-index: 2; /* Base z-index for the row */
+}
+.group-header-row td.group-header-sticky-cell {
+    left: 0;
+    z-index: 3; /* Higher z-index to stay on top */
     text-align: left !important;
     font-weight: bold;
     color: #495057;
 }
 
 /* --- Column Widths --- */
-.task-name-col { width: 250px; }
-.bom-code-col { width: 150px; }
-.cycle-col { width: 80px; }
-.year-col { width: 100px; padding: 0.1rem !important; cursor: pointer; }
-.year-col div { line-height: 1.1; height: 1.2em; }
+.task-name-col { width: 250px; min-width: 250px; }
+.bom-code-col { width: 150px; min-width: 150px; }
+.cycle-col { width: 80px; min-width: 80px; }
+
+.time-col {
+  padding: 0.1rem !important;
+  cursor: pointer;
+  min-width: 40px;
+}
+.time-col div {
+  line-height: 1.1;
+  height: 1.2em;
+}
+
 
 /* --- Sticky Columns --- */
-.task-name-col, .bom-code-col { 
+.task-name-col, .bom-code-col, .cycle-col { 
     position: sticky; 
     z-index: 1; /* Below group header */
 }
 .task-name-col { left: 0; }
-.bom-code-col { left: 250px; }
+.bom-code-col { left: var(--bom-code-left); }
+.cycle-col { left: var(--cycle-left); }
 
 /* Sticky column header backgrounds */
-.table th.task-name-col, .table th.bom-code-col {
+.table th.task-name-col, .table th.bom-code-col, .table th.cycle-col {
     background-color: #f8f9fa;
 }
 /* Sticky column body backgrounds */
-.table td.task-name-col, .table td.bom-code-col {
+.table td.task-name-col, .table td.bom-code-col, .table td.cycle-col {
     background-color: #fff;
 }
 
 /* Ensure sticky column headers are on the very top layer */
-.table thead .task-name-col, .table thead .bom-code-col { 
+.table thead .task-name-col, .table thead .bom-code-col, .table thead .cycle-col { 
     z-index: 4; 
 }
 
@@ -167,7 +193,7 @@ tr:hover .cycle-col-content .action-icon {
 }
 
 /* Cost Mode Styles */
-.year-col.cost-mode {
+.time-col.cost-mode {
     font-size: 0.9em;
 }
 .cost-plan {
@@ -182,4 +208,10 @@ tr:hover .cycle-col-content .action-icon {
     border: 1px solid #0d6efd;
     text-align: right;
     padding: 0 2px;
+}
+
+.table .group-header {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    text-align: center;
 }
