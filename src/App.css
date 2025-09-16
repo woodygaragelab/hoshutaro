@@ -1,21 +1,33 @@
 /* カスタムスタイル */
 body {
-    padding: 2rem;
+    padding: 1rem;
 }
+
+/* App.tsxのmb-4を上書き */
+h1 {
+    margin-bottom: 1rem !important;
+}
+
 .top-controls-wrapper {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
 }
+
 .search-container {
-    width: 250px; /* 実施項目列の幅に合わせる */
+    width: 250px;
 }
+
 .table-container {
-    max-height: 80vh;
+    max-height: 85vh;
     overflow: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid #dee2e6;
 }
+
 .legend-container {
     padding: 0.375rem 0.75rem;
     border: 1px solid #ddd;
@@ -24,52 +36,70 @@ body {
     display: flex;
     align-items: center;
 }
+
 .table {
     table-layout: fixed;
+    border-collapse: separate; /* For sticky header styling */
 }
+
 .table th, .table td {
     vertical-align: middle;
     text-align: center;
     box-sizing: border-box;
     white-space: nowrap;
+    padding: 0.5rem;
 }
+
 .table thead th {
     background-color: #f8f9fa;
     position: sticky;
     top: 0;
-    z-index: 2;
-    padding: 0.5rem;
+    z-index: 3; /* Raised z-index */
+    height: 40px;
 }
+
+/* --- Group Header Row --- */
+.group-header-row td {
+    position: sticky;
+    top: 40px; /* Height of the main header */
+    z-index: 2; /* Above sticky columns, below main header */
+    background-color: #e9ecef;
+    text-align: left !important;
+    font-weight: bold;
+    color: #495057;
+}
+
+/* --- Column Widths --- */
 .task-name-col { width: 250px; }
 .bom-code-col { width: 150px; }
 .cycle-col { width: 80px; }
 .year-col { width: 100px; padding: 0.1rem !important; cursor: pointer; }
 .year-col div { line-height: 1.1; height: 1.2em; }
 
-.task-name-col, .bom-code-col, .cycle-col { position: sticky; z-index: 1; }
+/* --- Sticky Columns --- */
+.task-name-col, .bom-code-col { 
+    position: sticky; 
+    z-index: 1; /* Below group header */
+}
 .task-name-col { left: 0; }
 .bom-code-col { left: 250px; }
 
-th.task-name-col + th.cycle-col,
-td.task-name-col + td.cycle-col {
-  left: 250px;
+/* Sticky column header backgrounds */
+.table th.task-name-col, .table th.bom-code-col {
+    background-color: #f8f9fa;
 }
-th.bom-code-col + th.cycle-col,
-td.bom-code-col + td.cycle-col {
-  left: 400px;
+/* Sticky column body backgrounds */
+.table td.task-name-col, .table td.bom-code-col {
+    background-color: #fff;
 }
 
-.table td.task-name-col, .table th.task-name-col { background-color: #fff; }
-.table td.bom-code-col, .table th.bom-code-col { background-color: #f8f9fa; }
-.table td.cycle-col, .table th.cycle-col { background-color: #f8f9fa; }
+/* Ensure sticky column headers are on the very top layer */
+.table thead .task-name-col, .table thead .bom-code-col { 
+    z-index: 4; 
+}
 
-.level-1 > td.task-name-col { background-color: #e9ecef !important; }
-.level-2 > td.task-name-col { background-color: #f8f9fa !important; }
-.level-3 > td.task-name-col { background-color: #ffffff !important; }
-.level-4 > td.task-name-col { background-color: #ffffff !important; }
 
-.table thead .task-name-col, .table thead .bom-code-col, .table thead .cycle-col { z-index: 3; }
-
+/* --- Cell Content Styles --- */
 .task-header-content {
     display: flex;
     justify-content: space-between;
@@ -82,7 +112,6 @@ td.bom-code-col + td.cycle-col {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem;
 }
 
 .task-text-container {
@@ -92,22 +121,9 @@ td.bom-code-col + td.cycle-col {
 .task-text-container::-webkit-scrollbar { height: 8px; }
 .task-text-container::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
 
-.task-name-content span.toggle-icon { display: inline-block; width: 20px; }
-.has-children > .task-name-col .task-name-content { font-weight: bold; }
-
 .actual-mark { font-weight: bold; }
 .summary-mark { color: #888; font-style: italic; }
 .summary-actual { font-weight: bold; }
-
-#edit-menu {
-    position: absolute; display: none; border: 1px solid #ccc;
-    background-color: white; box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-    padding: 0; z-index: 10;
-}
-
-.modal-body .error-message {
-    color: #dc3545; font-size: 0.875em; margin-top: 0.5rem; display: none;
-}
 
 .task-actions {
     display: none;
@@ -166,72 +182,4 @@ tr:hover .cycle-col-content .action-icon {
     border: 1px solid #0d6efd;
     text-align: right;
     padding: 0 2px;
-}
-
-/* View Mode Switch */
-.form-switch {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    padding-left: 0; /* Override bootstrap */
-}
-.form-switch .form-check-input {
-    margin-left: 0;
-}
-
-/* Loading Overlay */
-.loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: none; /* Hidden by default */
-    justify-content: center;
-    align-items: center;
-    z-index: 9999; /* On top of everything */
-}
-.loading-overlay.show {
-    display: flex; /* Shown with a class */
-}
-
-/* Specifications Styles */
-.specifications-row td {
-  background-color: #f9f9f9;
-  padding: 8px 16px !important;
-  text-align: left;
-  border-bottom: 1px solid #dee2e6; /* Add a bottom border */
-}
-
-.specifications-content {
-  padding-left: 40px; /* Adjust to align with task text */
-}
-
-.specifications-content strong {
-  font-size: 0.9rem;
-  color: #333;
-}
-
-.specifications-content ul {
-  list-style-type: none;
-  padding-left: 10px;
-  margin: 5px 0 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-}
-
-.specifications-content li {
-  font-size: 0.85rem;
-}
-
-.spec-key {
-  font-weight: bold;
-  margin-right: 8px;
-  color: #555;
-}
-
-.spec-value {
-  color: #333;
 }

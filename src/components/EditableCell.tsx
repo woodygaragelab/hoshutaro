@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { HierarchicalData } from '../types';
 import { TextField, Select, MenuItem, FormControl } from '@mui/material';
 
-interface EditableYearCellProps {
+interface EditableCellProps {
   item: HierarchicalData;
-  year: number;
+  timeHeader: string;
   viewMode: 'status' | 'cost';
   onUpdateItem: (updatedItem: HierarchicalData) => void;
 }
 
-const EditableYearCell: React.FC<EditableYearCellProps> = ({ item, year, viewMode, onUpdateItem }) => {
+const EditableCell: React.FC<EditableCellProps> = ({ item, timeHeader, viewMode, onUpdateItem }) => {
   const resultsData = item.children.length > 0 ? item.rolledUpResults : item.results;
-  const dataForYear = resultsData?.[year] || { planned: false, actual: false, planCost: 0, actualCost: 0 };
+  const dataForTimeHeader = resultsData?.[timeHeader] || { planned: false, actual: false, planCost: 0, actualCost: 0 };
   
   const [isEditing, setIsEditing] = useState(false);
   const [statusValue, setStatusValue] = useState('');
@@ -19,11 +19,11 @@ const EditableYearCell: React.FC<EditableYearCellProps> = ({ item, year, viewMod
   const [actualCostValue, setActualCostValue] = useState(0);
 
   useEffect(() => {
-    const currentStatus = dataForYear.planned && dataForYear.actual ? 'plan_and_actual' : dataForYear.planned ? 'plan_only' : dataForYear.actual ? 'actual_only' : 'clear';
+    const currentStatus = dataForTimeHeader.planned && dataForTimeHeader.actual ? 'plan_and_actual' : dataForTimeHeader.planned ? 'plan_only' : dataForTimeHeader.actual ? 'actual_only' : 'clear';
     setStatusValue(currentStatus);
-    setPlanCostValue(dataForYear.planCost || 0);
-    setActualCostValue(dataForYear.actualCost || 0);
-  }, [dataForYear]);
+    setPlanCostValue(dataForTimeHeader.planCost || 0);
+    setActualCostValue(dataForTimeHeader.actualCost || 0);
+  }, [dataForTimeHeader]);
 
   const handleCellClick = () => {
     if (item.children.length === 0) { // Only allow editing for leaf nodes
@@ -33,33 +33,33 @@ const EditableYearCell: React.FC<EditableYearCellProps> = ({ item, year, viewMod
 
   const handleBlur = () => {
     let updatedResults = { ...item.results };
-    if (!updatedResults[year]) {
-      updatedResults[year] = { planned: false, actual: false, planCost: 0, actualCost: 0 };
+    if (!updatedResults[timeHeader]) {
+      updatedResults[timeHeader] = { planned: false, actual: false, planCost: 0, actualCost: 0 };
     }
 
     if (viewMode === 'status') {
       switch (statusValue) {
         case 'plan_only':
-          updatedResults[year].planned = true;
-          updatedResults[year].actual = false;
+          updatedResults[timeHeader].planned = true;
+          updatedResults[timeHeader].actual = false;
           break;
         case 'actual_only':
-          updatedResults[year].planned = false;
-          updatedResults[year].actual = true;
+          updatedResults[timeHeader].planned = false;
+          updatedResults[timeHeader].actual = true;
           break;
         case 'plan_and_actual':
-          updatedResults[year].planned = true;
-          updatedResults[year].actual = true;
+          updatedResults[timeHeader].planned = true;
+          updatedResults[timeHeader].actual = true;
           break;
         case 'clear':
         default:
-          updatedResults[year].planned = false;
-          updatedResults[year].actual = false;
+          updatedResults[timeHeader].planned = false;
+          updatedResults[timeHeader].actual = false;
           break;
       }
     } else { // cost mode
-      updatedResults[year].planCost = planCostValue;
-      updatedResults[year].actualCost = actualCostValue;
+      updatedResults[timeHeader].planCost = planCostValue;
+      updatedResults[timeHeader].actualCost = actualCostValue;
     }
 
     onUpdateItem({ ...item, results: updatedResults });
@@ -71,16 +71,16 @@ const EditableYearCell: React.FC<EditableYearCellProps> = ({ item, year, viewMod
       handleBlur(); // Apply changes on Enter
     } else if (e.key === 'Escape') {
       // Revert to original values and exit editing mode
-      const originalStatus = dataForYear.planned && dataForYear.actual ? 'plan_and_actual' : dataForYear.planned ? 'plan_only' : dataForYear.actual ? 'actual_only' : 'clear';
+      const originalStatus = dataForTimeHeader.planned && dataForTimeHeader.actual ? 'plan_and_actual' : dataForTimeHeader.planned ? 'plan_only' : dataForTimeHeader.actual ? 'actual_only' : 'clear';
       setStatusValue(originalStatus);
-      setPlanCostValue(dataForYear.planCost || 0);
-      setActualCostValue(dataForYear.actualCost || 0);
+      setPlanCostValue(dataForTimeHeader.planCost || 0);
+      setActualCostValue(dataForTimeHeader.actualCost || 0);
       setIsEditing(false);
     }
   };
 
   return (
-    <td className={`year-col ${viewMode === 'cost' ? 'cost-mode' : ''}`} data-year={year} onClick={handleCellClick}>
+    <td className={`year-col ${viewMode === 'cost' ? 'cost-mode' : ''}`} data-time-header={timeHeader} onClick={handleCellClick}>
       {isEditing && item.children.length === 0 ? (
         viewMode === 'status' ? (
           <FormControl fullWidth variant="standard">
@@ -94,7 +94,7 @@ const EditableYearCell: React.FC<EditableYearCellProps> = ({ item, year, viewMod
             >
               <MenuItem value="plan_only">〇: 計画のみ</MenuItem>
               <MenuItem value="actual_only">●: 実績のみ</MenuItem>
-              <MenuItem value="plan_and_actual">〇●: 計画と実績</MenuItem>
+              <MenuItem value="plan_and_actual">◎: 計画と実績</MenuItem>
               <MenuItem value="clear">[ ] 削除</MenuItem>
             </Select>
           </FormControl>
@@ -127,16 +127,25 @@ const EditableYearCell: React.FC<EditableYearCellProps> = ({ item, year, viewMod
         )
       ) : (
         viewMode === 'status' ? (
-          dataForYear && (
-            <>
-              <div className={item.children.length > 0 ? 'summary-mark' : ''}>{dataForYear.planned ? '〇' : ''}</div>
-              <div className={`actual-mark ${item.children.length > 0 ? 'summary-mark summary-actual' : ''}`}>{dataForYear.actual ? '●' : ''}</div>
-            </>
-          )
+          dataForTimeHeader && (() => {
+            const { planned, actual } = dataForTimeHeader;
+            const isSummary = item.children.length > 0;
+            const summaryClass = isSummary ? 'summary-mark' : '';
+            const actualClass = `actual-mark ${isSummary ? 'summary-mark summary-actual' : ''}`;
+
+            if (planned && actual) {
+              return <div className={summaryClass}>◎</div>;
+            } else if (planned) {
+              return <div className={summaryClass}>〇</div>;
+            } else if (actual) {
+              return <div className={actualClass}>●</div>;
+            }
+            return null; // Render nothing if no data
+          })()
         ) : (
           <>
-            <div className="cost-plan" title="計画コスト">{(dataForYear?.planCost || 0).toLocaleString()}</div>
-            <div className="cost-actual" title="実績コスト">{(dataForYear?.actualCost || 0).toLocaleString()}</div>
+            <div className="cost-plan" title="計画コスト">{(dataForTimeHeader?.planCost || 0).toLocaleString()}</div>
+            <div className="cost-actual" title="実績コスト">{(dataForTimeHeader?.actualCost || 0).toLocaleString()}</div>
           </>
         )
       )}
@@ -144,4 +153,4 @@ const EditableYearCell: React.FC<EditableYearCellProps> = ({ item, year, viewMod
   );
 };
 
-export default EditableYearCell;
+export default EditableCell;

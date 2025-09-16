@@ -6,9 +6,9 @@ export interface HierarchicalData {
   cycle?: number;
   specifications: { key: string; value: string; order: number }[];
   children: any[];
-  results: { [year: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };
-  rolledUpResults: { [year: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };
-  isOpen: boolean;
+  results: { [timeKey: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };
+  rolledUpResults: { [timeKey: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };
+  hierarchyPath?: string; // For breadcrumb display
 }
 
 export type RawEquipment = {
