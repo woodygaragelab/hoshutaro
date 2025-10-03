@@ -2,7 +2,7 @@
 
 ## 概要
 
-HOSHUTAROアプリケーションのフロントエンド改良設計では、現在のReact + TypeScript + Material-UIベースのアーキテクチャを維持しながら、Excelライクな操作性とモダンなデザインシステムを実現します。AWS Bedrock Agent統合とAPI Gateway連携により、クラウドネイティブな設備保全管理システムを構築します。
+HOSHUTAROアプリケーションのフロントエンド改良設計では、**既存の星取表機能を完全に保持**しながら、現在のReact + TypeScript + Material-UIベースのアーキテクチャを維持し、Excelライクな操作性とモダンなデザインシステムを実現します。既存のApp.tsxの全機能（階層フィルタリング、検索、表示モード切り替え、年度操作、データ操作等）を新しいコンポーネントに統合し、段階的に改良を進めます。
 
 ## アーキテクチャ
 
@@ -107,20 +107,31 @@ interface HeaderAction {
 - **アニメーション**: Framer Motionによるスムーズな遷移効果
 - **アクセシビリティ**: ARIA属性とキーボードナビゲーション対応
 
-### 2. Excelライクデータグリッド (ExcelLikeGrid)
+### 2. 既存星取表統合型Excelライクデータグリッド (EnhancedMaintenanceGrid)
 
 #### 責任
+- 既存の星取表データ構造との完全互換性
 - セルの直接編集とキーボードナビゲーション
 - 列幅・行高の動的調整
 - コピー&ペースト機能
+- 既存の階層グループ表示機能の保持
+- 星取表示とコスト表示モードの対応
+- **表示エリア管理**：機器仕様・計画実績・両方表示の切り替え
+- **分割表示機能**：機器リスト固定、各エリアの独立スクロール
+- **機器仕様編集機能**：specifications配列のインライン編集
 - 仮想スクロールによる高速レンダリング
 
 #### インターフェース
 ```typescript
-interface ExcelLikeGridProps {
+interface EnhancedMaintenanceGridProps {
   data: HierarchicalData[];
-  columns: GridColumn[];
+  timeHeaders: string[];
+  viewMode: 'status' | 'cost';
+  displayMode: 'specifications' | 'maintenance' | 'both';
+  showBomCode: boolean;
+  showCycle: boolean;
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  onSpecificationEdit: (rowId: string, specIndex: number, key: string, value: string) => void;
   onColumnResize: (columnId: string, width: number) => void;
   onRowResize: (rowId: string, height: number) => void;
   virtualScrolling?: boolean;
@@ -147,14 +158,44 @@ interface CellEditContext {
   isValid: boolean;
   errorMessage?: string;
 }
+
+interface SpecificationEditContext {
+  rowId: string;
+  specIndex: number;
+  field: 'key' | 'value' | 'order';
+  value: string | number;
+  previousValue: string | number;
+  isValid: boolean;
+  errorMessage?: string;
+}
+
+interface DisplayAreaConfig {
+  mode: 'specifications' | 'maintenance' | 'both';
+  fixedColumns: string[]; // 機器リスト等の固定列
+  scrollableAreas: {
+    specifications?: {
+      visible: boolean;
+      width: number;
+      columns: string[];
+    };
+    maintenance?: {
+      visible: boolean;
+      width: number;
+      columns: string[];
+    };
+  };
+}
 ```
 
 #### 設計仕様
+- **表示エリア管理**: 3つの表示モード（機器仕様のみ/計画実績のみ/両方表示）
+- **分割レイアウト**: 機器リスト固定、機器仕様・計画実績エリアの独立スクロール
 - **仮想化**: React-Windowによる大量データ対応
 - **キーボード操作**: Tab/Enter/矢印キーによるセル移動
 - **リサイズ**: マウスドラッグによる列幅・行高調整
 - **コピー&ペースト**: クリップボードAPI活用
 - **バリデーション**: リアルタイム入力検証
+- **機器仕様編集**: specifications配列の動的編集とソート
 
 ### 3. AIアシスタントパネル (AIAssistantPanel)
 

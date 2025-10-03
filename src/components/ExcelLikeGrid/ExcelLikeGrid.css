@@ -1,0 +1,639 @@
+.excel-like-grid {
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.grid-header {
+  background-color: #f5f5f5;
+  border-bottom: 2px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.grid-header-cell {
+  position: relative;
+  user-select: none;
+  font-weight: 600;
+}
+
+.resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.resize-handle:hover {
+  background-color: #2196f3;
+}
+
+.grid-body {
+  flex: 1;
+  overflow: auto;
+}
+
+.grid-row {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  transition: background-color 0.1s ease;
+}
+
+.grid-row.even {
+  background-color: #fafafa;
+}
+
+.grid-row.odd {
+  background-color: #ffffff;
+}
+
+.grid-row:hover {
+  background-color: #f0f0f0;
+}
+
+.grid-cell {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-right: 1px solid #e0e0e0;
+  box-sizing: border-box;
+  transition: all 0.1s ease;
+  position: relative;
+}
+
+.grid-cell:last-child {
+  border-right: none;
+}
+
+.grid-cell.selected {
+  background-color: #e3f2fd !important;
+  border: 2px solid #2196f3;
+  z-index: 1;
+}
+
+.grid-cell.editing {
+  background-color: #ffffff !important;
+  border: 2px solid #4caf50;
+  z-index: 2;
+}
+
+.grid-cell:focus {
+  outline: none;
+}
+
+/* Cell content styling */
+.grid-cell input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  background-color: transparent;
+}
+
+.grid-cell input:focus {
+  outline: none;
+}
+
+/* Status cell styling */
+.grid-cell.status-cell {
+  text-align: center;
+  font-weight: bold;
+}
+
+.grid-cell.status-cell .status-planned {
+  color: #2196f3;
+}
+
+.grid-cell.status-cell .status-actual {
+  color: #4caf50;
+}
+
+.grid-cell.status-cell .status-both {
+  color: #ff9800;
+}
+
+/* Cost cell styling */
+.grid-cell.cost-cell {
+  font-family: 'Roboto Mono', monospace;
+  text-align: right;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .excel-like-grid {
+    font-size: 12px;
+  }
+  
+  .grid-cell {
+    padding: 2px 4px;
+  }
+  
+  .grid-header-cell {
+    padding: 2px 4px;
+  }
+}
+
+/* Scrollbar styling */
+.grid-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.grid-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.grid-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.grid-body::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}/* 
+Row resize handle styling */
+.row-resize-handle {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: row-resize;
+  background-color: transparent;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.grid-row:hover .row-resize-handle {
+  opacity: 1;
+}
+
+.row-resize-handle:hover {
+  background-color: #2196f3 !important;
+  opacity: 0.7 !important;
+}
+
+.row-resize-handle.resizing {
+  background-color: #2196f3 !important;
+  opacity: 0.7 !important;
+}
+
+/* Enhanced column resize handle */
+.resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.resize-handle:hover {
+  background-color: #2196f3;
+  opacity: 0.7;
+}
+
+.resize-handle:active {
+  background-color: #1976d2;
+  opacity: 0.9;
+}
+
+/* Visual feedback for resizing */
+.grid-header-cell.resizing {
+  user-select: none;
+  pointer-events: none;
+}
+
+.grid-row.resizing {
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Improved hover effects */
+.grid-header-cell:hover .resize-handle {
+  opacity: 1;
+}
+
+/* Double-click feedback */
+.resize-handle:hover::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 12px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 1px;
+}
+
+.row-resize-handle:hover::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 2px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 1px;
+}
+/
+* Enhanced Maintenance Grid Styles */
+.enhanced-maintenance-grid {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.maintenance-grid-cell {
+  position: relative;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  background-color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 40px;
+  vertical-align: middle;
+}
+
+.maintenance-grid-cell:hover {
+  background-color: #f5f5f5;
+}
+
+.maintenance-grid-cell.selected {
+  background-color: #e3f2fd;
+  border: 2px solid #2196f3;
+  z-index: 1;
+}
+
+.maintenance-grid-cell.editing {
+  background-color: #fff;
+  border: 2px solid #4caf50;
+  z-index: 2;
+}
+
+.maintenance-grid-cell.readonly {
+  background-color: #fafafa;
+  cursor: default;
+}
+
+.maintenance-grid-cell.readonly:hover {
+  background-color: #fafafa;
+}
+
+/* Split view container for both mode */
+.split-view-container {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fixed-columns-section {
+  flex-shrink: 0;
+  border-right: 2px solid #ddd;
+  overflow-y: auto;
+  background-color: #f9f9f9;
+}
+
+.scrollable-areas-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.specifications-scroll-area,
+.maintenance-scroll-area {
+  flex: 1;
+  overflow: auto;
+  border-right: 1px solid #ddd;
+}
+
+.specifications-scroll-area:last-child,
+.maintenance-scroll-area:last-child {
+  border-right: none;
+}
+
+/* Table styles for maintenance grid */
+.maintenance-table,
+.specifications-table,
+.fixed-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.maintenance-table th,
+.specifications-table th,
+.fixed-table th {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  font-weight: 600;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.maintenance-table td,
+.specifications-table td,
+.fixed-table td {
+  border: 1px solid #ddd;
+  padding: 4px 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Group header styles */
+.group-header-row {
+  background-color: #e8f5e8;
+}
+
+.group-header-sticky-cell {
+  background-color: #e8f5e8;
+  font-weight: bold;
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+}
+
+.group-header-timeline-cell {
+  background-color: #e8f5e8;
+  border: 1px solid #ddd;
+}
+
+/* Status and cost display styles */
+.actual-mark {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.summary-mark {
+  color: #2196f3;
+  font-weight: bold;
+}
+
+.summary-actual {
+  color: #9c27b0;
+}
+
+.cost-plan {
+  color: #4caf50;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.cost-actual {
+  color: #f44336;
+  font-size: 12px;
+}
+
+.cost-input {
+  margin-bottom: 4px;
+}
+
+.cost-input:last-child {
+  margin-bottom: 0;
+}
+
+/* Time column styles */
+.time-col {
+  min-width: 80px;
+  text-align: center;
+}
+
+.time-col.cost-mode {
+  min-width: 120px;
+}
+
+/* Specifications container */
+.specifications-container {
+  height: 100%;
+  overflow: auto;
+}
+
+/* Enhanced responsive adjustments */
+@media (max-width: 768px) {
+  .split-view-container {
+    flex-direction: column;
+  }
+  
+  .scrollable-areas-container {
+    flex-direction: column;
+  }
+  
+  .maintenance-grid-cell {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  
+  .fixed-columns-section {
+    border-right: none;
+    border-bottom: 2px solid #ddd;
+  }
+}/* S
+pecification Editing Styles */
+.specification-edit-cell {
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.specification-edit-cell:hover {
+  background-color: #f5f5f5;
+}
+
+.specification-edit-cell.selected {
+  background-color: #e3f2fd;
+  outline: 2px solid #1976d2;
+  outline-offset: -2px;
+}
+
+.specification-edit-cell.editing {
+  background-color: #fff;
+  outline: 2px solid #2196f3;
+  outline-offset: -2px;
+}
+
+.specification-edit-cell.readonly {
+  background-color: #f9f9f9;
+  cursor: default;
+}
+
+.specification-edit-cell.spec-key {
+  font-weight: 500;
+}
+
+.specification-edit-cell.spec-value {
+  font-family: monospace;
+}
+
+.specification-edit-cell.spec-order {
+  text-align: center;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+/* Specification Table Styles */
+.specifications-container {
+  height: 100%;
+  overflow: auto;
+}
+
+.specifications-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.specifications-table th,
+.specifications-table td {
+  border: 1px solid #ddd;
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.specifications-table th {
+  background-color: #f5f5f5;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.specification-row {
+  transition: background-color 0.2s ease;
+}
+
+.specification-row:hover {
+  background-color: #f8f9fa;
+}
+
+.equipment-name-cell {
+  background-color: #f8f9fa !important;
+  font-weight: 500;
+  vertical-align: top;
+  border-right: 2px solid #ddd !important;
+}
+
+.bom-code-cell {
+  background-color: #f8f9fa !important;
+  vertical-align: top;
+  border-right: 2px solid #ddd !important;
+}
+
+/* Split View Styles for Both Mode */
+.split-view-container {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fixed-columns-section {
+  flex-shrink: 0;
+  border-right: 2px solid #ddd;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+}
+
+.scrollable-areas-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.specifications-scroll-area {
+  flex: 1;
+  border-right: 1px solid #ddd;
+  overflow: auto;
+}
+
+.maintenance-scroll-area {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Context Menu Styles */
+.specification-context-menu {
+  min-width: 200px;
+}
+
+.specification-context-menu .MuiMenuItem-root {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+}
+
+.specification-context-menu .MuiListItemIcon-root {
+  min-width: 32px;
+}
+
+/* Validation Error Styles */
+.specification-edit-cell .MuiTextField-root .Mui-error {
+  color: #d32f2f;
+}
+
+.specification-edit-cell .MuiFormHelperText-root.Mui-error {
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+/* Keyboard Navigation Indicators */
+.specification-edit-cell:focus-within {
+  outline: 2px solid #2196f3;
+  outline-offset: -2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .split-view-container {
+    flex-direction: column;
+  }
+  
+  .fixed-columns-section {
+    border-right: none;
+    border-bottom: 2px solid #ddd;
+    max-height: 200px;
+  }
+  
+  .scrollable-areas-container {
+    flex-direction: column;
+  }
+  
+  .specifications-scroll-area {
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+  }
+}
+
+/* Animation for smooth transitions */
+.specification-edit-cell,
+.specification-row {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Loading and Empty States */
+.specifications-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+  font-style: italic;
+}
+
+.specifications-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}

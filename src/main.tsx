@@ -4,6 +4,7 @@ import './index.css';
 import './styles/globals.css';
 import App from './App.tsx';
 import App2 from './App2.tsx';
+import ExcelGridDemo from './ExcelGridDemo.tsx';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ThemeProvider from './providers/ThemeProvider';
 
@@ -15,6 +16,10 @@ const router = createBrowserRouter([
   {
     path: '/app2',
     element: <App2 />,
+  },
+  {
+    path: '/excel-demo',
+    element: <ExcelGridDemo />,
   },
 ]);
 
