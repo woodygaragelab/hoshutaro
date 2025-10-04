@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './App.css';
 import rawData from './data/equipments.json';
 import { HierarchicalData, RawEquipment } from './types';
-import TableRow from './components/TableRow';
-import TableHeader from './components/TableHeader';
+
+import ModernHeader from './components/ModernHeader';
+import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
 import { transformData } from './utils/dataTransformer';
-import { Switch, FormControlLabel, TextField, Button, Menu, MenuItem, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, InputLabel, Snackbar, Alert, SelectChangeEvent, FormControl, Grid } from '@mui/material';
-import { BsDownload, BsUpload } from 'react-icons/bs';
-import { MdRefresh } from 'react-icons/md';
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField } from '@mui/material';
 
 const App: React.FC = () => {
   // Data states
@@ -25,10 +24,7 @@ const App: React.FC = () => {
   const [level2Filter, setLevel2Filter] = useState<string>('all');
   const [level3Filter, setLevel3Filter] = useState<string>('all');
 
-  // UI component states
-  const [displaySettingsAnchorEl, setDisplaySettingsAnchorEl] = useState<null | HTMLElement>(null);
-  const [yearOperationsAnchorEl, setYearOperationsAnchorEl] = useState<null | HTMLElement>(null);
-  const [dataOperationsAnchorEl, setDataOperationsAnchorEl] = useState<null | HTMLElement>(null);
+  // UI component states (dialogs only)
   const [addYearDialogOpen, setAddYearDialogOpen] = useState(false);
   const [newYearInput, setNewYearInput] = useState<string>('');
   const [addYearError, setAddYearError] = useState<string>('');
@@ -46,6 +42,9 @@ const App: React.FC = () => {
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
   const [showCycle, setShowCycle] = useState(true);
+  
+  // Display area mode for EnhancedMaintenanceGrid
+  const [displayMode] = useState<'specifications' | 'maintenance' | 'both'>('maintenance');
 
   useEffect(() => {
     const [flatData, headers, filterTree] = transformData(rawData as { [id: string]: RawEquipment }, timeScale);
@@ -116,20 +115,76 @@ const App: React.FC = () => {
     setViewMode(event.target.checked ? 'cost' : 'status');
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, setter: React.Dispatch<React.SetStateAction<HTMLElement | null>>) => {
-    setter(event.currentTarget);
+
+
+  // Handle specification editing
+  const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
+    setMaintenanceData(prevData => 
+      prevData.map(item => {
+        if (item.id === rowId) {
+          const updatedSpecs = [...(item.specifications || [])];
+          
+          // Ensure the specification exists
+          while (updatedSpecs.length <= specIndex) {
+            updatedSpecs.push({ key: '', value: '', order: updatedSpecs.length });
+          }
+          
+          // Update the specification
+          if (key === 'key') {
+            updatedSpecs[specIndex] = { ...updatedSpecs[specIndex], key: value };
+          } else if (key === 'value') {
+            updatedSpecs[specIndex] = { ...updatedSpecs[specIndex], value: value };
+          }
+          
+          return { ...item, specifications: updatedSpecs };
+        }
+        return item;
+      })
+    );
   };
 
-  const handleMenuClose = (setter: React.Dispatch<React.SetStateAction<HTMLElement | null>>) => {
-    setter(null);
+  // Handle cell editing for EnhancedMaintenanceGrid
+  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
+    setMaintenanceData(prevData => 
+      prevData.map(item => {
+        if (item.id === rowId) {
+          if (columnId === 'task') {
+            return { ...item, task: value };
+          } else if (columnId === 'cycle') {
+            return { ...item, cycle: value };
+          } else if (columnId.startsWith('time_')) {
+            const timeHeader = columnId.replace('time_', '');
+            const updatedResults = { ...item.results };
+            
+            if (viewMode === 'cost') {
+              updatedResults[timeHeader] = {
+                ...updatedResults[timeHeader],
+                planCost: value.planCost || 0,
+                actualCost: value.actualCost || 0
+              };
+            } else {
+              updatedResults[timeHeader] = {
+                ...updatedResults[timeHeader],
+                planned: value.planned || false,
+                actual: value.actual || false
+              };
+            }
+            
+            return { ...item, results: updatedResults };
+          }
+        }
+        return item;
+      })
+    );
   };
+
+
 
   // --- Year Operations ---
   const handleAddYearClick = () => {
     setAddYearDialogOpen(true);
     setNewYearInput('');
     setAddYearError('');
-    handleMenuClose(setYearOperationsAnchorEl);
   };
 
   const handleAddYearConfirm = () => {
@@ -151,7 +206,6 @@ const App: React.FC = () => {
     setDeleteYearDialogOpen(true);
     setYearToDelete('');
     setDeleteYearError('');
-    handleMenuClose(setYearOperationsAnchorEl);
   };
 
   const handleDeleteYearConfirm = () => {
@@ -183,13 +237,11 @@ const App: React.FC = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    handleMenuClose(setDataOperationsAnchorEl);
     showSnackbar('データをエクスポートしました。', 'success');
   };
 
   const handleImportDataClick = () => {
     importFileInputRef.current?.click();
-    handleMenuClose(setDataOperationsAnchorEl);
   };
 
   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,7 +281,6 @@ const App: React.FC = () => {
 
   const handleResetDataClick = () => {
     setResetConfirmDialogOpen(true);
-    handleMenuClose(setDataOperationsAnchorEl);
   };
 
   const handleResetConfirm = () => {
@@ -241,168 +292,165 @@ const App: React.FC = () => {
     showSnackbar('データを初期化しました。', 'success');
   };
 
-  const totalColumns = (showBomCode ? 1 : 0) + (showCycle ? 1 : 0) + timeHeaders.length + 1; // +1 for task name
 
-  const tableStyles = useMemo(() => {
-    const taskNameWidth = 250;
-    const bomCodeWidth = 150;
-
-    const bomCodeLeft = taskNameWidth;
-    let cycleLeft = taskNameWidth;
-    if (showBomCode) {
-      cycleLeft += bomCodeWidth;
-    }
-
-    return {
-      '--bom-code-left': `${bomCodeLeft}px`,
-      '--cycle-left': `${cycleLeft}px`,
-    } as React.CSSProperties;
-  }, [showBomCode]);
 
   return (
     <div className="container-fluid">
-      <h1 className="mb-4">星取表</h1>
-      <div className="top-controls-wrapper">
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              id="search-input"
-              label="機器を検索..."
-              variant="outlined"
-              size="small"
-              fullWidth
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </Grid>
+      <ModernHeader
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        level1Filter={level1Filter}
+        level2Filter={level2Filter}
+        level3Filter={level3Filter}
+        onLevel1FilterChange={handleLevel1FilterChange}
+        onLevel2FilterChange={handleLevel2FilterChange}
+        onLevel3FilterChange={(e) => setLevel3Filter(e.target.value)}
+        hierarchyFilterTree={hierarchyFilterTree}
+        level2Options={level2Options}
+        level3Options={level3Options}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        timeScale={timeScale}
+        onTimeScaleChange={(e: SelectChangeEvent) => setTimeScale(e.target.value as 'year' | 'month' | 'week' | 'day')}
+        showBomCode={showBomCode}
+        showCycle={showCycle}
+        onShowBomCodeChange={setShowBomCode}
+        onShowCycleChange={setShowCycle}
+        onAddYear={handleAddYearClick}
+        onDeleteYear={handleDeleteYearClick}
+        onExportData={handleExportData}
+        onImportData={handleImportDataClick}
+        onResetData={handleResetDataClick}
+      />
+      
 
-          {/* Hierarchy Filters */}
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>階層レベル1</InputLabel>
-              <Select value={level1Filter} label="階層レベル1" onChange={handleLevel1FilterChange}>
-                <MenuItem value="all">すべて</MenuItem>
-                {hierarchyFilterTree && Object.keys(hierarchyFilterTree.children).map(name => (
-                  <MenuItem key={name} value={name}>{name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small" disabled={level1Filter === 'all'}>
-              <InputLabel>階層レベル2</InputLabel>
-              <Select value={level2Filter} label="階層レベル2" onChange={handleLevel2FilterChange}>
-                <MenuItem value="all">すべて</MenuItem>
-                {level2Options.map(name => (
-                  <MenuItem key={name} value={name}>{name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small" disabled={level2Filter === 'all'}>
-              <InputLabel>階層レベル3</InputLabel>
-              <Select value={level3Filter} label="階層レベル3" onChange={(e) => setLevel3Filter(e.target.value)}>
-                <MenuItem value="all">すべて</MenuItem>
-                {level3Options.map(name => (
-                  <MenuItem key={name} value={name}>{name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
 
-          <Grid item xs={12} sm={12} md="auto" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span>星取</span>
-              <Switch checked={viewMode === 'cost'} onChange={handleViewModeChange} color="primary" />
-              <span>コスト</span>
-            </div>
-
-            <FormControl sx={{ minWidth: 120 }} size="small">
-              <InputLabel>スケール</InputLabel>
-              <Select value={timeScale} label="スケール" onChange={(e: SelectChangeEvent) => setTimeScale(e.target.value as 'year' | 'month' | 'week' | 'day')}>
-                <MenuItem value="year">年</MenuItem>
-                <MenuItem value="month">月</MenuItem>
-                <MenuItem value="week">週</MenuItem>
-                <MenuItem value="day">日</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Button variant="outlined" size="small" onClick={(e) => handleMenuOpen(e, setDisplaySettingsAnchorEl)}>表示設定</Button>
-            <Menu anchorEl={displaySettingsAnchorEl} open={Boolean(displaySettingsAnchorEl)} onClose={() => handleMenuClose(setDisplaySettingsAnchorEl)}>
-              <MenuItem>
-                <FormControlLabel control={<Switch checked={showBomCode} onChange={(e) => setShowBomCode(e.target.checked)} />} label="TAG No." />
-              </MenuItem>
-              <MenuItem>
-                <FormControlLabel control={<Switch checked={showCycle} onChange={(e) => setShowCycle(e.target.checked)} />} label="周期" />
-              </MenuItem>
-            </Menu>
-
-            <Button variant="outlined" size="small" onClick={(e) => handleMenuOpen(e, setYearOperationsAnchorEl)} disabled={timeScale !== 'year'}>年度操作</Button>
-            <Menu anchorEl={yearOperationsAnchorEl} open={Boolean(yearOperationsAnchorEl)} onClose={() => handleMenuClose(setYearOperationsAnchorEl)}>
-              <MenuItem onClick={handleAddYearClick}>追加</MenuItem>
-              <MenuItem onClick={handleDeleteYearClick}>削除</MenuItem>
-            </Menu>
-
-            <Button variant="outlined" size="small" onClick={(e) => handleMenuOpen(e, setDataOperationsAnchorEl)}>データ操作</Button>
-            <Menu anchorEl={dataOperationsAnchorEl} open={Boolean(dataOperationsAnchorEl)} onClose={() => handleMenuClose(setDataOperationsAnchorEl)}>
-              <MenuItem onClick={handleExportData}><BsDownload className="me-2" />エクスポート (JSON)</MenuItem>
-              <MenuItem onClick={handleImportDataClick}><BsUpload className="me-2" />インポート (JSON)</MenuItem>
-              <MenuItem divider />
-              <MenuItem onClick={handleResetDataClick} style={{ color: 'red' }}><MdRefresh className="me-2" />データを初期化</MenuItem>
-            </Menu>
-          </Grid>
-
-          <Grid item xs={12} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <div id="legend-status" className="legend-container" style={{ display: viewMode === 'status' ? 'flex' : 'none' }}>
-              <small><strong>凡例:</strong><span className="mx-2">〇: 計画</span><span className="actual-mark mx-2">●: 実績</span><span className="mx-2">◎: 計画と実績</span></small>
-            </div>
-            <div id="legend-cost" className="legend-container" style={{ display: viewMode === 'cost' ? 'flex' : 'none' }}>
-              <small><strong>凡例 (単位: 千円):</strong><span className="mx-2 cost-plan">(123)</span>: 計画<span className="mx-2 cost-actual">(123)</span>: 実績</small>
-            </div>
-          </Grid>
-        </Grid>
+      {/* Enhanced Maintenance Grid */}
+      <div style={{ padding: '16px 24px', height: 'calc(100vh - 140px)' }}>
+        <EnhancedMaintenanceGrid
+          data={displayedMaintenanceData}
+          timeHeaders={timeHeaders}
+          viewMode={viewMode}
+          displayMode={displayMode}
+          showBomCode={showBomCode}
+          showCycle={showCycle}
+          onCellEdit={handleCellEdit}
+          onSpecificationEdit={handleSpecificationEdit}
+          onUpdateItem={handleUpdateItem}
+          groupedData={groupedData}
+          virtualScrolling={displayedMaintenanceData.length > 100}
+          readOnly={false}
+        />
       </div>
 
-      <div className="table-container" style={tableStyles}>
-        <table className="table table-bordered table-hover">
-          <TableHeader
-            timeHeaders={timeHeaders}
-            timeScale={timeScale}
-            showBomCode={showBomCode}
-            showCycle={showCycle}
+      {/* Add Year Dialog */}
+      <Dialog open={addYearDialogOpen} onClose={() => setAddYearDialogOpen(false)}>
+        <DialogTitle>年度追加</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            追加する年度を入力してください。
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="年度"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={newYearInput}
+            onChange={(e) => setNewYearInput(e.target.value)}
+            error={!!addYearError}
+            helperText={addYearError}
           />
-          <tbody>
-            {Object.entries(groupedData).map(([hierarchyPath, items]) => (
-              <React.Fragment key={hierarchyPath}>
-                <tr className="group-header-row">
-                  <td
-                    className="group-header-sticky-cell"
-                    colSpan={1 + (showBomCode ? 1 : 0) + (showCycle ? 1 : 0)}
-                  >
-                    {hierarchyPath}
-                  </td>
-                  <td
-                    className="group-header-timeline-cell"
-                    colSpan={timeHeaders.length}
-                  />
-                </tr>
-                {items.map(item => (
-                  <TableRow key={item.id} item={item} allTimeHeaders={timeHeaders} viewMode={viewMode} onUpdateItem={handleUpdateItem} showBomCode={showBomCode} showCycle={showCycle} />
-                ))}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddYearDialogOpen(false)}>キャンセル</Button>
+          <Button onClick={handleAddYearConfirm} variant="contained">追加</Button>
+        </DialogActions>
+      </Dialog>
 
-      {/* Dialogs and other components... (no changes) */}
-      <Dialog open={addYearDialogOpen} onClose={() => setAddYearDialogOpen(false)}>{/*...*/}</Dialog>
-      <Dialog open={deleteYearDialogOpen} onClose={() => setDeleteYearDialogOpen(false)}>{/*...*/}</Dialog>
-      <input type="file" ref={importFileInputRef} onChange={handleFileImport} style={{ display: 'none' }} accept=".json,application/json" />
-      <Dialog open={importConfirmDialogOpen} onClose={() => setImportConfirmDialogOpen(false)}>{/*...*/}</Dialog>
-      <Dialog open={resetConfirmDialogOpen} onClose={() => setResetConfirmDialogOpen(false)}>{/*...*/}</Dialog>
-      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={() => handleSnackbarClose()}><Alert onClose={() => handleSnackbarClose()} severity={snackbarSeverity} sx={{ width: '100%' }}>{snackbarMessage}</Alert></Snackbar>
+      {/* Delete Year Dialog */}
+      <Dialog open={deleteYearDialogOpen} onClose={() => setDeleteYearDialogOpen(false)}>
+        <DialogTitle>年度削除</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            削除する年度を選択してください。
+          </DialogContentText>
+          <FormControl fullWidth margin="dense">
+            <Select
+              value={yearToDelete}
+              onChange={(e) => setYearToDelete(e.target.value)}
+              displayEmpty
+            >
+              <option value="">選択してください</option>
+              {timeHeaders.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </Select>
+          </FormControl>
+          {deleteYearError && (
+            <DialogContentText color="error">
+              {deleteYearError}
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteYearDialogOpen(false)}>キャンセル</Button>
+          <Button onClick={handleDeleteYearConfirm} variant="contained" color="error">削除</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import File Input */}
+      <input 
+        type="file" 
+        ref={importFileInputRef} 
+        onChange={handleFileImport} 
+        style={{ display: 'none' }} 
+        accept=".json,application/json" 
+      />
+
+      {/* Import Confirmation Dialog */}
+      <Dialog open={importConfirmDialogOpen} onClose={() => setImportConfirmDialogOpen(false)}>
+        <DialogTitle>データインポート確認</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            インポートしたデータで現在のデータを置き換えますか？この操作は元に戻せません。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportConfirmDialogOpen(false)}>キャンセル</Button>
+          <Button onClick={handleImportConfirm} variant="contained" color="warning">インポート</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={resetConfirmDialogOpen} onClose={() => setResetConfirmDialogOpen(false)}>
+        <DialogTitle>データ初期化確認</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            すべてのデータを初期状態に戻しますか？この操作は元に戻せません。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetConfirmDialogOpen(false)}>キャンセル</Button>
+          <Button onClick={handleResetConfirm} variant="contained" color="error">初期化</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar 
+        open={snackbarOpen} 
+        autoHideDuration={6000} 
+        onClose={() => handleSnackbarClose()}
+      >
+        <Alert 
+          onClose={() => handleSnackbarClose()} 
+          severity={snackbarSeverity} 
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

@@ -1,10 +1,12 @@
-import React, { useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { Box, Paper, Snackbar, Alert } from '@mui/material';
 import { ExcelLikeGridProps, DisplayAreaConfig } from './types';
 import { DisplayAreaControl } from './DisplayAreaControl';
 import { GridLayout } from './GridLayout';
 import { useGridState } from './hooks/useGridState';
 import { useClipboard } from './hooks/useClipboard';
+import { usePerformanceOptimization } from './hooks/usePerformanceOptimization';
+import { PerformanceMonitor } from './PerformanceMonitor';
 import { calculateOptimalColumnWidth, calculateOptimalRowHeight } from './utils/cellUtils';
 import './ExcelLikeGrid.css';
 
@@ -23,7 +25,8 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
   className = ''
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
-  const [clipboardMessage, setClipboardMessage] = React.useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
+  const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
+  const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
   
   const {
     gridState,
@@ -32,9 +35,25 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
     setSelectedCell,
     setSelectedRange,
     setEditingCell,
-
     navigateToCell
   } = useGridState(columns, data);
+
+  // Performance optimization hooks
+  const {
+    processedData,
+    processedColumns,
+    debouncedUpdate,
+    startRenderMeasurement,
+    endRenderMeasurement,
+    getPerformanceMetrics,
+    shouldUseVirtualScrolling
+  } = usePerformanceOptimization(data, columns, gridState, {
+    enableMemoization: true,
+    enableDebouncing: true,
+    debounceDelay: 16,
+    enableBatching: true,
+    batchSize: 50
+  });
 
   const {
     copyToClipboard,
@@ -56,23 +75,27 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
       specifications: {
         visible: false,
         width: 400,
-        columns: columns.filter(col => col.id.includes('spec')).map(col => col.id)
+        columns: processedColumns.filter(col => col.id.includes('spec')).map(col => col.id)
       },
       maintenance: {
         visible: true,
         width: 800,
-        columns: columns.filter(col => !col.id.includes('spec') && 
+        columns: processedColumns.filter(col => !col.id.includes('spec') && 
           !['task', 'bomCode'].includes(col.id)).map(col => col.id)
       }
     }
-  }), [columns]);
+  }), [processedColumns]);
 
   const currentDisplayAreaConfig = displayAreaConfig || defaultDisplayAreaConfig;
 
   const handleCellEdit = useCallback((rowId: string, columnId: string, value: any) => {
     if (readOnly || !onCellEdit) return;
-    onCellEdit(rowId, columnId, value);
-  }, [readOnly, onCellEdit]);
+    
+    // Use debounced update for better performance
+    debouncedUpdate(() => {
+      onCellEdit(rowId, columnId, value);
+    });
+  }, [readOnly, onCellEdit, debouncedUpdate]);
 
   const handleColumnResize = useCallback((columnId: string, width: number) => {
     updateColumnWidth(columnId, width);
@@ -85,37 +108,37 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
   }, [updateRowHeight, onRowResize]);
 
   const handleColumnAutoResize = useCallback((columnId: string) => {
-    const column = columns.find(col => col.id === columnId);
+    const column = processedColumns.find(col => col.id === columnId);
     if (!column) return;
 
     const optimalWidth = calculateOptimalColumnWidth(
       column,
-      data,
+      processedData,
       column.minWidth,
       column.maxWidth
     );
     
     handleColumnResize(columnId, optimalWidth);
-  }, [columns, data, handleColumnResize]);
+  }, [processedColumns, processedData, handleColumnResize]);
 
   const handleRowAutoResize = useCallback((rowId: string) => {
     const optimalHeight = calculateOptimalRowHeight(
       rowId,
-      columns,
-      data,
+      processedColumns,
+      processedData,
       gridState.columnWidths,
       30, // minHeight
       200 // maxHeight
     );
     
     handleRowResize(rowId, optimalHeight);
-  }, [columns, data, gridState.columnWidths, handleRowResize]);
+  }, [processedColumns, processedData, gridState.columnWidths, handleRowResize]);
 
   // Determine current display area based on selected cell
   const getCurrentDisplayArea = useCallback((): 'specifications' | 'maintenance' => {
     if (!gridState.selectedCell) return 'maintenance';
     
-    const column = columns.find(col => col.id === gridState.selectedCell?.columnId);
+    const column = processedColumns.find(col => col.id === gridState.selectedCell?.columnId);
     if (!column) return 'maintenance';
     
     // Check if column is in specifications area
@@ -125,7 +148,7 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
     }
     
     return 'maintenance';
-  }, [gridState.selectedCell, columns, currentDisplayAreaConfig]);
+  }, [gridState.selectedCell, processedColumns, currentDisplayAreaConfig]);
 
   // Handle copy operation
   const handleCopy = useCallback(async () => {
@@ -169,7 +192,7 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
 
   // Handle keyboard navigation at grid level
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Handle copy/paste shortcuts
+    // Handle copy/paste shortcuts and performance monitor toggle
     if (e.ctrlKey || e.metaKey) {
       switch (e.key.toLowerCase()) {
         case 'c':
@@ -180,6 +203,13 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
           e.preventDefault();
           handlePaste();
           return;
+        case 'p':
+          if (e.shiftKey) {
+            e.preventDefault();
+            setShowPerformanceMonitor(!showPerformanceMonitor);
+            return;
+          }
+          break;
       }
     }
 
@@ -197,7 +227,7 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
       case 'Enter':
         e.preventDefault();
         // If the current cell is editable and not readonly, start editing
-        const currentColumn = columns.find(col => col.id === gridState.selectedCell?.columnId);
+        const currentColumn = processedColumns.find(col => col.id === gridState.selectedCell?.columnId);
         if (currentColumn?.editable && !readOnly) {
           setEditingCell(gridState.selectedCell.rowId, gridState.selectedCell.columnId);
         } else {
@@ -233,7 +263,7 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
     gridState.editingCell, 
     gridState.selectedCell, 
     navigateToCell, 
-    columns, 
+    processedColumns, 
     readOnly, 
     setEditingCell,
     setSelectedCell,
@@ -247,6 +277,14 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
       gridRef.current.focus();
     }
   }, [gridState.selectedCell]);
+
+  // Performance measurement
+  useEffect(() => {
+    startRenderMeasurement();
+    return () => {
+      endRenderMeasurement();
+    };
+  });
 
   const handleDisplayAreaChange = useCallback((config: DisplayAreaConfig) => {
     onDisplayAreaChange?.(config);
@@ -280,8 +318,8 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
           
           {/* Grid Layout */}
           <GridLayout
-            data={data}
-            columns={columns}
+            data={processedData}
+            columns={processedColumns}
             displayAreaConfig={currentDisplayAreaConfig}
             gridState={gridState}
             onCellEdit={handleCellEdit}
@@ -292,7 +330,7 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
             onSelectedCellChange={setSelectedCell}
             onEditingCellChange={setEditingCell}
             onSelectedRangeChange={setSelectedRange}
-            virtualScrolling={virtualScrolling}
+            virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
             readOnly={readOnly}
           />
         </Box>
@@ -315,6 +353,15 @@ export const ExcelLikeGrid: React.FC<ExcelLikeGridProps> = ({
           </Alert>
         </Snackbar>
       )}
+
+      {/* Performance Monitor */}
+      <PerformanceMonitor
+        metrics={getPerformanceMetrics()}
+        dataSize={processedData.length}
+        columnCount={processedColumns.length}
+        virtualScrollingEnabled={virtualScrolling || shouldUseVirtualScrolling}
+        visible={showPerformanceMonitor}
+      />
     </>
   );
 };
