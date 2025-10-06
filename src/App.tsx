@@ -1,14 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './App.css';
+import './styles/responsive.css';
+import './styles/grid-text-fix.css';
 import rawData from './data/equipments.json';
 import { HierarchicalData, RawEquipment } from './types';
 
 import ModernHeader from './components/ModernHeader';
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
+import AIAssistantPanel from './components/AIAssistant/AIAssistantPanel';
 import { transformData } from './utils/dataTransformer';
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField } from '@mui/material';
+import { useResponsiveLayout } from './hooks/useResponsiveLayout';
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline, Drawer, Fab } from '@mui/material';
+import { Chat as ChatIcon, Close as CloseIcon } from '@mui/icons-material';
+import { darkTheme } from './theme/darkTheme';
 
 const App: React.FC = () => {
+  // Responsive layout hook
+  const responsive = useResponsiveLayout();
+  
   // Data states
   const [maintenanceData, setMaintenanceData] = useState<HierarchicalData[]>([]);
   const [timeHeaders, setTimeHeaders] = useState<string[]>([]);
@@ -45,6 +54,10 @@ const App: React.FC = () => {
   
   // Display area mode for EnhancedMaintenanceGrid
   const [displayMode] = useState<'specifications' | 'maintenance' | 'both'>('maintenance');
+
+  // AI Assistant states
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  const [aiAssistantWidth] = useState(400);
 
   useEffect(() => {
     const [flatData, headers, filterTree] = transformData(rawData as { [id: string]: RawEquipment }, timeScale);
@@ -294,9 +307,32 @@ const App: React.FC = () => {
 
 
 
+  // AI Assistant handlers
+  const handleAIAssistantToggle = () => {
+    setIsAIAssistantOpen(!isAIAssistantOpen);
+  };
+
+  const handleAIAssistantClose = () => {
+    setIsAIAssistantOpen(false);
+  };
+
+  // Responsive layout calculations
+  const containerPadding = responsive.getSpacing('md');
+  const gridHeight = responsive.isMobile 
+    ? 'calc(100vh - 120px)' 
+    : responsive.isTablet 
+      ? 'calc(100vh - 130px)' 
+      : 'calc(100vh - 140px)';
+
+  const mainContentWidth = isAIAssistantOpen && !responsive.isMobile 
+    ? `calc(100% - ${aiAssistantWidth}px)` 
+    : '100%';
+
   return (
-    <div className="container-fluid">
-      <ModernHeader
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <div className={`responsive-container ${responsive.isMobile ? 'mobile-layout' : responsive.isTablet ? 'tablet-layout' : 'desktop-layout'}`}>
+        <ModernHeader
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         level1Filter={level1Filter}
@@ -321,27 +357,139 @@ const App: React.FC = () => {
         onExportData={handleExportData}
         onImportData={handleImportDataClick}
         onResetData={handleResetDataClick}
+        onAIAssistantToggle={handleAIAssistantToggle}
+        isAIAssistantOpen={isAIAssistantOpen}
+        responsive={responsive}
       />
       
+        {/* Main Content Area */}
+        <div 
+          style={{ 
+            display: 'flex',
+            width: '100%',
+            height: gridHeight,
+          }}
+        >
+          {/* Enhanced Maintenance Grid */}
+          <div 
+            className="grid-container-responsive"
+            style={{ 
+              padding: `${containerPadding}px`, 
+              height: '100%',
+              overflow: 'hidden',
+              width: mainContentWidth,
+              transition: 'width 0.3s ease',
+            }}
+          >
+            <EnhancedMaintenanceGrid
+              data={displayedMaintenanceData}
+              timeHeaders={timeHeaders}
+              viewMode={viewMode}
+              displayMode={displayMode}
+              showBomCode={showBomCode}
+              showCycle={showCycle}
+              onCellEdit={handleCellEdit}
+              onSpecificationEdit={handleSpecificationEdit}
+              onUpdateItem={handleUpdateItem}
+              groupedData={groupedData}
+              virtualScrolling={displayedMaintenanceData.length > 100}
+              readOnly={false}
+              responsive={responsive}
+            />
+          </div>
 
+          {/* AI Assistant Panel - Desktop */}
+          {isAIAssistantOpen && !responsive.isMobile && (
+            <div 
+              style={{ 
+                width: aiAssistantWidth,
+                height: '100%',
+                borderLeft: '1px solid #333333',
+                backgroundColor: '#000000',
+              }}
+            >
+              <AIAssistantPanel
+                isOpen={isAIAssistantOpen}
+                onClose={handleAIAssistantClose}
+                onSuggestionApply={(suggestion) => {
+                  // Apply AI suggestion to maintenance data
+                  handleCellEdit(
+                    suggestion.equipmentId,
+                    `time_${suggestion.timeHeader}`,
+                    suggestion.suggestedAction === 'plan' 
+                      ? { planned: true, actual: false }
+                      : suggestion.suggestedAction === 'actual'
+                      ? { planned: false, actual: true }
+                      : { planned: true, actual: true }
+                  );
+                }}
+                onExcelImport={(file) => {
+                  // Handle Excel file import
+                  console.log('Excel file imported:', file.name);
+                  showSnackbar(`Excelファイル "${file.name}" をインポートしました`, 'success');
+                }}
+              />
+            </div>
+          )}
+        </div>
 
-      {/* Enhanced Maintenance Grid */}
-      <div style={{ padding: '16px 24px', height: 'calc(100vh - 140px)' }}>
-        <EnhancedMaintenanceGrid
-          data={displayedMaintenanceData}
-          timeHeaders={timeHeaders}
-          viewMode={viewMode}
-          displayMode={displayMode}
-          showBomCode={showBomCode}
-          showCycle={showCycle}
-          onCellEdit={handleCellEdit}
-          onSpecificationEdit={handleSpecificationEdit}
-          onUpdateItem={handleUpdateItem}
-          groupedData={groupedData}
-          virtualScrolling={displayedMaintenanceData.length > 100}
-          readOnly={false}
-        />
-      </div>
+        {/* AI Assistant Panel - Mobile Drawer */}
+        <Drawer
+          anchor="right"
+          open={isAIAssistantOpen && responsive.isMobile}
+          onClose={handleAIAssistantClose}
+          PaperProps={{
+            sx: {
+              width: '100vw',
+              maxWidth: '100vw',
+              backgroundColor: '#000000',
+              color: '#ffffff',
+            }
+          }}
+        >
+          <AIAssistantPanel
+            isOpen={isAIAssistantOpen}
+            onClose={handleAIAssistantClose}
+            onSuggestionApply={(suggestion) => {
+              // Apply AI suggestion to maintenance data
+              handleCellEdit(
+                suggestion.equipmentId,
+                `time_${suggestion.timeHeader}`,
+                suggestion.suggestedAction === 'plan' 
+                  ? { planned: true, actual: false }
+                  : suggestion.suggestedAction === 'actual'
+                  ? { planned: false, actual: true }
+                  : { planned: true, actual: true }
+              );
+            }}
+            onExcelImport={(file) => {
+              // Handle Excel file import
+              console.log('Excel file imported:', file.name);
+              showSnackbar(`Excelファイル "${file.name}" をインポートしました`, 'success');
+            }}
+          />
+        </Drawer>
+
+        {/* AI Assistant FAB - Mobile */}
+        {responsive.isMobile && !isAIAssistantOpen && (
+          <Fab
+            color="primary"
+            aria-label="AI Assistant"
+            onClick={handleAIAssistantToggle}
+            sx={{
+              position: 'fixed',
+              bottom: 16,
+              right: 16,
+              backgroundColor: '#333333',
+              color: '#ffffff',
+              '&:hover': {
+                backgroundColor: '#555555',
+              },
+            }}
+          >
+            <ChatIcon />
+          </Fab>
+        )}
 
       {/* Add Year Dialog */}
       <Dialog open={addYearDialogOpen} onClose={() => setAddYearDialogOpen(false)}>
@@ -451,7 +599,8 @@ const App: React.FC = () => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-    </div>
+      </div>
+    </ThemeProvider>
   );
 };
 

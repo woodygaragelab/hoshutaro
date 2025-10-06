@@ -1,4 +1,4 @@
-import { ChatMessage, MaintenanceSuggestion, AIResponse } from '../types';
+import { MaintenanceSuggestion, AIResponse } from '../types';
 
 export class MockAIService {
   private responsePatterns: ResponsePattern[] = [

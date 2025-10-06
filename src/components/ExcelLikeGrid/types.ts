@@ -97,6 +97,21 @@ export interface SpecificationManagementProps {
   onSpecificationReorder: (rowId: string, fromIndex: number, toIndex: number) => void;
 }
 
+export interface ResponsiveLayout {
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+  screenSize: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  isTouch: boolean;
+  getVisibleColumns: (allColumns: string[]) => string[];
+  getColumnWidth: (columnId: string, baseWidth: number) => number;
+  getCellHeight: () => number;
+  getSpacing: (size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl') => number;
+  shouldStackElements: () => boolean;
+  shouldHideSecondaryActions: () => boolean;
+  shouldUseCompactSpacing: () => boolean;
+}
+
 export interface EnhancedMaintenanceGridProps {
   data: HierarchicalData[];
   timeHeaders: string[];
@@ -113,4 +128,5 @@ export interface EnhancedMaintenanceGridProps {
   readOnly?: boolean;
   className?: string;
   groupedData?: { [key: string]: HierarchicalData[] };
+  responsive?: ResponsiveLayout;
 }

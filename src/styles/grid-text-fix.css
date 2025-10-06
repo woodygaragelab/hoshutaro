@@ -1,0 +1,90 @@
+/* Grid text visibility fixes */
+
+/* Ensure all grid text is visible */
+.enhanced-maintenance-grid,
+.enhanced-maintenance-grid * {
+  color: #ffffff;
+}
+
+/* Table specific fixes */
+.enhanced-maintenance-grid table,
+.enhanced-maintenance-grid th,
+.enhanced-maintenance-grid td {
+  color: #ffffff;
+  background-color: #000000;
+}
+
+.enhanced-maintenance-grid thead th {
+  background-color: #1e1e1e;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Text content fixes */
+.enhanced-maintenance-grid .grid-cell,
+.enhanced-maintenance-grid .header-cell {
+  color: #ffffff;
+}
+
+.enhanced-maintenance-grid .grid-cell span,
+.enhanced-maintenance-grid .grid-cell div,
+.enhanced-maintenance-grid .header-cell span,
+.enhanced-maintenance-grid .header-cell div {
+  color: #ffffff;
+}
+
+/* Material-UI component fixes */
+.enhanced-maintenance-grid .MuiTypography-root {
+  color: #ffffff;
+}
+
+.enhanced-maintenance-grid .MuiTableCell-root {
+  color: #ffffff;
+}
+
+.enhanced-maintenance-grid .MuiChip-root {
+  color: #ffffff;
+  background-color: #333333;
+}
+
+.enhanced-maintenance-grid .MuiButton-root {
+  color: #ffffff;
+}
+
+.enhanced-maintenance-grid .MuiIconButton-root {
+  color: #ffffff;
+}
+
+/* Specific fixes for year headers and equipment info */
+.time-col,
+.task-name-col,
+.bom-code-col,
+.cycle-col {
+  color: #ffffff;
+}
+
+.time-col *,
+.task-name-col *,
+.bom-code-col *,
+.cycle-col * {
+  color: #ffffff;
+}
+
+/* Header text fixes */
+.table th,
+.table thead th {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Body text fixes */
+.table td,
+.table tbody td {
+  color: #ffffff;
+}
+
+/* Ensure visibility in all states */
+.table th *,
+.table td * {
+  color: #ffffff;
+}

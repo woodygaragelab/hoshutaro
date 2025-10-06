@@ -32,8 +32,19 @@ import {
   Menu as MenuIcon,
   DateRange as DateRangeIcon,
   Storage as DataIcon,
+  Chat as ChatIcon,
 } from '@mui/icons-material';
 import './ModernHeader.css';
+
+interface ResponsiveLayout {
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+  screenSize: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  getSpacing: (size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl') => number;
+  shouldStackElements: () => boolean;
+  shouldHideSecondaryActions: () => boolean;
+}
 
 interface ModernHeaderProps {
   // Search functionality
@@ -71,6 +82,13 @@ interface ModernHeaderProps {
   onExportData: () => void;
   onImportData: () => void;
   onResetData: () => void;
+  
+  // AI Assistant
+  onAIAssistantToggle: () => void;
+  isAIAssistantOpen: boolean;
+  
+  // Responsive layout
+  responsive?: ResponsiveLayout;
 }
 
 const ModernHeader: React.FC<ModernHeaderProps> = ({
@@ -98,9 +116,14 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({
   onExportData,
   onImportData,
   onResetData,
+  onAIAssistantToggle,
+  isAIAssistantOpen,
+  responsive,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = responsive?.isMobile ?? useMediaQuery(theme.breakpoints.down('md'));
+  const isTablet = responsive?.isTablet ?? useMediaQuery(theme.breakpoints.between('md', 'lg'));
+  const shouldHideSecondaryActions = responsive?.shouldHideSecondaryActions() ?? false;
   
   // Menu states
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null);
@@ -205,6 +228,24 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({
       >
         データ操作
       </Button>
+
+      {/* AI Assistant */}
+      <Button
+        variant={isAIAssistantOpen ? "contained" : "outlined"}
+        size="small"
+        startIcon={<ChatIcon />}
+        onClick={onAIAssistantToggle}
+        sx={{
+          backgroundColor: isAIAssistantOpen ? '#333333' : 'transparent',
+          borderColor: '#ffffff',
+          color: '#ffffff',
+          '&:hover': {
+            backgroundColor: isAIAssistantOpen ? '#555555' : '#333333',
+          },
+        }}
+      >
+        AIアシスタント
+      </Button>
     </Box>
   );
 
@@ -218,6 +259,19 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({
         onChange={(e) => onSearchChange(e.target.value)}
         sx={{ flexGrow: 1 }}
       />
+      <IconButton
+        color="inherit"
+        onClick={onAIAssistantToggle}
+        sx={{
+          backgroundColor: isAIAssistantOpen ? '#333333' : 'transparent',
+          color: '#ffffff',
+          '&:hover': {
+            backgroundColor: '#333333',
+          },
+        }}
+      >
+        <ChatIcon />
+      </IconButton>
       <IconButton
         color="inherit"
         onClick={() => setMobileDrawerOpen(true)}

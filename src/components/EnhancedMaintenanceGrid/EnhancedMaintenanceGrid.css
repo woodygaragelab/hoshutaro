@@ -3,14 +3,40 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   font-size: 14px;
   line-height: 1.4;
-  color: #333333 !important; /* Force text color for all content */
+  color: #ffffff;
+  background-color: #000000;
 }
 
-/* Force text color for all text elements */
-.enhanced-maintenance-grid *,
-.enhanced-maintenance-grid *:before,
-.enhanced-maintenance-grid *:after {
-  color: #333333 !important;
+/* Ensure text visibility for key elements */
+.enhanced-maintenance-grid .MuiTypography-root {
+  color: #ffffff;
+}
+
+.enhanced-maintenance-grid .MuiTableCell-root {
+  color: #ffffff;
+  background-color: #000000;
+  border-color: #333333;
+}
+
+.enhanced-maintenance-grid .MuiTableHead-root .MuiTableCell-root {
+  background-color: #1e1e1e;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.enhanced-maintenance-grid .MuiButton-root {
+  color: #ffffff;
+  border-color: #666666;
+}
+
+.enhanced-maintenance-grid .MuiIconButton-root {
+  color: #ffffff;
+}
+
+.enhanced-maintenance-grid .MuiChip-root {
+  color: #ffffff;
+  background-color: #333333;
+  border-color: #666666;
 }
 
 .enhanced-maintenance-grid * {
@@ -28,8 +54,8 @@
 /* Header styles */
 .enhanced-maintenance-grid .grid-header {
   display: flex;
-  background-color: #f5f5f5;
-  border-bottom: 2px solid #e0e0e0;
+  background-color: #1e1e1e;
+  border-bottom: 2px solid #333333;
   font-weight: 600;
   position: sticky;
   top: 0;
@@ -41,7 +67,7 @@
   align-items: center;
   justify-content: center;
   padding: 8px 4px;
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid #333333;
   background-color: inherit;
   user-select: none;
   position: relative;
@@ -71,24 +97,24 @@
 .enhanced-maintenance-grid .grid-body {
   flex: 1;
   overflow: auto;
-  background-color: #ffffff;
+  background-color: #000000;
 }
 
 /* Row styles */
 .enhanced-maintenance-grid .grid-row {
   display: flex;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #333333;
   min-height: 40px;
 }
 
 .enhanced-maintenance-grid .grid-row:hover {
-  background-color: #f5f5f5;
+  background-color: #1e1e1e;
 }
 
 .enhanced-maintenance-grid .group-header-row {
-  background-color: #f0f0f0;
+  background-color: #1e1e1e;
   font-weight: 600;
-  border-bottom: 1px solid #d0d0d0;
+  border-bottom: 1px solid #333333;
 }
 
 /* Cell styles */
@@ -96,11 +122,11 @@
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid #333333;
   overflow: hidden;
   position: relative;
-  color: #333333; /* Ensure text is visible */
-  background-color: #ffffff; /* Ensure background is white */
+  color: #ffffff; /* Ensure text is visible */
+  background-color: #000000; /* Ensure background is black */
 }
 
 .enhanced-maintenance-grid .grid-cell:last-child {
@@ -108,13 +134,13 @@
 }
 
 .enhanced-maintenance-grid .grid-cell.selected {
-  background-color: #e3f2fd !important;
-  outline: 2px solid #2196f3;
+  background-color: #333333 !important;
+  outline: 2px solid #90caf9;
   outline-offset: -2px;
 }
 
 .enhanced-maintenance-grid .grid-cell.editing {
-  background-color: #fff3e0 !important;
+  background-color: #1e1e1e !important;
   outline: 2px solid #ff9800;
   outline-offset: -2px;
 }
@@ -290,8 +316,8 @@
 }
 
 .enhanced-maintenance-grid .specifications-area .grid-cell {
-  background-color: #ffffff !important;
-  color: #333333 !important;
+  background-color: #000000 !important;
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .specifications-area * {
@@ -305,8 +331,8 @@
 }
 
 .enhanced-maintenance-grid .maintenance-area .grid-cell {
-  background-color: #ffffff !important;
-  color: #333333 !important;
+  background-color: #000000 !important;
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .maintenance-area * {
@@ -374,22 +400,123 @@
 }
 
 /* Responsive styles */
-@media (max-width: 768px) {
+.enhanced-maintenance-grid.mobile-view {
+  font-size: 14px;
+}
+
+.enhanced-maintenance-grid.mobile-view .grid-cell {
+  padding: 8px;
+  min-height: 48px;
+}
+
+.enhanced-maintenance-grid.mobile-view .header-cell {
+  padding: 8px 4px;
+  min-height: 48px;
+}
+
+.enhanced-maintenance-grid.tablet-view {
+  font-size: 15px;
+}
+
+.enhanced-maintenance-grid.tablet-view .grid-cell {
+  padding: 6px 8px;
+  min-height: 44px;
+}
+
+.enhanced-maintenance-grid.tablet-view .header-cell {
+  padding: 6px 4px;
+  min-height: 44px;
+}
+
+.enhanced-maintenance-grid.desktop-view {
+  font-size: 16px;
+}
+
+.enhanced-maintenance-grid.desktop-view .grid-cell {
+  padding: 4px 8px;
+  min-height: 40px;
+}
+
+.enhanced-maintenance-grid.desktop-view .header-cell {
+  padding: 4px 8px;
+  min-height: 40px;
+}
+
+/* Touch-friendly styles */
+@media (hover: none) and (pointer: coarse) {
+  .enhanced-maintenance-grid .grid-cell,
+  .enhanced-maintenance-grid .header-cell {
+    min-height: 44px;
+    padding: 8px;
+  }
+  
+  .enhanced-maintenance-grid button,
+  .enhanced-maintenance-grid .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Mobile specific styles */
+@media (max-width: 479px) {
   .enhanced-maintenance-grid {
     font-size: 12px;
   }
   
   .enhanced-maintenance-grid .grid-cell {
-    padding: 2px 4px;
+    padding: 4px;
+    min-height: 48px;
   }
   
   .enhanced-maintenance-grid .header-cell {
     padding: 4px 2px;
-    min-height: 32px;
+    min-height: 48px;
   }
   
   .enhanced-maintenance-grid .display-area-control {
     padding: 4px 8px;
+  }
+}
+
+/* Tablet specific styles */
+@media (min-width: 480px) and (max-width: 1023px) {
+  .enhanced-maintenance-grid {
+    font-size: 14px;
+  }
+  
+  .enhanced-maintenance-grid .grid-cell {
+    padding: 6px;
+    min-height: 44px;
+  }
+  
+  .enhanced-maintenance-grid .header-cell {
+    padding: 6px 4px;
+    min-height: 44px;
+  }
+  
+  .enhanced-maintenance-grid .display-area-control {
+    padding: 6px 12px;
+  }
+}
+
+/* Desktop styles */
+@media (min-width: 1024px) {
+  .enhanced-maintenance-grid {
+    font-size: 16px;
+  }
+  
+  .enhanced-maintenance-grid .grid-cell {
+    padding: 4px 8px;
+    min-height: 40px;
+  }
+  
+  .enhanced-maintenance-grid .header-cell {
+    padding: 4px 8px;
+    min-height: 40px;
+  }
+  
+  .enhanced-maintenance-grid .display-area-control {
+    padding: 8px 16px;
   }
 }
 

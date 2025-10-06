@@ -3,24 +3,26 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #f5f5f5;
+  background-color: #000000;
+  color: #ffffff;
 }
 
 .ai-assistant-header {
-  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  background: #000000;
   color: white;
   padding: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid #333333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .ai-assistant-messages {
   flex: 1;
   overflow-y: auto;
   padding: 8px 0;
-  background-color: #fafafa;
+  background-color: #000000;
 }
 
 .ai-assistant-message {
@@ -52,22 +54,23 @@
 }
 
 .message-bubble.user {
-  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  background: #333333;
   color: white;
   margin-left: auto;
+  border: 1px solid #666666;
 }
 
 .message-bubble.assistant {
-  background: white;
-  color: #333;
-  border: 1px solid #e0e0e0;
+  background: #1e1e1e;
+  color: #ffffff;
+  border: 1px solid #666666;
   margin-right: auto;
 }
 
 .message-bubble.system {
-  background: #f5f5f5;
-  color: #666;
-  border: 1px solid #e0e0e0;
+  background: #121212;
+  color: #b3b3b3;
+  border: 1px solid #333333;
   text-align: center;
   font-style: italic;
 }
@@ -80,13 +83,13 @@
 }
 
 .message-bubble.assistant .message-timestamp {
-  color: #999;
+  color: #b3b3b3;
   text-align: left;
 }
 
 .suggestion-card {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: #1e1e1e;
+  border: 1px solid #666666;
   border-radius: 8px;
   padding: 12px;
   margin-top: 12px;
@@ -101,13 +104,13 @@
 
 .suggestion-title {
   font-weight: 600;
-  color: #1976d2;
+  color: #90caf9;
   font-size: 0.9rem;
 }
 
 .confidence-badge {
-  background: #e8f5e8;
-  color: #2e7d32;
+  background: #2e7d32;
+  color: #ffffff;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -115,19 +118,19 @@
 }
 
 .confidence-badge.warning {
-  background: #fff3e0;
-  color: #f57c00;
+  background: #f57c00;
+  color: #ffffff;
 }
 
 .suggestion-reason {
-  color: #666;
+  color: #b3b3b3;
   font-size: 0.85rem;
   margin-bottom: 8px;
   line-height: 1.4;
 }
 
 .suggestion-cost {
-  color: #999;
+  color: #b3b3b3;
   font-size: 0.8rem;
   margin-bottom: 8px;
 }
@@ -149,8 +152,8 @@
 
 .ai-assistant-input {
   padding: 16px;
-  background: white;
-  border-top: 1px solid #e0e0e0;
+  background: #000000;
+  border-top: 1px solid #333333;
 }
 
 .input-actions {
@@ -160,8 +163,9 @@
 }
 
 .file-upload-btn {
-  background: #f5f5f5;
-  border: 1px solid #ddd;
+  background: #1e1e1e;
+  border: 1px solid #666666;
+  color: #ffffff;
   padding: 6px 12px;
   border-radius: 4px;
   font-size: 0.8rem;
@@ -170,7 +174,7 @@
 }
 
 .file-upload-btn:hover {
-  background: #e0e0e0;
+  background: #333333;
 }
 
 .message-input-container {
@@ -181,7 +185,9 @@
 
 .message-input {
   flex: 1;
-  border: 1px solid #ddd;
+  border: 1px solid #666666;
+  background-color: #1e1e1e;
+  color: #ffffff;
   border-radius: 20px;
   padding: 8px 16px;
   font-size: 0.9rem;
@@ -192,13 +198,17 @@
 
 .message-input:focus {
   outline: none;
-  border-color: #1976d2;
+  border-color: #ffffff;
+}
+
+.message-input::placeholder {
+  color: #b3b3b3;
 }
 
 .send-btn {
-  background: #1976d2;
+  background: #333333;
   color: white;
-  border: none;
+  border: 1px solid #666666;
   border-radius: 50%;
   width: 36px;
   height: 36px;
@@ -210,11 +220,11 @@
 }
 
 .send-btn:hover:not(:disabled) {
-  background: #1565c0;
+  background: #555555;
 }
 
 .send-btn:disabled {
-  background: #ccc;
+  background: #666666;
   cursor: not-allowed;
 }
 
@@ -223,14 +233,14 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  color: #666;
+  color: #b3b3b3;
 }
 
 .loading-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #1976d2;
+  border: 2px solid #333333;
+  border-top: 2px solid #ffffff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-right: 8px;
@@ -242,8 +252,9 @@
 }
 
 .attachment-chip {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: #333333;
+  color: #90caf9;
+  border: 1px solid #666666;
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -279,16 +290,16 @@
 }
 
 .ai-assistant-messages::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #121212;
 }
 
 .ai-assistant-messages::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #666666;
   border-radius: 3px;
 }
 
 .ai-assistant-messages::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #888888;
 }
 
 /* Animation for new messages */

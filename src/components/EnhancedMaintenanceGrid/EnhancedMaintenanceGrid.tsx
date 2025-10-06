@@ -4,6 +4,8 @@ import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from '../
 import DisplayAreaControl from './DisplayAreaControl';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import Legend from './Legend';
+import MobileGridView from './MobileGridView';
+import TabletGridView from './TabletGridView';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
 import { useClipboard } from '../ExcelLikeGrid/hooks/useClipboard';
 import { usePerformanceOptimization } from '../ExcelLikeGrid/hooks/usePerformanceOptimization';
@@ -25,7 +27,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
   virtualScrolling = false,
   readOnly = false,
   className = '',
-  groupedData
+  groupedData,
+  responsive
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -445,11 +448,88 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     };
   });
 
+  // Render responsive view based on screen size
+  const renderResponsiveView = () => {
+    if (!responsive) {
+      // Fallback to desktop view if responsive is not provided
+      return (
+        <MaintenanceGridLayout
+          data={processedData}
+          columns={processedColumns}
+          displayAreaConfig={currentDisplayAreaConfig || displayAreaConfig}
+          gridState={gridState}
+          viewMode={viewMode}
+          groupedData={groupedData}
+          onCellEdit={handleCellEdit}
+          onColumnResize={handleColumnResize}
+          onRowResize={handleRowResize}
+          onSelectedCellChange={setSelectedCell}
+          onEditingCellChange={setEditingCell}
+          onSelectedRangeChange={setSelectedRange}
+          onUpdateItem={onUpdateItem}
+          virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
+          readOnly={readOnly}
+        />
+      );
+    }
+
+    if (responsive.isMobile) {
+      return (
+        <MobileGridView
+          data={processedData}
+          timeHeaders={timeHeaders}
+          viewMode={viewMode}
+          showBomCode={showBomCode}
+          showCycle={showCycle}
+          onCellEdit={handleCellEdit}
+          onSpecificationEdit={onSpecificationEdit}
+          responsive={responsive}
+          groupedData={groupedData}
+        />
+      );
+    } else if (responsive.isTablet) {
+      return (
+        <TabletGridView
+          data={processedData}
+          timeHeaders={timeHeaders}
+          viewMode={viewMode}
+          showBomCode={showBomCode}
+          showCycle={showCycle}
+          onCellEdit={handleCellEdit}
+          onSpecificationEdit={onSpecificationEdit}
+          responsive={responsive}
+          groupedData={groupedData}
+        />
+      );
+    } else {
+      // Desktop view
+      return (
+        <MaintenanceGridLayout
+          data={processedData}
+          columns={processedColumns}
+          displayAreaConfig={currentDisplayAreaConfig || displayAreaConfig}
+          gridState={gridState}
+          viewMode={viewMode}
+          groupedData={groupedData}
+          onCellEdit={handleCellEdit}
+          onColumnResize={handleColumnResize}
+          onRowResize={handleRowResize}
+          onSelectedCellChange={setSelectedCell}
+          onEditingCellChange={setEditingCell}
+          onSelectedRangeChange={setSelectedRange}
+          onUpdateItem={onUpdateItem}
+          virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
+          readOnly={readOnly}
+        />
+      );
+    }
+  };
+
   return (
     <>
       <Paper 
         ref={gridRef}
-        className={`enhanced-maintenance-grid ${className}`}
+        className={`enhanced-maintenance-grid ${className} ${responsive?.isMobile ? 'mobile-view' : responsive?.isTablet ? 'tablet-view' : 'desktop-view'}`}
         elevation={1}
         tabIndex={0}
         onKeyDown={handleKeyDown}
@@ -465,41 +545,27 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Display Area Control and Legend */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            padding: '8px 16px',
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            backgroundColor: 'background.default'
-          }}>
-            <DisplayAreaControl
-              config={currentDisplayAreaConfig || displayAreaConfig}
-              onChange={handleDisplayAreaChange}
-            />
-            <Legend viewMode={viewMode} />
-          </Box>
+          {/* Display Area Control and Legend - Hide on mobile for space */}
+          {!responsive?.isMobile && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              padding: responsive?.getSpacing ? `${responsive.getSpacing('sm')}px` : '8px 16px',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: 'background.default'
+            }}>
+              <DisplayAreaControl
+                config={currentDisplayAreaConfig || displayAreaConfig}
+                onChange={handleDisplayAreaChange}
+              />
+              <Legend viewMode={viewMode} />
+            </Box>
+          )}
           
-          {/* Grid Layout */}
-          <MaintenanceGridLayout
-            data={processedData}
-            columns={processedColumns}
-            displayAreaConfig={currentDisplayAreaConfig || displayAreaConfig}
-            gridState={gridState}
-            viewMode={viewMode}
-            groupedData={groupedData}
-            onCellEdit={handleCellEdit}
-            onColumnResize={handleColumnResize}
-            onRowResize={handleRowResize}
-            onSelectedCellChange={setSelectedCell}
-            onEditingCellChange={setEditingCell}
-            onSelectedRangeChange={setSelectedRange}
-            onUpdateItem={onUpdateItem}
-            virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
-            readOnly={readOnly}
-          />
+          {/* Responsive Grid Layout */}
+          {renderResponsiveView()}
         </Box>
       </Paper>
 
