@@ -17,12 +17,13 @@ export const GroupHeaderRow: React.FC<GroupHeaderRowProps> = ({
 
   return (
     <Box
+      className="group-header-row"
       sx={{
         display: 'flex',
         height: 32, // Fixed height instead of minHeight
-        backgroundColor: 'grey.100',
+        backgroundColor: '#1e1e1e !important',
         borderBottom: '1px solid',
-        borderColor: 'divider',
+        borderColor: '#333333',
         position: isFixedArea ? 'sticky' : 'relative',
         left: 0,
         zIndex: isFixedArea ? 2 : 1,
@@ -36,14 +37,15 @@ export const GroupHeaderRow: React.FC<GroupHeaderRowProps> = ({
           display: 'flex',
           alignItems: 'center',
           padding: '4px 12px',
-          backgroundColor: 'inherit'
+          backgroundColor: '#1e1e1e !important',
+          color: '#ffffff !important'
         }}
       >
         <Typography
           variant="subtitle2"
           sx={{
             fontWeight: 600,
-            color: '#333333 !important',
+            color: '#ffffff !important',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap'

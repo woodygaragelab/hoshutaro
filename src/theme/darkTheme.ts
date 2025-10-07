@@ -18,7 +18,7 @@ export const darkTheme = createTheme({
     },
     background: {
       default: '#000000',
-      paper: '#121212',
+      paper: '#1e1e1e',
     },
     surface: {
       main: '#1e1e1e',
@@ -29,6 +29,18 @@ export const darkTheme = createTheme({
       disabled: '#666666',
     },
     divider: '#333333',
+    grey: {
+      50: '#1e1e1e',
+      100: '#1e1e1e',
+      200: '#1e1e1e',
+      300: '#333333',
+      400: '#555555',
+      500: '#777777',
+      600: '#999999',
+      700: '#bbbbbb',
+      800: '#dddddd',
+      900: '#ffffff',
+    },
     error: {
       main: '#f44336',
       light: '#e57373',

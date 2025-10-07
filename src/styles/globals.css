@@ -74,16 +74,17 @@
   --z-tooltip: 1060;
 }
 
-/* Dark mode variables */
+/* Dark mode variables (default) */
+:root,
 [data-theme="dark"] {
-  --color-background: var(--color-neutral-900);
-  --color-surface: var(--color-neutral-800);
-  --color-text-primary: var(--color-neutral-100);
-  --color-text-secondary: var(--color-neutral-400);
-  --color-border: var(--color-neutral-700);
+  --color-background: #000000;
+  --color-surface: #1e1e1e;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b3b3b3;
+  --color-border: #333333;
 }
 
-/* Light mode variables (default) */
+/* Light mode variables */
 [data-theme="light"] {
   --color-background: var(--color-neutral-50);
   --color-surface: #ffffff;
@@ -110,10 +111,15 @@ html {
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
+  background-color: #000000 !important;
+  color: #ffffff !important;
   font-size: var(--font-size-base);
   transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+/* Force all elements to use white text */
+* {
+  color: #ffffff !important;
 }
 
 /* Focus styles */
@@ -283,7 +289,13 @@ td {
 
 th {
   font-weight: 600;
-  background-color: var(--color-neutral-50);
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+}
+
+td {
+  background-color: #000000 !important;
+  color: #ffffff !important;
 }
 
 /* Print styles */

@@ -112,9 +112,22 @@
 }
 
 .enhanced-maintenance-grid .group-header-row {
-  background-color: #1e1e1e;
-  font-weight: 600;
-  border-bottom: 1px solid #333333;
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid #333333 !important;
+}
+
+.enhanced-maintenance-grid .group-header-row .grid-cell {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+  font-weight: bold !important;
+}
+
+.enhanced-maintenance-grid .group-header-row * {
+  background-color: inherit !important;
+  color: #ffffff !important;
+  font-weight: bold !important;
 }
 
 /* Cell styles */
@@ -151,16 +164,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #333333 !important;
+  color: #ffffff !important;
 }
 
 /* Force text color for Material-UI components */
 .enhanced-maintenance-grid .MuiTypography-root {
-  color: #333333 !important;
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .MuiBox-root {
-  color: #333333 !important;
+  color: #ffffff !important;
 }
 
 /* Force text color for all text nodes */
@@ -173,7 +186,7 @@
 .enhanced-maintenance-grid h4,
 .enhanced-maintenance-grid h5,
 .enhanced-maintenance-grid h6 {
-  color: #333333 !important;
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .cell-content.text-center {
@@ -240,11 +253,11 @@
 
 .enhanced-maintenance-grid .spec-key {
   font-weight: 500;
-  color: #666;
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .spec-value {
-  color: #333;
+  color: #ffffff !important;
 }
 
 /* Display area control styles */
@@ -253,8 +266,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
-  background-color: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
+  background-color: #1e1e1e;
+  border-bottom: 1px solid #333333;
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .area-toggle-group {
@@ -264,8 +278,9 @@
 
 .enhanced-maintenance-grid .area-toggle-button {
   padding: 6px 12px;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
+  border: 1px solid #666666;
+  background-color: #333333;
+  color: #ffffff !important;
   cursor: pointer;
   border-radius: 4px;
   font-size: 12px;
@@ -273,12 +288,12 @@
 }
 
 .enhanced-maintenance-grid .area-toggle-button:hover {
-  background-color: #f5f5f5;
+  background-color: #555555;
 }
 
 .enhanced-maintenance-grid .area-toggle-button.active {
   background-color: #2196f3;
-  color: #ffffff;
+  color: #ffffff !important;
   border-color: #2196f3;
 }
 
@@ -290,11 +305,12 @@
 }
 
 .enhanced-maintenance-grid .fixed-area {
-  border-right: 2px solid #e0e0e0;
-  background-color: #fafafa;
+  border-right: 2px solid #333333;
+  background-color: #000000;
   position: relative;
   z-index: 5;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.5);
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .scrollable-areas-container {
@@ -309,10 +325,10 @@
 }
 
 .enhanced-maintenance-grid .specifications-area {
-  border-right: 1px solid #e0e0e0;
-  background-color: #f9f9f9;
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.05);
-  color: #333333 !important; /* Ensure text is visible */
+  border-right: 1px solid #333333;
+  background-color: #000000;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+  color: #ffffff !important; /* Ensure text is visible */
 }
 
 .enhanced-maintenance-grid .specifications-area .grid-cell {
@@ -321,13 +337,13 @@
 }
 
 .enhanced-maintenance-grid .specifications-area * {
-  color: #333333 !important;
+  color: #ffffff !important;
 }
 
 .enhanced-maintenance-grid .maintenance-area {
-  background-color: #ffffff !important;
+  background-color: #000000 !important;
   flex: 1;
-  color: #333333 !important; /* Ensure text is visible */
+  color: #ffffff !important; /* Ensure text is visible */
 }
 
 .enhanced-maintenance-grid .maintenance-area .grid-cell {
@@ -336,7 +352,7 @@
 }
 
 .enhanced-maintenance-grid .maintenance-area * {
-  color: #333333 !important;
+  color: #ffffff !important;
 }
 
 /* Cross-area synchronization indicators */
@@ -585,4 +601,101 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+/* G
+lobal text color enforcement for all elements */
+.enhanced-maintenance-grid,
+.enhanced-maintenance-grid *,
+.enhanced-maintenance-grid *::before,
+.enhanced-maintenance-grid *::after {
+  color: #ffffff !important;
+}
+
+/* Ensure all Material-UI components have white text */
+.enhanced-maintenance-grid .MuiTypography-root,
+.enhanced-maintenance-grid .MuiButton-root,
+.enhanced-maintenance-grid .MuiIconButton-root,
+.enhanced-maintenance-grid .MuiChip-root,
+.enhanced-maintenance-grid .MuiMenuItem-root,
+.enhanced-maintenance-grid .MuiListItemText-root,
+.enhanced-maintenance-grid .MuiFormControlLabel-label,
+.enhanced-maintenance-grid .MuiInputLabel-root,
+.enhanced-maintenance-grid .MuiSelect-root,
+.enhanced-maintenance-grid .MuiTextField-root input,
+.enhanced-maintenance-grid .MuiTableCell-root,
+.enhanced-maintenance-grid .MuiTableHead-root .MuiTableCell-root,
+.enhanced-maintenance-grid .MuiTableBody-root .MuiTableCell-root {
+  color: #ffffff !important;
+  background-color: inherit;
+}
+
+/* Force all text elements to be white */
+.enhanced-maintenance-grid input,
+.enhanced-maintenance-grid button,
+.enhanced-maintenance-grid select,
+.enhanced-maintenance-grid textarea,
+.enhanced-maintenance-grid label,
+.enhanced-maintenance-grid span,
+.enhanced-maintenance-grid div,
+.enhanced-maintenance-grid p,
+.enhanced-maintenance-grid h1,
+.enhanced-maintenance-grid h2,
+.enhanced-maintenance-grid h3,
+.enhanced-maintenance-grid h4,
+.enhanced-maintenance-grid h5,
+.enhanced-maintenance-grid h6,
+.enhanced-maintenance-grid td,
+.enhanced-maintenance-grid th,
+.enhanced-maintenance-grid li,
+.enhanced-maintenance-grid a {
+  color: #ffffff !important;
+}
+
+/* Ensure backgrounds are dark */
+.enhanced-maintenance-grid .grid-cell,
+.enhanced-maintenance-grid .header-cell,
+.enhanced-maintenance-grid .grid-row {
+  background-color: #000000 !important;
+}
+
+.enhanced-maintenance-grid .grid-header,
+.enhanced-maintenance-grid .group-header-row {
+  background-color: #1e1e1e !important;
+}/
+* Additional group header styling for dark theme */
+.enhanced-maintenance-grid .group-header,
+.enhanced-maintenance-grid .group-header-cell,
+.enhanced-maintenance-grid tr.group-header-row,
+.enhanced-maintenance-grid tr.group-header-row td,
+.enhanced-maintenance-grid tr.group-header-row th,
+.enhanced-maintenance-grid .grid-row.group-header-row,
+.enhanced-maintenance-grid .grid-row.group-header-row .grid-cell {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+  font-weight: bold !important;
+  border-color: #333333 !important;
+}
+
+/* Ensure group header text is always visible */
+.enhanced-maintenance-grid .group-header-row span,
+.enhanced-maintenance-grid .group-header-row div,
+.enhanced-maintenance-grid .group-header-row p,
+.enhanced-maintenance-grid .group-header-row h1,
+.enhanced-maintenance-grid .group-header-row h2,
+.enhanced-maintenance-grid .group-header-row h3,
+.enhanced-maintenance-grid .group-header-row h4,
+.enhanced-maintenance-grid .group-header-row h5,
+.enhanced-maintenance-grid .group-header-row h6 {
+  color: #ffffff !important;
+  font-weight: bold !important;
+  background-color: transparent !important;
+}
+
+/* Override any Material-UI styles for group headers */
+.enhanced-maintenance-grid .MuiTableRow-root.group-header-row,
+.enhanced-maintenance-grid .MuiTableRow-root.group-header-row .MuiTableCell-root,
+.enhanced-maintenance-grid .MuiTableCell-root.group-header {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+  font-weight: bold !important;
 }

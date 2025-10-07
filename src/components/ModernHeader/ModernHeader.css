@@ -86,8 +86,20 @@
 }
 
 .modern-header .MuiFormControlLabel-label {
-  color: white;
+  color: #ffffff !important;
   font-weight: 500;
+}
+
+/* Additional text visibility fixes */
+.modern-header *,
+.modern-header .MuiTypography-root,
+.modern-header .MuiButton-root,
+.modern-header .MuiMenuItem-root,
+.modern-header .MuiListItemText-root,
+.modern-header .MuiInputLabel-root,
+.modern-header .MuiSelect-root,
+.modern-header .MuiTextField-root input {
+  color: #ffffff !important;
 }
 
 .modern-header .MuiSwitch-root .MuiSwitch-track {

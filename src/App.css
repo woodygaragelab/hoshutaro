@@ -8,6 +8,17 @@ body {
     color: #ffffff !important;
 }
 
+/* Global text color override */
+* {
+    color: #ffffff !important;
+}
+
+/* Ensure all elements have proper contrast */
+html, body, #root {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
 /* App.tsxのmb-4を上書き */
 h1 {
     margin-bottom: 1rem !important;
@@ -100,19 +111,21 @@ h1 {
 
 /* --- Group Header Row --- */
 .group-header-row td {
-    background-color: #1e1e1e;
-    color: #ffffff;
-    border-color: #333333;
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    border-color: #333333 !important;
     position: sticky;
     top: 70px; /* Fixed 2-row header height */
     z-index: 2; /* Base z-index for the row */
+    font-weight: bold !important;
 }
 .group-header-row td.group-header-sticky-cell {
     left: 0;
     z-index: 3; /* Higher z-index to stay on top */
     text-align: left !important;
-    font-weight: bold;
-    color: #ffffff;
+    font-weight: bold !important;
+    color: #ffffff !important;
+    background-color: #1e1e1e !important;
 }
 
 /* --- Column Widths --- */
@@ -245,11 +258,11 @@ tr:hover .cycle-col-content .action-icon {
 }
 
 .table .group-header {
-    background-color: #1e1e1e;
-    color: #ffffff;
-    border-color: #333333;
-    font-weight: bold;
-    text-align: center;
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    border-color: #333333 !important;
+    font-weight: bold !important;
+    text-align: center !important;
 }
 
 /* Force all table text to be white with high specificity */
@@ -259,27 +272,30 @@ tr:hover .cycle-col-content .action-icon {
 .table tbody,
 .table thead,
 .table tr {
-    color: #ffffff;
-    border-color: #333333;
+    color: #ffffff !important;
+    border-color: #333333 !important;
 }
 
 .table th {
-    background-color: #1e1e1e;
-    color: #ffffff;
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
     font-weight: 600;
 }
 
 .table td {
-    background-color: #000000;
-    color: #ffffff;
+    background-color: #000000 !important;
+    color: #ffffff !important;
 }
 
 /* Ensure all nested elements are visible */
 .table th *,
 .table td *,
 .table span,
-.table div {
-    color: #ffffff;
+.table div,
+.table input,
+.table button,
+.table a {
+    color: #ffffff !important;
 }
 
 /* Year headers and equipment info specific fixes */
@@ -287,7 +303,7 @@ tr:hover .cycle-col-content .action-icon {
 .table .task-name-col,
 .table .bom-code-col,
 .table .cycle-col {
-    color: #ffffff;
+    color: #ffffff !important;
     font-weight: normal;
 }
 
@@ -295,5 +311,101 @@ tr:hover .cycle-col-content .action-icon {
 .table .task-name-col *,
 .table .bom-code-col *,
 .table .cycle-col * {
-    color: #ffffff;
+    color: #ffffff !important;
+}
+
+/* Additional fixes for specific elements */
+.table .MuiTypography-root,
+.table .MuiButton-root,
+.table .MuiIconButton-root,
+.table .MuiSvgIcon-root {
+    color: #ffffff !important;
+}
+
+/* Ensure group headers are visible */
+.table .group-header,
+.table .group-header *,
+.group-header-row,
+.group-header-row * {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    font-weight: bold;
+}
+
+/* Fix for any remaining invisible text */
+* {
+    color: inherit;
+}
+
+body *,
+.table *,
+.modern-header *,
+.MuiAppBar-root *,
+.MuiToolbar-root * {
+    color: #ffffff !important;
+}
+
+/* Override any default browser styles */
+input,
+button,
+select,
+textarea,
+label,
+span,
+div,
+p,
+h1, h2, h3, h4, h5, h6 {
+    color: #ffffff !important;
+}
+
+/* Specific fixes for form elements */
+.MuiTextField-root input,
+.MuiSelect-root,
+.MuiMenuItem-root,
+.MuiFormControlLabel-label,
+.MuiInputLabel-root,
+.MuiTypography-root {
+    color: #ffffff !important;
+}
+/* Additional group header styling to ensure dark background */
+.table tr.group-header-row,
+.table tr.group-header-row td,
+.table tbody tr.group-header-row,
+.table tbody tr.group-header-row td {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    font-weight: bold !important;
+    border-color: #333333 !important;
+}
+
+/* Force group header cells to have dark background */
+.table .group-header-row > td,
+.table .group-header-row > th,
+.table tbody .group-header-row > td,
+.table tbody .group-header-row > th {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    font-weight: bold !important;
+}
+
+/* Ensure all group header content is visible */
+.group-header-row *,
+.table .group-header-row *,
+.table tbody .group-header-row * {
+    background-color: inherit !important;
+    color: #ffffff !important;
+    font-weight: bold !important;
+}
+
+/* Override any Material-UI or other library styles for group headers */
+.MuiTableRow-root.group-header-row,
+.MuiTableRow-root.group-header-row .MuiTableCell-root,
+.MuiTableCell-root.group-header,
+tr.group-header-row,
+tr.group-header-row td,
+tr.group-header-row th {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    font-weight: bold !important;
+    border-color: #333333 !important;
 }

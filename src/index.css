@@ -1,0 +1,151 @@
+/* Global dark theme styles */
+html, body, #root {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Force all text to be white */
+* {
+  color: #ffffff !important;
+}
+
+/* Ensure all Material-UI components have proper colors */
+.MuiTypography-root,
+.MuiButton-root,
+.MuiIconButton-root,
+.MuiChip-root,
+.MuiMenuItem-root,
+.MuiListItemText-root,
+.MuiFormControlLabel-label,
+.MuiInputLabel-root,
+.MuiSelect-root,
+.MuiTextField-root input,
+.MuiTableCell-root,
+.MuiTableHead-root .MuiTableCell-root,
+.MuiTableBody-root .MuiTableCell-root,
+.MuiAppBar-root,
+.MuiToolbar-root,
+.MuiPaper-root,
+.MuiCard-root,
+.MuiDialog-paper,
+.MuiDialogTitle-root,
+.MuiDialogContent-root,
+.MuiDialogContentText-root {
+  color: #ffffff !important;
+}
+
+/* Force all text elements to be white */
+input,
+button,
+select,
+textarea,
+label,
+span,
+div,
+p,
+h1, h2, h3, h4, h5, h6,
+td, th,
+li,
+a {
+  color: #ffffff !important;
+}
+
+/* Ensure dark backgrounds */
+.MuiPaper-root,
+.MuiCard-root,
+.MuiDialog-paper,
+.MuiMenu-paper,
+.MuiDrawer-paper {
+  background-color: #1e1e1e !important;
+  border: 1px solid #333333 !important;
+}
+
+.MuiAppBar-root {
+  background-color: #000000 !important;
+  border-bottom: 1px solid #333333 !important;
+}
+
+/* Table styles */
+.MuiTable-root {
+  background-color: #000000 !important;
+}
+
+.MuiTableHead-root .MuiTableCell-root {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+  border-bottom: 2px solid #333333 !important;
+}
+
+.MuiTableBody-root .MuiTableCell-root {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #333333 !important;
+}
+
+/* Form elements */
+.MuiTextField-root .MuiOutlinedInput-root {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: #666666 !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #ffffff !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #ffffff !important;
+}
+
+.MuiSelect-root {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+}
+
+.MuiMenuItem-root {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+}
+
+.MuiMenuItem-root:hover {
+  background-color: #333333 !important;
+}
+
+/* Button styles */
+.MuiButton-outlined {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.MuiButton-outlined:hover {
+  background-color: #333333 !important;
+  border-color: #ffffff !important;
+}
+
+.MuiButton-contained {
+  background-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+.MuiButton-contained:hover {
+  background-color: #555555 !important;
+}
+
+/* Icon styles */
+.MuiSvgIcon-root {
+  color: #ffffff !important;
+}
+
+.MuiIconButton-root {
+  color: #ffffff !important;
+}
+
+.MuiIconButton-root:hover {
+  background-color: #333333 !important;
+}
