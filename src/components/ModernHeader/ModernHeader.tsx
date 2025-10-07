@@ -73,6 +73,8 @@ interface ModernHeaderProps {
   showCycle: boolean;
   onShowBomCodeChange: (checked: boolean) => void;
   onShowCycleChange: (checked: boolean) => void;
+  displayMode: 'specifications' | 'maintenance' | 'both';
+  onDisplayModeChange: (mode: 'specifications' | 'maintenance' | 'both') => void;
   
   // Year operations
   onAddYear: () => void;
@@ -111,6 +113,8 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({
   showCycle,
   onShowBomCodeChange,
   onShowCycleChange,
+  displayMode,
+  onDisplayModeChange,
   onAddYear,
   onDeleteYear,
   onExportData,
@@ -178,6 +182,22 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({
           }
           label={viewMode === 'cost' ? 'コスト' : '星取'}
         />
+      </Box>
+
+      {/* Display Mode */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>表示モード</InputLabel>
+          <Select
+            value={displayMode}
+            label="表示モード"
+            onChange={(e) => onDisplayModeChange(e.target.value as 'specifications' | 'maintenance' | 'both')}
+          >
+            <MenuItem value="specifications">機器仕様</MenuItem>
+            <MenuItem value="maintenance">計画実績</MenuItem>
+            <MenuItem value="both">両方</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {/* Time Scale */}
@@ -319,6 +339,20 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({
             <MenuItem value="month">月</MenuItem>
             <MenuItem value="week">週</MenuItem>
             <MenuItem value="day">日</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Display Mode */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel>表示モード</InputLabel>
+          <Select
+            value={displayMode}
+            label="表示モード"
+            onChange={(e) => onDisplayModeChange(e.target.value as 'specifications' | 'maintenance' | 'both')}
+          >
+            <MenuItem value="specifications">機器仕様</MenuItem>
+            <MenuItem value="maintenance">計画実績</MenuItem>
+            <MenuItem value="both">両方</MenuItem>
           </Select>
         </FormControl>
 
@@ -518,7 +552,29 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({
         anchorEl={displayMenuAnchor}
         open={Boolean(displayMenuAnchor)}
         onClose={() => handleMenuClose(setDisplayMenuAnchor)}
+        PaperProps={{ sx: { minWidth: 250 } }}
       >
+        <Box sx={{ p: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            表示モード
+          </Typography>
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>モード</InputLabel>
+            <Select
+              value={displayMode}
+              label="モード"
+              onChange={(e) => onDisplayModeChange(e.target.value as 'specifications' | 'maintenance' | 'both')}
+            >
+              <MenuItem value="specifications">機器仕様</MenuItem>
+              <MenuItem value="maintenance">計画実績</MenuItem>
+              <MenuItem value="both">両方</MenuItem>
+            </Select>
+          </FormControl>
+          
+          <Typography variant="subtitle2" gutterBottom>
+            列表示設定
+          </Typography>
+        </Box>
         <MenuItem>
           <FormControlLabel
             control={

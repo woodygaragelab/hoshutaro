@@ -89,12 +89,9 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
     
     // Handle specification columns
     if (id.startsWith('spec_')) {
-      const [, type, indexStr] = id.split('_');
-      const specIndex = parseInt(indexStr, 10);
-      const spec = item.specifications?.[specIndex];
-      
-      if (type === 'key') return spec?.key || '';
-      if (type === 'value') return spec?.value || '';
+      const specKey = id.replace('spec_', '');
+      const spec = item.specifications?.find(s => s.key === specKey);
+      return spec?.value || '';
     }
     
     // Handle time columns
@@ -126,6 +123,8 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
       onEditingCellChange(item.id, columnId);
     }
   }, [item.id, columns, readOnly, onEditingCellChange]);
+
+
 
   return (
     <Box
@@ -232,12 +231,16 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
         }
         
         // For all other columns, use the MaintenanceCell component
+        const cellValue = getCellValue(column);
+        
+
+        
         return (
           <MaintenanceCell
             key={column.id}
             item={item}
             column={column}
-            value={getCellValue(column)}
+            value={cellValue}
             viewMode={viewMode}
             isSelected={isSelected}
             isEditing={isEditing}

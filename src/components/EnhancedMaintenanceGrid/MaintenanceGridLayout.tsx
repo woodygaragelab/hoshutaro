@@ -78,6 +78,8 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = ({
       displayAreaConfig.scrollableAreas.maintenance?.columns.includes(col.id) || false
     );
 
+
+
     return { fixed, specifications, maintenance };
   }, [columns, displayAreaConfig]);
 

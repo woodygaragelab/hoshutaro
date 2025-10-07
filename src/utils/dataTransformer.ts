@@ -75,6 +75,8 @@ export const transformData = (data: { [id: string]: RawEquipment }, timeScale: '
       hierarchyPath: hierarchyPath,
     };
 
+
+
     // c. Populate results for the given timeScale
     for (const dateStr in item.maintenances) {
       const date = new Date(dateStr);

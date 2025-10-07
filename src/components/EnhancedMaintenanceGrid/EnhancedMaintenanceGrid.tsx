@@ -87,24 +87,28 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
 
     // Specification columns (when in specifications or both mode)
     if (displayMode === 'specifications' || displayMode === 'both') {
-      // Dynamic specification columns based on data
-      const maxSpecs = Math.max(...data.map(item => item.specifications?.length || 0));
-      for (let i = 0; i < Math.max(maxSpecs, 3); i++) {
+      // Collect all unique specification keys from data
+      const specKeys = new Set<string>();
+      data.forEach(item => {
+        if (item.specifications) {
+          item.specifications.forEach(spec => {
+            if (spec.key && spec.key.trim()) {
+              specKeys.add(spec.key);
+            }
+          });
+        }
+      });
+      
+      // Convert to sorted array for consistent ordering
+      const sortedSpecKeys = Array.from(specKeys).sort();
+      
+
+      
+      // Create columns for each specification key
+      sortedSpecKeys.forEach(specKey => {
         cols.push({
-          id: `spec_key_${i}`,
-          header: `仕様項目${i + 1}`,
-          width: 120,
-          minWidth: 80,
-          maxWidth: 200,
-          resizable: true,
-          sortable: false,
-          type: 'text',
-          editable: true,
-          accessor: `specifications.${i}.key`
-        });
-        cols.push({
-          id: `spec_value_${i}`,
-          header: `仕様値${i + 1}`,
+          id: `spec_${specKey}`,
+          header: specKey,
           width: 150,
           minWidth: 100,
           maxWidth: 250,
@@ -112,9 +116,9 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
           sortable: false,
           type: 'text',
           editable: true,
-          accessor: `specifications.${i}.value`
+          accessor: `specifications.${specKey}`
         });
-      }
+      });
     }
 
     // Time header columns (when in maintenance or both mode)
@@ -147,7 +151,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     const specColumns = columns.filter(col => col.id.startsWith('spec_')).map(col => col.id);
     const maintenanceColumns = columns.filter(col => col.id.startsWith('time_')).map(col => col.id);
 
-    return {
+    const config = {
       mode: displayMode,
       fixedColumns,
       scrollableAreas: {
@@ -163,6 +167,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         }
       }
     };
+    
+    return config;
   }, [columns, displayMode, showBomCode, showCycle, viewMode]);
 
   const {
@@ -208,31 +214,42 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     
     // Check if this is a specification edit
     if (columnId.startsWith('spec_')) {
-      const [, type, indexStr] = columnId.split('_');
-      const specIndex = parseInt(indexStr, 10);
-      const field = type as 'key' | 'value';
+      const specKey = columnId.replace('spec_', '');
       
       if (onSpecificationEdit) {
         debouncedUpdate(() => {
-          onSpecificationEdit(rowId, specIndex, field, value);
-          
-          // Trigger cross-area synchronization
-          // When specification is edited, update the corresponding item
+          // Find the specification index for this key
           const updatedItem = processedData.find(item => item.id === rowId);
-          if (updatedItem && onUpdateItem) {
+          if (updatedItem) {
             const newSpecs = [...(updatedItem.specifications || [])];
-            if (!newSpecs[specIndex]) {
-              newSpecs[specIndex] = { key: '', value: '', order: specIndex + 1 };
-            }
-            newSpecs[specIndex] = {
-              ...newSpecs[specIndex],
-              [field]: value
-            };
+            const existingSpecIndex = newSpecs.findIndex(s => s.key === specKey);
             
-            onUpdateItem({
-              ...updatedItem,
-              specifications: newSpecs
-            });
+            if (existingSpecIndex >= 0) {
+              // Update existing specification
+              newSpecs[existingSpecIndex] = {
+                ...newSpecs[existingSpecIndex],
+                value: value
+              };
+            } else {
+              // Add new specification
+              newSpecs.push({
+                key: specKey,
+                value: value,
+                order: newSpecs.length + 1
+              });
+            }
+            
+            // Call the specification edit handler with the spec index
+            const specIndex = existingSpecIndex >= 0 ? existingSpecIndex : newSpecs.length - 1;
+            onSpecificationEdit(rowId, specIndex, 'value', value);
+            
+            // Update the item
+            if (onUpdateItem) {
+              onUpdateItem({
+                ...updatedItem,
+                specifications: newSpecs
+              });
+            }
           }
         });
       }

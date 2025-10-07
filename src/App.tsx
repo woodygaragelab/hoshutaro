@@ -61,7 +61,7 @@ const App: React.FC = () => {
   const [showCycle, setShowCycle] = useState(true);
   
   // Display area mode for EnhancedMaintenanceGrid
-  const [displayMode] = useState<'specifications' | 'maintenance' | 'both'>('maintenance');
+  const [displayMode, setDisplayMode] = useState<'specifications' | 'maintenance' | 'both'>('both');
 
   // AI Assistant states
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
@@ -387,6 +387,8 @@ const App: React.FC = () => {
         showCycle={showCycle}
         onShowBomCodeChange={setShowBomCode}
         onShowCycleChange={setShowCycle}
+        displayMode={displayMode}
+        onDisplayModeChange={setDisplayMode}
         onAddYear={handleAddYearClick}
         onDeleteYear={handleDeleteYearClick}
         onExportData={handleExportData}
