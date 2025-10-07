@@ -1,0 +1,272 @@
+/* Performance optimizations CSS */
+
+/* Critical CSS for above-the-fold content */
+.critical-loading {
+  /* Prevent layout shifts during loading */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Optimize font loading */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap; /* Improve font loading performance */
+  src: local('Roboto Light'), local('Roboto-Light');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Roboto'), local('Roboto-Regular');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('Roboto Medium'), local('Roboto-Medium');
+}
+
+/* Optimize animations for 60fps */
+.smooth-animation {
+  will-change: transform, opacity;
+  transform: translateZ(0); /* Force hardware acceleration */
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Optimize scrolling performance */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+}
+
+.virtual-scroll-container {
+  /* Optimize for virtual scrolling */
+  contain: layout style paint;
+  overflow: auto;
+  height: 100%;
+}
+
+/* Reduce paint and layout thrashing */
+.optimized-grid {
+  contain: layout style paint;
+  transform: translateZ(0);
+}
+
+.optimized-grid-cell {
+  contain: layout style;
+  will-change: contents;
+}
+
+/* Loading states */
+.skeleton-loading {
+  background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Accessibility improvements */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .high-contrast {
+    border: 2px solid;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Dark mode optimizations */
+@media (prefers-color-scheme: dark) {
+  .auto-dark {
+    background-color: #000000;
+    color: #ffffff;
+  }
+  
+  .auto-dark-surface {
+    background-color: #111111;
+    border-color: #333333;
+  }
+}
+
+/* Print optimizations */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-optimize {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .mobile-optimize {
+    /* Reduce complexity on mobile */
+    box-shadow: none;
+    border-radius: 0;
+  }
+  
+  .mobile-touch-target {
+    min-height: 44px; /* iOS touch target size */
+    min-width: 44px;
+  }
+}
+
+/* Performance monitoring indicators */
+.perf-indicator {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.perf-good { background-color: #4caf50; }
+.perf-warning { background-color: #ff9800; }
+.perf-poor { background-color: #f44336; }
+
+/* Layout optimization */
+.layout-optimized {
+  /* Prevent layout shifts */
+  contain: layout;
+}
+
+.content-optimized {
+  /* Optimize content rendering */
+  contain: style paint;
+}
+
+/* Image optimization */
+.lazy-image {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.lazy-image.loaded {
+  opacity: 1;
+}
+
+.image-placeholder {
+  background-color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+}
+
+/* Grid performance optimizations */
+.grid-performance {
+  /* Optimize grid rendering */
+  contain: layout style paint;
+  transform: translateZ(0);
+}
+
+.grid-row {
+  contain: layout style;
+}
+
+.grid-cell {
+  contain: layout;
+  will-change: contents;
+}
+
+/* Memory optimization */
+.memory-efficient {
+  /* Reduce memory usage */
+  contain: strict;
+}
+
+/* CPU optimization */
+.cpu-efficient {
+  /* Reduce CPU usage */
+  will-change: auto;
+  transform: translateZ(0);
+}

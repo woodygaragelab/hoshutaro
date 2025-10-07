@@ -2,8 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './App.css';
 import './styles/responsive.css';
 import './styles/grid-text-fix.css';
+import './styles/performance.css';
 import rawData from './data/equipments.json';
 import { HierarchicalData, RawEquipment } from './types';
+import { usePerformanceMonitor } from './utils/performanceMonitor';
+import { useAccessibility } from './utils/accessibility';
+import PerformanceMonitor from './components/PerformanceMonitor';
 
 import ModernHeader from './components/ModernHeader';
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
@@ -15,6 +19,10 @@ import { Chat as ChatIcon, Close as CloseIcon } from '@mui/icons-material';
 import { darkTheme } from './theme/darkTheme';
 
 const App: React.FC = () => {
+  // Performance and accessibility hooks
+  const { measureAsync, recordMetric } = usePerformanceMonitor();
+  const { announce, setupGridKeyboardNavigation } = useAccessibility();
+  
   // Responsive layout hook
   const responsive = useResponsiveLayout();
   
@@ -60,11 +68,18 @@ const App: React.FC = () => {
   const [aiAssistantWidth] = useState(400);
 
   useEffect(() => {
-    const [flatData, headers, filterTree] = transformData(rawData as { [id: string]: RawEquipment }, timeScale);
-    setMaintenanceData(flatData);
-    setTimeHeaders(headers);
-    setHierarchyFilterTree(filterTree);
-  }, [timeScale]);
+    const loadData = async () => {
+      const [flatData, headers, filterTree] = transformData(rawData as { [id: string]: RawEquipment }, timeScale);
+      setMaintenanceData(flatData);
+      setTimeHeaders(headers);
+      setHierarchyFilterTree(filterTree);
+      
+      // Announce data load completion for screen readers
+      announce(`データが読み込まれました。${flatData.length}件の設備データが表示されています。`);
+    };
+
+    measureAsync('data-transformation', 'render', loadData);
+  }, [timeScale]); // Remove measureAsync and announce from dependencies
 
   const handleUpdateItem = (updatedItem: HierarchicalData) => {
     setMaintenanceData(prevData => 
@@ -328,10 +343,30 @@ const App: React.FC = () => {
     ? `calc(100% - ${aiAssistantWidth}px)` 
     : '100%';
 
+  // Set up keyboard navigation for the grid
+  const gridRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (gridRef.current) {
+      const cleanup = setupGridKeyboardNavigation(gridRef.current, {
+        enableArrowKeys: true,
+        enableTabNavigation: true,
+        enableEnterActivation: true,
+        enableEscapeClose: true,
+        announceChanges: true,
+      });
+      return cleanup;
+    }
+  }, [setupGridKeyboardNavigation]);
+
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <div className={`responsive-container ${responsive.isMobile ? 'mobile-layout' : responsive.isTablet ? 'tablet-layout' : 'desktop-layout'}`}>
+      <PerformanceMonitor enabled={import.meta.env?.DEV || false} />
+      <div 
+        className={`responsive-container critical-loading ${responsive.isMobile ? 'mobile-layout' : responsive.isTablet ? 'tablet-layout' : 'desktop-layout'}`}
+        role="application"
+        aria-label="HOSHUTARO 保全管理システム"
+      >
         <ModernHeader
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -372,7 +407,8 @@ const App: React.FC = () => {
         >
           {/* Enhanced Maintenance Grid */}
           <div 
-            className="grid-container-responsive"
+            ref={gridRef}
+            className="grid-container-responsive grid-performance"
             style={{ 
               padding: `${containerPadding}px`, 
               height: '100%',
@@ -380,6 +416,10 @@ const App: React.FC = () => {
               width: mainContentWidth,
               transition: 'width 0.3s ease',
             }}
+            role="grid"
+            aria-label="保全計画データグリッド"
+            aria-rowcount={displayedMaintenanceData.length}
+            aria-colcount={timeHeaders.length + 3}
           >
             <EnhancedMaintenanceGrid
               data={displayedMaintenanceData}

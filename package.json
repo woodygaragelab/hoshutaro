@@ -10,7 +10,14 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "deploy:vercel": "vercel --prod",
+    "deploy:netlify": "netlify deploy --prod",
+    "deploy:preview": "vercel",
+    "build:analyze": "npm run build && npx vite-bundle-analyzer dist",
+    "prepare:deploy": "npm run test && npm run lint && npm run build",
+    "deploy:check": "node scripts/deploy-check-simple.js",
+    "deploy:full": "npm run deploy:check && npm run deploy:vercel"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

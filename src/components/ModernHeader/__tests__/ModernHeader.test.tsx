@@ -65,6 +65,8 @@ const mockProps = {
   onExportData: jest.fn(),
   onImportData: jest.fn(),
   onResetData: jest.fn(),
+  onAIAssistantToggle: jest.fn(),
+  isAIAssistantOpen: false,
 };
 
 // Helper function to render component with theme

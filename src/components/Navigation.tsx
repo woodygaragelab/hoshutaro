@@ -9,6 +9,8 @@ const Navigation: React.FC = () => {
     { path: '/', label: '星取表' },
     { path: '/app2', label: 'App2' },
     { path: '/excel-demo', label: 'ExcelGrid デモ' },
+    { path: '/integration-demo', label: '統合デモ' },
+    { path: '/integration-test', label: '統合テスト' },
   ];
 
   return (
