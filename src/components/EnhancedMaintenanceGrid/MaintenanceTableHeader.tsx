@@ -14,6 +14,11 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
   onColumnResize
 }) => {
   const [resizing, setResizing] = useState<{ columnId: string; startX: number; startWidth: number } | null>(null);
+  
+  // Calculate total width of all columns
+  const totalColumnsWidth = columns.reduce((sum, col) => {
+    return sum + (gridState.columnWidths[col.id] || col.width);
+  }, 0);
 
   const handleMouseDown = useCallback((e: React.MouseEvent, columnId: string) => {
     const column = columns.find(col => col.id === columnId);
@@ -62,12 +67,16 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
         borderBottom: '2px solid',
         borderColor: 'divider',
         backgroundColor: 'grey.50',
-        height: 40, // Fixed height instead of minHeight
-        alignItems: 'center' // Ensure vertical alignment
+        height: 40,
+        alignItems: 'center',
+        width: '100%',
+        overflow: 'hidden',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
       }}
     >
-      {columns.map((column) => {
+      {columns.map((column, index) => {
         const width = gridState.columnWidths[column.id] || column.width;
+        const isLastColumn = index === columns.length - 1;
         
         return (
           <Box
@@ -76,15 +85,17 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
               width,
               minWidth: width,
               maxWidth: width,
+              flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               padding: '8px 4px',
-              borderRight: '1px solid',
+              borderRight: isLastColumn ? 'none' : '1px solid',
               borderColor: 'divider',
               position: 'relative',
               backgroundColor: 'inherit',
-              userSelect: 'none'
+              userSelect: 'none',
+              overflow: 'hidden'
             }}
           >
             <Typography

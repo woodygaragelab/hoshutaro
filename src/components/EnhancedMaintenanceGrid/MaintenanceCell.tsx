@@ -15,6 +15,7 @@ interface MaintenanceCellProps {
   onCellDoubleClick: () => void;
   readOnly: boolean;
   width: number;
+  showRightBorder?: boolean;
 }
 
 export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
@@ -27,7 +28,8 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
   onCellClick,
   onCellDoubleClick,
   readOnly,
-  width
+  width,
+  showRightBorder = true
 }) => {
   const [editValue, setEditValue] = useState(value);
 
@@ -189,7 +191,7 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
         alignItems: 'center',
         justifyContent: column.type === 'status' || column.type === 'cost' ? 'center' : 'flex-start',
         padding: '4px 8px',
-        borderRight: '1px solid',
+        borderRight: showRightBorder ? '1px solid' : 'none',
         borderColor: 'divider',
         backgroundColor: isSelected ? 'primary.light' : 'transparent',
         cursor: readOnly ? 'default' : 'pointer',

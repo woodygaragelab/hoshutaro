@@ -147,6 +147,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
         
         // Special handling for task and cycle columns to maintain existing behavior
         if (column.id === 'task') {
+          const isLastColumn = columns.indexOf(column) === columns.length - 1;
           return (
             <Box
               key={column.id}
@@ -157,7 +158,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 padding: '4px 8px',
-                borderRight: '1px solid',
+                borderRight: isLastColumn ? 'none' : '1px solid',
                 borderColor: 'divider',
                 backgroundColor: isSelected ? 'primary.light' : 'transparent',
                 cursor: readOnly ? 'default' : 'pointer'
@@ -188,6 +189,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
         }
         
         if (column.id === 'cycle') {
+          const isLastColumn = columns.indexOf(column) === columns.length - 1;
           return (
             <Box
               key={column.id}
@@ -199,7 +201,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '4px 8px',
-                borderRight: '1px solid',
+                borderRight: isLastColumn ? 'none' : '1px solid',
                 borderColor: 'divider',
                 backgroundColor: isSelected ? 'primary.light' : 'transparent',
                 cursor: readOnly ? 'default' : 'pointer'
@@ -232,8 +234,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
         
         // For all other columns, use the MaintenanceCell component
         const cellValue = getCellValue(column);
-        
-
+        const isLastColumn = columns.indexOf(column) === columns.length - 1;
         
         return (
           <MaintenanceCell
@@ -249,6 +250,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
             onCellDoubleClick={() => handleCellDoubleClick(column.id)}
             readOnly={readOnly}
             width={width}
+            showRightBorder={!isLastColumn}
           />
         );
       })}

@@ -1,7 +1,8 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { Box } from '@mui/material';
 import { HierarchicalData } from '../../types';
 import { GridColumn, GridState, DisplayAreaConfig } from '../ExcelLikeGrid/types';
+import Resizer from './Resizer';
 
 interface MaintenanceGridLayoutProps {
   data: HierarchicalData[];
@@ -45,6 +46,32 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = ({
   const maintenanceAreaRef = useRef<HTMLDivElement>(null);
   const isScrollingSyncRef = useRef(false);
 
+  // Organize columns by area
+  const columnsByArea = useMemo(() => {
+    const fixed = columns.filter(col => displayAreaConfig.fixedColumns.includes(col.id));
+    const specifications = columns.filter(col => 
+      displayAreaConfig.scrollableAreas.specifications?.columns.includes(col.id) || false
+    );
+    const maintenance = columns.filter(col => 
+      displayAreaConfig.scrollableAreas.maintenance?.columns.includes(col.id) || false
+    );
+
+    return { fixed, specifications, maintenance };
+  }, [columns, displayAreaConfig]);
+
+  // Resizable area widths state
+  const [fixedAreaWidth, setFixedAreaWidth] = useState<number>(250);
+  const [specAreaWidth, setSpecAreaWidth] = useState<number>(400);
+
+  // Initialize area widths based on columns and config
+  useEffect(() => {
+    const initialFixedWidth = columnsByArea.fixed?.reduce((sum, col) => sum + col.width, 0) || 250;
+    const initialSpecWidth = displayAreaConfig.scrollableAreas.specifications?.width || 400;
+    
+    setFixedAreaWidth(initialFixedWidth);
+    setSpecAreaWidth(initialSpecWidth);
+  }, [columnsByArea.fixed, displayAreaConfig.scrollableAreas.specifications?.width]);
+
   // Handle scroll synchronization between areas
   const handleScrollSync = useCallback((scrollTop: number, sourceArea: 'fixed' | 'spec' | 'maintenance') => {
     if (isScrollingSyncRef.current) return;
@@ -68,20 +95,6 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = ({
       isScrollingSyncRef.current = false;
     }, 50);
   }, []);
-  // Organize columns by area
-  const columnsByArea = useMemo(() => {
-    const fixed = columns.filter(col => displayAreaConfig.fixedColumns.includes(col.id));
-    const specifications = columns.filter(col => 
-      displayAreaConfig.scrollableAreas.specifications?.columns.includes(col.id) || false
-    );
-    const maintenance = columns.filter(col => 
-      displayAreaConfig.scrollableAreas.maintenance?.columns.includes(col.id) || false
-    );
-
-
-
-    return { fixed, specifications, maintenance };
-  }, [columns, displayAreaConfig]);
 
   // Determine layout based on display mode
   const layoutStyle = useMemo(() => {
@@ -104,14 +117,23 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = ({
     };
   }, [displayAreaConfig.mode]);
 
+  // Handle resizing of areas
+  const handleFixedAreaResize = useCallback((delta: number) => {
+    setFixedAreaWidth(prev => Math.max(150, Math.min(600, prev + delta)));
+  }, []);
+
+  const handleSpecAreaResize = useCallback((delta: number) => {
+    setSpecAreaWidth(prev => Math.max(200, Math.min(800, prev + delta)));
+  }, []);
+
   // Calculate area widths for split layout
   const areaWidths = useMemo(() => {
-    const fixedWidth = columnsByArea.fixed.reduce((sum, col) => sum + col.width, 0);
-    const specWidth = displayAreaConfig.scrollableAreas.specifications?.width || 0;
+    const fixedWidth = fixedAreaWidth;
+    const specWidth = specAreaWidth;
     const maintenanceWidth = displayAreaConfig.scrollableAreas.maintenance?.width || 0;
     
     return { fixedWidth, specWidth, maintenanceWidth };
-  }, [columnsByArea.fixed, displayAreaConfig.scrollableAreas]);
+  }, [fixedAreaWidth, specAreaWidth, displayAreaConfig.scrollableAreas]);
 
   const renderSingleArea = () => {
     const visibleColumns = [
@@ -152,20 +174,31 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = ({
           sx={{
             width: areaWidths.fixedWidth,
             minWidth: areaWidths.fixedWidth,
+            maxWidth: areaWidths.fixedWidth,
+            flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
             borderRight: '2px solid',
             borderColor: 'divider',
             backgroundColor: 'background.paper',
             position: 'relative',
-            zIndex: 2
+            zIndex: 2,
+            boxShadow: '2px 0 4px rgba(0,0,0,0.08)'
           }}
         >
-          <MaintenanceTableHeader
-            columns={columnsByArea.fixed}
-            gridState={gridState}
-            onColumnResize={onColumnResize}
+          {/* Resizer for fixed area */}
+          <Resizer
+            direction="horizontal"
+            onResize={handleFixedAreaResize}
+            className="fixed-area-resizer"
           />
+          <Box sx={{ width: '100%', overflow: 'hidden' }}>
+            <MaintenanceTableHeader
+              columns={columnsByArea.fixed}
+              gridState={gridState}
+              onColumnResize={onColumnResize}
+            />
+          </Box>
           <Box 
             ref={fixedAreaRef}
             sx={{ 
@@ -197,42 +230,56 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = ({
         </Box>
 
         {/* Scrollable areas container */}
-        <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flex: 1, 
+          minWidth: 0, // Allow shrinking
+          overflow: 'hidden' 
+        }}>
           {/* Specifications area */}
           {displayAreaConfig.scrollableAreas.specifications?.visible && (
             <Box
               sx={{
                 width: displayAreaConfig.scrollableAreas.maintenance?.visible ? 
                   `${areaWidths.specWidth}px` : '100%',
-                minWidth: areaWidths.specWidth,
+                minWidth: displayAreaConfig.scrollableAreas.maintenance?.visible ? 
+                  `${areaWidths.specWidth}px` : 'auto',
+                maxWidth: displayAreaConfig.scrollableAreas.maintenance?.visible ? 
+                  `${areaWidths.specWidth}px` : 'none',
+                flexShrink: 0,
                 display: 'flex',
                 flexDirection: 'column',
                 borderRight: displayAreaConfig.scrollableAreas.maintenance?.visible ? '1px solid' : 'none',
                 borderColor: 'divider',
                 overflow: 'hidden',
-                backgroundColor: 'background.paper'
+                backgroundColor: 'background.paper',
+                position: 'relative',
+                boxShadow: 'none'
               }}
             >
-              <MaintenanceTableHeader
-                columns={columnsByArea.specifications}
-                gridState={gridState}
-                onColumnResize={onColumnResize}
-              />
+              {/* Resizer for specifications area (only show when maintenance area is also visible) */}
+              {displayAreaConfig.scrollableAreas.maintenance?.visible && (
+                <Resizer
+                  direction="horizontal"
+                  onResize={handleSpecAreaResize}
+                  className="spec-area-resizer"
+                />
+              )}
+              <Box sx={{ width: '100%', overflow: 'hidden' }}>
+                <MaintenanceTableHeader
+                  columns={columnsByArea.specifications}
+                  gridState={gridState}
+                  onColumnResize={onColumnResize}
+                />
+              </Box>
               <Box 
                 ref={specAreaRef}
                 sx={{ 
                   overflow: 'auto', 
                   flex: 1,
                   '&::-webkit-scrollbar': {
-                    width: '8px',
-                    height: '8px'
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    backgroundColor: 'rgba(0,0,0,0.1)'
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    backgroundColor: 'rgba(0,0,0,0.3)',
-                    borderRadius: '4px'
+                    width: '0px',
+                    background: 'transparent'
                   }
                 }}
                 onScroll={(e) => handleScrollSync(e.currentTarget.scrollTop, 'spec')}
@@ -261,17 +308,20 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = ({
             <Box
               sx={{
                 flex: 1,
+                minWidth: 0, // Allow shrinking
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
                 backgroundColor: 'background.paper'
               }}
             >
-              <MaintenanceTableHeader
-                columns={columnsByArea.maintenance}
-                gridState={gridState}
-                onColumnResize={onColumnResize}
-              />
+              <Box sx={{ width: '100%', overflow: 'hidden' }}>
+                <MaintenanceTableHeader
+                  columns={columnsByArea.maintenance}
+                  gridState={gridState}
+                  onColumnResize={onColumnResize}
+                />
+              </Box>
               <Box 
                 ref={maintenanceAreaRef}
                 sx={{ 
