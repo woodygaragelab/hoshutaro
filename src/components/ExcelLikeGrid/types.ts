@@ -129,4 +129,30 @@ export interface EnhancedMaintenanceGridProps {
   className?: string;
   groupedData?: { [key: string]: HierarchicalData[] };
   responsive?: ResponsiveLayout;
+  
+  // Integrated toolbar props
+  searchTerm?: string;
+  onSearchChange?: (value: string) => void;
+  level1Filter?: string;
+  level2Filter?: string;
+  level3Filter?: string;
+  onLevel1FilterChange?: (event: any) => void;
+  onLevel2FilterChange?: (event: any) => void;
+  onLevel3FilterChange?: (event: any) => void;
+  hierarchyFilterTree?: any;
+  level2Options?: string[];
+  level3Options?: string[];
+  onViewModeChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  timeScale?: 'year' | 'month' | 'week' | 'day';
+  onTimeScaleChange?: (event: any) => void;
+  onShowBomCodeChange?: (checked: boolean) => void;
+  onShowCycleChange?: (checked: boolean) => void;
+  onDisplayModeChange?: (mode: 'specifications' | 'maintenance' | 'both') => void;
+  onAddYear?: () => void;
+  onDeleteYear?: () => void;
+  onExportData?: () => void;
+  onImportData?: () => void;
+  onResetData?: () => void;
+  onAIAssistantToggle?: () => void;
+  isAIAssistantOpen?: boolean;
 }

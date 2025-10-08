@@ -64,14 +64,16 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
     <Box
       sx={{
         display: 'flex',
-        borderBottom: '2px solid',
-        borderColor: 'divider',
-        backgroundColor: 'grey.50',
+        borderBottom: '1px solid',
+        borderColor: '#333333',
+        backgroundColor: '#2a2a2a',
         height: 40,
         alignItems: 'center',
         width: '100%',
         overflow: 'hidden',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+        position: 'sticky',
+        top: 0,
+        zIndex: 10
       }}
     >
       {columns.map((column, index) => {
@@ -91,9 +93,9 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
               justifyContent: 'center',
               padding: '8px 4px',
               borderRight: isLastColumn ? 'none' : '1px solid',
-              borderColor: 'divider',
+              borderColor: '#333333',
               position: 'relative',
-              backgroundColor: 'inherit',
+              backgroundColor: '#2a2a2a',
               userSelect: 'none',
               overflow: 'hidden'
             }}
@@ -106,8 +108,9 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                fontSize: '0.75rem',
-                color: '#333333 !important'
+                fontSize: '0.875rem',
+                color: '#ffffff !important',
+                textShadow: 'none'
               }}
             >
               {column.header}

@@ -9,7 +9,7 @@ import { usePerformanceMonitor } from './utils/performanceMonitor';
 import { useAccessibility } from './utils/accessibility';
 import PerformanceMonitor from './components/PerformanceMonitor';
 
-import ModernHeader from './components/ModernHeader';
+
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
 import AIAssistantPanel from './components/AIAssistant/AIAssistantPanel';
 import { transformData } from './utils/dataTransformer';
@@ -367,37 +367,7 @@ const App: React.FC = () => {
         role="application"
         aria-label="HOSHUTARO 保全管理システム"
       >
-        <ModernHeader
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        level1Filter={level1Filter}
-        level2Filter={level2Filter}
-        level3Filter={level3Filter}
-        onLevel1FilterChange={handleLevel1FilterChange}
-        onLevel2FilterChange={handleLevel2FilterChange}
-        onLevel3FilterChange={(e) => setLevel3Filter(e.target.value)}
-        hierarchyFilterTree={hierarchyFilterTree}
-        level2Options={level2Options}
-        level3Options={level3Options}
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
-        timeScale={timeScale}
-        onTimeScaleChange={(e: SelectChangeEvent) => setTimeScale(e.target.value as 'year' | 'month' | 'week' | 'day')}
-        showBomCode={showBomCode}
-        showCycle={showCycle}
-        onShowBomCodeChange={setShowBomCode}
-        onShowCycleChange={setShowCycle}
-        displayMode={displayMode}
-        onDisplayModeChange={setDisplayMode}
-        onAddYear={handleAddYearClick}
-        onDeleteYear={handleDeleteYearClick}
-        onExportData={handleExportData}
-        onImportData={handleImportDataClick}
-        onResetData={handleResetDataClick}
-        onAIAssistantToggle={handleAIAssistantToggle}
-        isAIAssistantOpen={isAIAssistantOpen}
-        responsive={responsive}
-      />
+
       
         {/* Main Content Area */}
         <div 
@@ -437,6 +407,31 @@ const App: React.FC = () => {
               virtualScrolling={displayedMaintenanceData.length > 100}
               readOnly={false}
               responsive={responsive}
+              // Integrated toolbar props
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              level1Filter={level1Filter}
+              level2Filter={level2Filter}
+              level3Filter={level3Filter}
+              onLevel1FilterChange={handleLevel1FilterChange}
+              onLevel2FilterChange={handleLevel2FilterChange}
+              onLevel3FilterChange={(e) => setLevel3Filter(e.target.value)}
+              hierarchyFilterTree={hierarchyFilterTree}
+              level2Options={level2Options}
+              level3Options={level3Options}
+              onViewModeChange={handleViewModeChange}
+              timeScale={timeScale}
+              onTimeScaleChange={(e: SelectChangeEvent) => setTimeScale(e.target.value as 'year' | 'month' | 'week' | 'day')}
+              onShowBomCodeChange={setShowBomCode}
+              onShowCycleChange={setShowCycle}
+              onDisplayModeChange={setDisplayMode}
+              onAddYear={handleAddYearClick}
+              onDeleteYear={handleDeleteYearClick}
+              onExportData={handleExportData}
+              onImportData={handleImportDataClick}
+              onResetData={handleResetDataClick}
+              onAIAssistantToggle={handleAIAssistantToggle}
+              isAIAssistantOpen={isAIAssistantOpen}
             />
           </div>
 

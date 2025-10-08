@@ -1,15 +1,14 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { Box, Paper, Snackbar, Alert } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from '../ExcelLikeGrid/types';
-import DisplayAreaControl from './DisplayAreaControl';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
-import Legend from './Legend';
 import MobileGridView from './MobileGridView';
 import TabletGridView from './TabletGridView';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
 import { useClipboard } from '../ExcelLikeGrid/hooks/useClipboard';
 import { usePerformanceOptimization } from '../ExcelLikeGrid/hooks/usePerformanceOptimization';
 import { PerformanceMonitor } from '../ExcelLikeGrid/PerformanceMonitor';
+import { IntegratedToolbar } from '../ModernHeader/ModernHeader';
 import './EnhancedMaintenanceGrid.css';
 
 export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = ({
@@ -28,7 +27,32 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
   readOnly = false,
   className = '',
   groupedData,
-  responsive
+  responsive,
+  // Integrated toolbar props
+  searchTerm = '',
+  onSearchChange,
+  level1Filter = 'all',
+  level2Filter = 'all',
+  level3Filter = 'all',
+  onLevel1FilterChange,
+  onLevel2FilterChange,
+  onLevel3FilterChange,
+  hierarchyFilterTree,
+  level2Options = [],
+  level3Options = [],
+  onViewModeChange,
+  timeScale = 'year',
+  onTimeScaleChange,
+  onShowBomCodeChange,
+  onShowCycleChange,
+  onDisplayModeChange,
+  onAddYear,
+  onDeleteYear,
+  onExportData,
+  onImportData,
+  onResetData,
+  onAIAssistantToggle,
+  isAIAssistantOpen = false,
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -299,10 +323,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     onRowResize?.(rowId, height);
   }, [updateRowHeight, onRowResize]);
 
-  // Handle display area changes
-  const handleDisplayAreaChange = useCallback((config: DisplayAreaConfig) => {
-    setCurrentDisplayAreaConfig(config);
-  }, []);
+
 
   // Update current display area config when displayMode changes
   useEffect(() => {
@@ -562,24 +583,39 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Display Area Control and Legend - Hide on mobile for space */}
-          {!responsive?.isMobile && (
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              padding: responsive?.getSpacing ? `${responsive.getSpacing('sm')}px` : '8px 16px',
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-              backgroundColor: 'background.default'
-            }}>
-              <DisplayAreaControl
-                config={currentDisplayAreaConfig || displayAreaConfig}
-                onChange={handleDisplayAreaChange}
-              />
-              <Legend viewMode={viewMode} />
-            </Box>
-          )}
+          {/* Integrated Toolbar */}
+          <IntegratedToolbar
+            searchTerm={searchTerm}
+            onSearchChange={onSearchChange || (() => {})}
+            level1Filter={level1Filter}
+            level2Filter={level2Filter}
+            level3Filter={level3Filter}
+            onLevel1FilterChange={onLevel1FilterChange || (() => {})}
+            onLevel2FilterChange={onLevel2FilterChange || (() => {})}
+            onLevel3FilterChange={onLevel3FilterChange || (() => {})}
+            hierarchyFilterTree={hierarchyFilterTree}
+            level2Options={level2Options}
+            level3Options={level3Options}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange || (() => {})}
+            timeScale={timeScale}
+            onTimeScaleChange={onTimeScaleChange || (() => {})}
+            showBomCode={showBomCode}
+            showCycle={showCycle}
+            onShowBomCodeChange={onShowBomCodeChange || (() => {})}
+            onShowCycleChange={onShowCycleChange || (() => {})}
+            displayMode={displayMode}
+            onDisplayModeChange={onDisplayModeChange || (() => {})}
+            onAddYear={onAddYear || (() => {})}
+            onDeleteYear={onDeleteYear || (() => {})}
+            onExportData={onExportData || (() => {})}
+            onImportData={onImportData || (() => {})}
+            onResetData={onResetData || (() => {})}
+            onAIAssistantToggle={onAIAssistantToggle || (() => {})}
+            isAIAssistantOpen={isAIAssistantOpen}
+          />
+
+
           
           {/* Responsive Grid Layout */}
           {renderResponsiveView()}
