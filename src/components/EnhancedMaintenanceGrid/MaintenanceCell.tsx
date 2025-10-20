@@ -180,6 +180,23 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
     }
   };
 
+  // Handle double click - only prevent default to avoid text selection
+  const handleDoubleClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    // Check if any dropdown/menu is open - if so, don't handle the double click
+    const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
+    if (hasOpenMenu) {
+      return; // Don't handle double click when menus are open
+    }
+
+    event.preventDefault(); // Prevent text selection
+    onCellDoubleClick(event);
+  }, [onCellDoubleClick]);
+
+  // Handle single click
+  const handleClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    onCellClick();
+  }, [onCellClick]);
+
   return (
     <Box
       sx={{
@@ -191,17 +208,21 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
         alignItems: 'center',
         justifyContent: column.type === 'status' || column.type === 'cost' ? 'center' : 'flex-start',
         padding: '4px 8px',
-        borderRight: showRightBorder ? '1px solid' : 'none',
-        borderColor: 'divider',
+        borderRight: showRightBorder ? '1px solid #333333' : 'none',
         backgroundColor: isSelected ? 'primary.light' : 'transparent',
         cursor: readOnly ? 'default' : 'pointer',
         color: '#333333', // Ensure text is visible
+        boxSizing: 'border-box', // Ensure borders are included in width calculation
+        flexShrink: 0, // Prevent shrinking during scroll
+        willChange: 'transform', // Enable hardware acceleration
+        transform: 'translate3d(0, 0, 0)', // Force hardware acceleration
+        backfaceVisibility: 'hidden', // Improve rendering performance
         '&:hover': {
           backgroundColor: isSelected ? 'primary.light' : 'action.hover'
         }
       }}
-      onClick={onCellClick}
-      onDoubleClick={onCellDoubleClick}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
     >
       {renderCellContent()}
     </Box>

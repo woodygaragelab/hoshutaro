@@ -189,7 +189,7 @@ export const StatusSelectionDialog: React.FC<StatusSelectionDialogProps> = ({
   const getStatusSymbol = (option: StatusOption) => {
     return (
       <Typography
-        variant={deviceType === 'mobile' ? 'h4' : deviceType === 'tablet' ? 'h5' : 'h6'}
+        variant={deviceType === 'mobile' ? 'h4' : 'h6'}
         sx={{
           color: option.color,
           fontWeight: 'bold',
@@ -229,9 +229,11 @@ export const StatusSelectionDialog: React.FC<StatusSelectionDialogProps> = ({
             },
           }}
         >
-          <ListItemIcon sx={{ minWidth: deviceType === 'mobile' ? 56 : 48 }}>
-            {getStatusIcon(option)}
-          </ListItemIcon>
+          {deviceType === 'mobile' && (
+            <ListItemIcon sx={{ minWidth: 56 }}>
+              {getStatusIcon(option)}
+            </ListItemIcon>
+          )}
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
             {getStatusSymbol(option)}

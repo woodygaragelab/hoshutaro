@@ -139,9 +139,13 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
       sx={{
         display: 'flex',
         height: 40, // Fixed height instead of minHeight
-        borderBottom: '1px solid',
-        borderColor: 'divider',
+        borderBottom: '1px solid #333333',
         alignItems: 'center', // Ensure vertical alignment
+        boxSizing: 'border-box', // Ensure borders are included in height calculation
+        flexShrink: 0, // Prevent shrinking during scroll
+        willChange: 'transform', // Enable hardware acceleration
+        transform: 'translate3d(0, 0, 0)', // Force hardware acceleration
+        backfaceVisibility: 'hidden', // Improve rendering performance
         '&:hover': {
           backgroundColor: 'action.hover'
         }
@@ -166,10 +170,11 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 padding: '4px 8px',
-                borderRight: isLastColumn ? 'none' : '1px solid',
-                borderColor: 'divider',
+                borderRight: isLastColumn ? 'none' : '1px solid #333333',
                 backgroundColor: isSelected ? 'primary.light' : 'transparent',
-                cursor: readOnly ? 'default' : 'pointer'
+                cursor: readOnly ? 'default' : 'pointer',
+                boxSizing: 'border-box',
+                flexShrink: 0
               }}
               onClick={() => handleCellClick(column.id)}
             >
@@ -209,10 +214,11 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '4px 8px',
-                borderRight: isLastColumn ? 'none' : '1px solid',
-                borderColor: 'divider',
+                borderRight: isLastColumn ? 'none' : '1px solid #333333',
                 backgroundColor: isSelected ? 'primary.light' : 'transparent',
-                cursor: readOnly ? 'default' : 'pointer'
+                cursor: readOnly ? 'default' : 'pointer',
+                boxSizing: 'border-box',
+                flexShrink: 0
               }}
               onClick={() => handleCellClick(column.id)}
             >

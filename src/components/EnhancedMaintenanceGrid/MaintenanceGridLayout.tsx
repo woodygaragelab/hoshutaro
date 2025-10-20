@@ -221,13 +221,31 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     columnId: string, 
     event: React.MouseEvent<HTMLElement>
   ) => {
-    if (readOnly) return;
+    console.log('Cell double-click detected:', { rowId, columnId });
+    
+    // Check if any dropdown/menu is open - if so, don't handle the double click
+    const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
+    if (hasOpenMenu) {
+      console.log('Menu is open, skipping double-click handling');
+      return; // Don't handle double click when menus are open
+    }
+
+    if (readOnly) {
+      console.log('Grid is read-only, skipping double-click handling');
+      return;
+    }
 
     const column = columns.find(col => col.id === columnId);
-    if (!column?.editable) return;
+    if (!column?.editable) {
+      console.log('Column is not editable, skipping double-click handling');
+      return;
+    }
 
     const item = data.find(d => d.id === rowId);
-    if (!item) return;
+    if (!item) {
+      console.log('Item not found, skipping double-click handling');
+      return;
+    }
 
     let editType: 'status' | 'cost' | 'specification' | null = null;
     let currentValue: any = null;
@@ -262,6 +280,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     }
 
     if (editType) {
+      console.log('Opening edit dialog:', { editType, rowId, columnId, deviceType });
+      
       setEditDialogState({
         type: editType,
         open: true,
@@ -273,6 +293,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
       // Update editing cell state
       onEditingCellChange(rowId, columnId);
+    } else {
+      console.log('No edit type determined for double-click');
     }
   }, [readOnly, columns, data, viewMode, deviceType, onEditingCellChange]);
 
@@ -438,14 +460,22 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   useEffect(() => {
     const gridContainer = gridContainerRef.current;
     if (gridContainer && !readOnly) {
-      gridContainer.focus();
+      // Check if any dropdown/menu is open before focusing
+      const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
+      if (!hasOpenMenu) {
+        gridContainer.focus();
+      }
     }
   }, [readOnly]);
 
   // Handle focus on cell selection change
   useEffect(() => {
     if (gridState.selectedCell && gridContainerRef.current) {
-      gridContainerRef.current.focus();
+      // Check if any dropdown/menu is open before focusing
+      const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
+      if (!hasOpenMenu) {
+        gridContainerRef.current.focus();
+      }
     }
   }, [gridState.selectedCell]);
 
@@ -517,6 +547,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               overflowY: 'auto',
               overflowX: 'hidden', 
               flex: 1,
+              willChange: 'scroll-position',
+              transform: 'translate3d(0, 0, 0)',
+              backfaceVisibility: 'hidden',
               '&::-webkit-scrollbar': {
                 width: '8px'
               },
@@ -591,6 +624,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               sx={{ 
                 overflow: 'auto', 
                 flex: 1,
+                willChange: 'scroll-position',
+                transform: 'translate3d(0, 0, 0)',
+                backfaceVisibility: 'hidden',
                 '&::-webkit-scrollbar': {
                   width: '8px',
                   height: '8px'
@@ -691,6 +727,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               overflowY: 'auto',
               overflowX: 'hidden', 
               flex: 1,
+              willChange: 'scroll-position',
+              transform: 'translate3d(0, 0, 0)',
+              backfaceVisibility: 'hidden',
               '&::-webkit-scrollbar': {
                 width: '8px'
               },
@@ -705,8 +744,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
             onScroll={(e) => {
               const scrollTop = e.currentTarget.scrollTop;
               handleScrollSync(scrollTop, 'fixed');
-              
-
             }}
           >
             <MaintenanceTableBody
@@ -791,6 +828,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 sx={{ 
                   overflow: 'auto', 
                   flex: 1,
+                  willChange: 'scroll-position',
+                  transform: 'translate3d(0, 0, 0)',
+                  backfaceVisibility: 'hidden',
                   '&::-webkit-scrollbar': {
                     width: '8px',
                     height: '8px'
@@ -872,6 +912,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 sx={{ 
                   overflow: 'auto', 
                   flex: 1,
+                  willChange: 'scroll-position',
+                  transform: 'translate3d(0, 0, 0)',
+                  backfaceVisibility: 'hidden',
                   '&::-webkit-scrollbar': {
                     width: '8px',
                     height: '8px'

@@ -5,6 +5,12 @@
   line-height: 1.4;
   color: #ffffff;
   background-color: #000000;
+  /* Hardware acceleration for better scrolling performance */
+  will-change: scroll-position;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 /* Ensure text visibility for key elements */
@@ -98,6 +104,13 @@
   flex: 1;
   overflow: auto;
   background-color: #000000;
+  /* Optimize scrolling performance */
+  will-change: scroll-position;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
+}
 }
 
 /* Row styles */
@@ -698,4 +711,58 @@ lobal text color enforcement for all elements */
   background-color: #1e1e1e !important;
   color: #ffffff !important;
   font-weight: bold !important;
+}
+/
+* Cell and border optimization for scrolling */
+.enhanced-maintenance-grid .grid-cell,
+.enhanced-maintenance-grid .header-cell {
+  /* Force hardware acceleration for cells */
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
+  /* Ensure borders are always visible */
+  border-right: 1px solid #333333 !important;
+  border-bottom: 1px solid #333333 !important;
+  box-sizing: border-box !important;
+}
+
+/* Row optimization */
+.enhanced-maintenance-grid .grid-row {
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
+  border-bottom: 1px solid #333333 !important;
+  box-sizing: border-box !important;
+}
+
+/* Scrollable area optimization */
+.enhanced-maintenance-grid [data-scroll-area] {
+  will-change: scroll-position;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
+  /* Improve scrolling smoothness */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Force repaint on scroll for better border visibility */
+.enhanced-maintenance-grid [data-scroll-area]::-webkit-scrollbar-track {
+  background-color: rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+
+.enhanced-maintenance-grid [data-scroll-area]::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.3);
+  border-radius: 4px;
+}
+
+.enhanced-maintenance-grid [data-scroll-area]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }

@@ -110,7 +110,8 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
         position: 'relative',
         top: 0,
         zIndex: 100,
-        visibility: 'visible !important'
+        visibility: 'visible !important',
+        boxSizing: 'border-box'
       }}
     >
       {columns.map((column, index) => {
@@ -134,7 +135,8 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
               backgroundColor: '#2a2a2a',
               userSelect: 'none',
               overflow: 'hidden',
-              height: '100%'
+              height: '100%',
+              boxSizing: 'border-box'
             }}
           >
             <Typography

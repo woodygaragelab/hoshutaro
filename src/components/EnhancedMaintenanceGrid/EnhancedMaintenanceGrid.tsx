@@ -412,6 +412,18 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Don't handle keyboard events if they come from input elements or if a menu is open
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') {
+      return;
+    }
+
+    // Check if any dropdown/menu is open by looking for MUI menu elements
+    const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
+    if (hasOpenMenu) {
+      return; // Don't handle keyboard events when menus are open
+    }
+
     // Handle copy/paste shortcuts and performance monitor toggle
     if (e.ctrlKey || e.metaKey) {
       switch (e.key.toLowerCase()) {
@@ -496,10 +508,14 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     showPerformanceMonitor
   ]);
 
-  // Focus the grid when a cell is selected
+  // Focus the grid when a cell is selected, but not if menus are open
   useEffect(() => {
     if (gridState.selectedCell && gridRef.current) {
-      gridRef.current.focus();
+      // Check if any dropdown/menu is open
+      const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
+      if (!hasOpenMenu) {
+        gridRef.current.focus();
+      }
     }
   }, [gridState.selectedCell]);
 
@@ -511,8 +527,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     };
   });
 
-  // Render responsive view based on screen size
-  const renderResponsiveView = () => {
+  // Render responsive view based on screen size - memoized for stability
+  const renderResponsiveView = useMemo(() => {
     if (!responsive) {
       // Fallback to desktop view if responsive is not provided
       return (
@@ -588,13 +604,72 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         />
       );
     }
-  };
+  }, [
+    responsive, processedData, timeHeaders, viewMode, showBomCode, showCycle,
+    handleCellEdit, onSpecificationEdit, groupedData, processedColumns,
+    currentDisplayAreaConfig, displayAreaConfig, gridState, handleColumnResize,
+    handleRowResize, setSelectedCell, setEditingCell, setSelectedRange,
+    onUpdateItem, virtualScrolling, shouldUseVirtualScrolling, readOnly
+  ]);
+
+  // Memoize the toolbar to prevent unnecessary re-renders
+  const memoizedToolbar = useMemo(() => (
+    <IntegratedToolbar
+      searchTerm={searchTerm}
+      onSearchChange={onSearchChange || (() => {})}
+      level1Filter={level1Filter}
+      level2Filter={level2Filter}
+      level3Filter={level3Filter}
+      onLevel1FilterChange={onLevel1FilterChange || (() => {})}
+      onLevel2FilterChange={onLevel2FilterChange || (() => {})}
+      onLevel3FilterChange={onLevel3FilterChange || (() => {})}
+      hierarchyFilterTree={hierarchyFilterTree}
+      level2Options={level2Options}
+      level3Options={level3Options}
+      viewMode={viewMode}
+      onViewModeChange={onViewModeChange || (() => {})}
+      timeScale={timeScale}
+      onTimeScaleChange={onTimeScaleChange || (() => {})}
+      showBomCode={showBomCode}
+      showCycle={showCycle}
+      onShowBomCodeChange={onShowBomCodeChange || (() => {})}
+      onShowCycleChange={onShowCycleChange || (() => {})}
+      displayMode={displayMode}
+      onDisplayModeChange={onDisplayModeChange || (() => {})}
+      onAddYear={onAddYear || (() => {})}
+      onDeleteYear={onDeleteYear || (() => {})}
+      onExportData={onExportData || (() => {})}
+      onImportData={onImportData || (() => {})}
+      onResetData={onResetData || (() => {})}
+      onAIAssistantToggle={onAIAssistantToggle || (() => {})}
+      isAIAssistantOpen={isAIAssistantOpen}
+    />
+  ), [
+    searchTerm, onSearchChange, level1Filter, level2Filter, level3Filter,
+    onLevel1FilterChange, onLevel2FilterChange, onLevel3FilterChange,
+    hierarchyFilterTree, level2Options, level3Options, viewMode, onViewModeChange,
+    timeScale, onTimeScaleChange, showBomCode, showCycle, onShowBomCodeChange,
+    onShowCycleChange, displayMode, onDisplayModeChange, onAddYear, onDeleteYear,
+    onExportData, onImportData, onResetData, onAIAssistantToggle, isAIAssistantOpen
+  ]);
+
+  // Memoize the className to prevent unnecessary re-renders
+  const paperClassName = useMemo(() => {
+    const responsiveClass = responsive?.isMobile ? 'mobile-view' : 
+                           responsive?.isTablet ? 'tablet-view' : 'desktop-view';
+    console.log('Responsive state changed:', { 
+      isMobile: responsive?.isMobile, 
+      isTablet: responsive?.isTablet, 
+      responsiveClass 
+    });
+    return `enhanced-maintenance-grid ${className} ${responsiveClass}`;
+  }, [className, responsive?.isMobile, responsive?.isTablet]);
 
   return (
     <>
       <Paper 
         ref={gridRef}
-        className={`enhanced-maintenance-grid ${className} ${responsive?.isMobile ? 'mobile-view' : responsive?.isTablet ? 'tablet-view' : 'desktop-view'}`}
+        className={paperClassName}
         elevation={1}
         tabIndex={0}
         onKeyDown={handleKeyDown}
@@ -610,42 +685,29 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Integrated Toolbar */}
-          <IntegratedToolbar
-            searchTerm={searchTerm}
-            onSearchChange={onSearchChange || (() => {})}
-            level1Filter={level1Filter}
-            level2Filter={level2Filter}
-            level3Filter={level3Filter}
-            onLevel1FilterChange={onLevel1FilterChange || (() => {})}
-            onLevel2FilterChange={onLevel2FilterChange || (() => {})}
-            onLevel3FilterChange={onLevel3FilterChange || (() => {})}
-            hierarchyFilterTree={hierarchyFilterTree}
-            level2Options={level2Options}
-            level3Options={level3Options}
-            viewMode={viewMode}
-            onViewModeChange={onViewModeChange || (() => {})}
-            timeScale={timeScale}
-            onTimeScaleChange={onTimeScaleChange || (() => {})}
-            showBomCode={showBomCode}
-            showCycle={showCycle}
-            onShowBomCodeChange={onShowBomCodeChange || (() => {})}
-            onShowCycleChange={onShowCycleChange || (() => {})}
-            displayMode={displayMode}
-            onDisplayModeChange={onDisplayModeChange || (() => {})}
-            onAddYear={onAddYear || (() => {})}
-            onDeleteYear={onDeleteYear || (() => {})}
-            onExportData={onExportData || (() => {})}
-            onImportData={onImportData || (() => {})}
-            onResetData={onResetData || (() => {})}
-            onAIAssistantToggle={onAIAssistantToggle || (() => {})}
-            isAIAssistantOpen={isAIAssistantOpen}
-          />
-
-
+          {/* Integrated Toolbar - Always rendered first and memoized */}
+          <Box 
+            key="integrated-toolbar" 
+            sx={{ 
+              flexShrink: 0, 
+              zIndex: 10,
+              position: 'relative' // Ensure it stays in place
+            }}
+          >
+            {memoizedToolbar}
+          </Box>
           
           {/* Responsive Grid Layout */}
-          {renderResponsiveView()}
+          <Box 
+            sx={{ 
+              flex: 1, 
+              minHeight: 0, 
+              overflow: 'hidden',
+              transition: 'all 0.2s ease-in-out' // Smooth transition for responsive changes
+            }}
+          >
+            {renderResponsiveView}
+          </Box>
         </Box>
       </Paper>
 
