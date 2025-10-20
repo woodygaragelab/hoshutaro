@@ -55,7 +55,7 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
   const renderRows = () => {
     return renderData.map(([hierarchyPath, items]) => (
       <React.Fragment key={hierarchyPath || 'ungrouped'}>
-        {/* Group header row (only if we have a meaningful hierarchy path) */}
+        {/* Group header row (always show to maintain row alignment) */}
         {hierarchyPath && (
           <GroupHeaderRow
             hierarchyPath={hierarchyPath}

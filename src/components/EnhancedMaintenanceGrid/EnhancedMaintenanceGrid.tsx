@@ -66,7 +66,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     // Task name column (always visible)
     cols.push({
       id: 'task',
-      header: '作業内容',
+      header: '機器台帳',
       width: 250,
       minWidth: 150,
       maxWidth: 400,
@@ -77,11 +77,11 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
       accessor: 'task'
     });
 
-    // BOM Code column (conditional)
+    // TAG No. column (conditional)
     if (showBomCode) {
       cols.push({
         id: 'bomCode',
-        header: 'BOM Code',
+        header: 'TAG No.',
         width: 150,
         minWidth: 100,
         maxWidth: 200,
@@ -524,6 +524,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
           viewMode={viewMode}
           groupedData={groupedData}
           onCellEdit={handleCellEdit}
+          onSpecificationEdit={onSpecificationEdit}
           onColumnResize={handleColumnResize}
           onRowResize={handleRowResize}
           onSelectedCellChange={setSelectedCell}
@@ -575,6 +576,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
           viewMode={viewMode}
           groupedData={groupedData}
           onCellEdit={handleCellEdit}
+          onSpecificationEdit={onSpecificationEdit}
           onColumnResize={handleColumnResize}
           onRowResize={handleRowResize}
           onSelectedCellChange={setSelectedCell}

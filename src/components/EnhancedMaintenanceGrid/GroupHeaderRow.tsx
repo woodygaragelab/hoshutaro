@@ -31,59 +31,32 @@ export const GroupHeaderRow: React.FC<GroupHeaderRowProps> = ({
         width: isFixedArea ? totalWidth : '100%'
       }}
     >
-      {/* 固定エリアの場合は、固定エリアの幅内でのみ表示 */}
-      {isFixedArea ? (
-        <Box
+      <Box
+        sx={{
+          width: isFixedArea ? totalWidth : '100%',
+          minWidth: isFixedArea ? totalWidth : '100%',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '4px 12px',
+          backgroundColor: '#1e1e1e !important',
+          color: '#ffffff !important'
+        }}
+      >
+        {/* 固定エリアでのみ機器階層テキストを表示、スクロール可能エリアでは空白で行の高さのみ維持 */}
+        <Typography
+          variant="subtitle2"
           sx={{
-            width: totalWidth,
-            minWidth: totalWidth,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 12px',
-            backgroundColor: '#1e1e1e !important',
-            color: '#ffffff !important'
+            fontWeight: 600,
+            color: '#ffffff !important',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            visibility: isFixedArea ? 'visible' : 'hidden'
           }}
         >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 600,
-              color: '#ffffff !important',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {hierarchyPath}
-          </Typography>
-        </Box>
-      ) : (
-        /* スクロール可能エリアの場合は、全幅を使用してスクロール可能エリアのみに表示 */
-        <Box
-          sx={{
-            width: totalWidth,
-            minWidth: totalWidth,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 12px',
-            backgroundColor: '#1e1e1e !important',
-            color: '#ffffff !important'
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 600,
-              color: '#ffffff !important',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {hierarchyPath}
-          </Typography>
-        </Box>
-      )}
+          {isFixedArea ? hierarchyPath : '　'} {/* スクロール可能エリアでは全角スペースで高さを維持 */}
+        </Typography>
+      </Box>
     </Box>
   );
 };

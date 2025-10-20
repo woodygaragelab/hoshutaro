@@ -546,6 +546,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               onCellDoubleClick={handleCellDoubleClick}
               virtualScrolling={virtualScrolling}
               readOnly={readOnly}
+              isFixedArea={true}
             />
           </Box>
         </Box>
@@ -722,7 +723,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               virtualScrolling={virtualScrolling}
               readOnly={readOnly}
               isFixedArea={true}
-              syncScrollTop={syncScrollTop}
             />
           </Box>
         </Box>
@@ -827,8 +827,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   onCellDoubleClick={handleCellDoubleClick}
                   virtualScrolling={virtualScrolling}
                   readOnly={readOnly}
-                  isScrollableArea={true}
-                  syncScrollTop={syncScrollTop}
                 />
               </Box>
             </Box>
@@ -910,8 +908,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   onCellDoubleClick={handleCellDoubleClick}
                   virtualScrolling={virtualScrolling}
                   readOnly={readOnly}
-                  isScrollableArea={true}
-                  syncScrollTop={syncScrollTop}
                 />
               </Box>
             </Box>
