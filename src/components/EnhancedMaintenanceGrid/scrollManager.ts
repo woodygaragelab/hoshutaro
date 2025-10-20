@@ -104,6 +104,21 @@ export class ScrollManager {
   }
 
   /**
+   * タイムスケール変更時の特別なリセット処理
+   */
+  resetForTimeScaleChange(): void {
+    // タイムスケール変更時は完全にリセット
+    this.resetScrollPositions();
+    
+    // ローカルストレージからも削除して完全にクリア
+    try {
+      localStorage.removeItem(this.storageKey);
+    } catch (error) {
+      console.warn('Failed to clear scroll state:', error);
+    }
+  }
+
+  /**
    * 垂直スクロール位置を同期
    */
   syncVerticalScroll(
@@ -152,7 +167,7 @@ export class ScrollManager {
     this.saveTimer = setTimeout(() => {
       this.saveScrollState();
       this.saveTimer = null;
-    }, 500); // 500ms後に保存
+    }, 200); // 200ms後に保存（高速化）
   }
 
   /**
@@ -173,7 +188,7 @@ export class ScrollSynchronizer {
   private isScrolling: boolean = false;
   private scrollTimeout: NodeJS.Timeout | null = null;
   private lastScrollTime: number = 0;
-  private readonly throttleDelay: number = 16; // ~60fps
+  private readonly throttleDelay: number = 8; // ~120fps for smoother scrolling
 
   /**
    * スクロールイベントを同期
@@ -300,6 +315,7 @@ export const useScrollManager = (storageKey?: string) => {
     getScrollPosition: scrollManager.getScrollPosition.bind(scrollManager),
     getAllScrollPositions: scrollManager.getAllScrollPositions.bind(scrollManager),
     resetScrollPositions: scrollManager.resetScrollPositions.bind(scrollManager),
+    resetForTimeScaleChange: scrollManager.resetForTimeScaleChange.bind(scrollManager),
     syncVerticalScroll: scrollManager.syncVerticalScroll.bind(scrollManager),
     updateHorizontalScroll: scrollManager.updateHorizontalScroll.bind(scrollManager),
     synchronizeScroll: scrollSynchronizer.synchronizeScroll.bind(scrollSynchronizer),

@@ -83,7 +83,7 @@ describe('ResponsiveGridManager', () => {
   const mockColumns: GridColumn[] = [
     {
       id: 'task',
-      header: '作業内容',
+      header: '機器台帳',
       width: 250,
       minWidth: 150,
       maxWidth: 400,

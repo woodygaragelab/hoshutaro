@@ -1002,7 +1002,7 @@ const TabletGridView: React.FC<TabletGridViewProps> = ({
                   padding: tabletState.spacing / 8,
                 }}
               >
-                作業内容
+                機器台帳
               </TableCell>
               {visibleTimeHeaders.map(timeHeader => (
                 <TableCell 

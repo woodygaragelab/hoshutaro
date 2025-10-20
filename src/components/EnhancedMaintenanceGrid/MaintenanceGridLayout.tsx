@@ -10,7 +10,7 @@ import SpecificationEditDialog from '../SpecificationEditDialog/SpecificationEdi
 import { StatusValue, CostValue, SpecificationValue } from '../CommonEdit/types';
 import { useKeyboardNavigation } from './keyboardNavigation';
 import { useCopyPaste } from './copyPasteManager';
-import { useScrollManager } from './scrollManager';
+// import { useScrollManager } from './scrollManager';
 
 interface MaintenanceGridLayoutProps {
   data: HierarchicalData[];
@@ -55,6 +55,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   const fixedAreaRef = useRef<HTMLDivElement>(null);
   const specAreaRef = useRef<HTMLDivElement>(null);
   const maintenanceAreaRef = useRef<HTMLDivElement>(null);
+  const specHeaderRef = useRef<HTMLDivElement>(null);
+  const maintenanceHeaderRef = useRef<HTMLDivElement>(null);
   const isScrollingSyncRef = useRef(false);
 
   // Enhanced editing state
@@ -108,13 +110,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     pasteSingleCell
   } = useCopyPaste(data, columns);
 
-  // Enhanced scroll management
-  const {
-    updateScrollPosition,
-    getScrollPosition,
-    syncVerticalScroll,
-    updateHorizontalScroll
-  } = useScrollManager(`maintenance-grid-${data.length}`);
+  // Basic scroll management (temporarily disabled)
+  // const { resetForTimeScaleChange } = useScrollManager(`maintenance-grid-${data.length}`);
 
   // Grid container ref for keyboard event handling
   const gridContainerRef = useRef<HTMLDivElement>(null);
@@ -155,122 +152,38 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     setSpecAreaWidth(initialSpecWidth);
   }, [columnsByArea.fixed, displayAreaConfig.scrollableAreas.specifications?.width]);
 
-  // Enhanced scroll synchronization state
-  const [scrollPosition, setScrollPosition] = useState({ top: 0, left: 0 });
-  const [specScrollLeft, setSpecScrollLeft] = useState(0);
-  const [fixedScrollLeft, setFixedScrollLeft] = useState(0);
-  const scrollSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastScrollTimeRef = useRef<number>(0);
+  // Basic scroll synchronization state (currently unused)
+  // const [scrollPosition, setScrollPosition] = useState({ top: 0, left: 0 });
 
-  // Handle scroll synchronization between areas with improved performance
+  // Handle scroll synchronization between areas - Updated
   const handleScrollSync = useCallback((scrollTop: number, sourceArea: 'fixed' | 'spec' | 'maintenance') => {
     if (isScrollingSyncRef.current) return;
     
-    const now = Date.now();
-    const timeSinceLastScroll = now - lastScrollTimeRef.current;
-    
-    // Throttle scroll events for better performance
-    if (timeSinceLastScroll < 16) { // ~60fps
-      if (scrollSyncTimeoutRef.current) {
-        clearTimeout(scrollSyncTimeoutRef.current);
-      }
-      
-      scrollSyncTimeoutRef.current = setTimeout(() => {
-        handleScrollSync(scrollTop, sourceArea);
-      }, 16 - timeSinceLastScroll);
-      return;
-    }
-    
-    lastScrollTimeRef.current = now;
+
     isScrollingSyncRef.current = true;
     
-    // Update scroll position state for persistence
-    setScrollPosition(prev => ({ ...prev, top: scrollTop }));
     setSyncScrollTop(scrollTop);
-    
-    // Use requestAnimationFrame for smooth synchronization
-    requestAnimationFrame(() => {
-      // Sync scroll position to other areas with improved accuracy
-      if (sourceArea !== 'fixed' && fixedAreaRef.current) {
-        const currentScrollTop = fixedAreaRef.current.scrollTop;
-        if (Math.abs(currentScrollTop - scrollTop) > 1) { // Only sync if difference is significant
-          fixedAreaRef.current.scrollTop = scrollTop;
-        }
-      }
-      if (sourceArea !== 'spec' && specAreaRef.current) {
-        const currentScrollTop = specAreaRef.current.scrollTop;
-        if (Math.abs(currentScrollTop - scrollTop) > 1) {
-          specAreaRef.current.scrollTop = scrollTop;
-        }
-      }
-      if (sourceArea !== 'maintenance' && maintenanceAreaRef.current) {
-        const currentScrollTop = maintenanceAreaRef.current.scrollTop;
-        if (Math.abs(currentScrollTop - scrollTop) > 1) {
-          maintenanceAreaRef.current.scrollTop = scrollTop;
-        }
-      }
-      
-      // Reset sync flag with a shorter delay for better responsiveness
-      setTimeout(() => {
-        isScrollingSyncRef.current = false;
-      }, 10);
-    });
-  }, []);
-
-  // Cleanup scroll sync timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (scrollSyncTimeoutRef.current) {
-        clearTimeout(scrollSyncTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Restore scroll position when layout changes
-  useEffect(() => {
-    if (scrollPosition.top > 0) {
-      requestAnimationFrame(() => {
-        if (fixedAreaRef.current) {
-          fixedAreaRef.current.scrollTop = scrollPosition.top;
-        }
-        if (specAreaRef.current) {
-          specAreaRef.current.scrollTop = scrollPosition.top;
-        }
-        if (maintenanceAreaRef.current) {
-          maintenanceAreaRef.current.scrollTop = scrollPosition.top;
-        }
-      });
+    // Sync scroll positions
+    if (sourceArea !== 'fixed' && fixedAreaRef.current) {
+      fixedAreaRef.current.scrollTop = scrollTop;
     }
-  }, [displayAreaConfig.mode, scrollPosition.top]);
+    if (sourceArea !== 'spec' && specAreaRef.current) {
+      specAreaRef.current.scrollTop = scrollTop;
+    }
+    if (sourceArea !== 'maintenance' && maintenanceAreaRef.current) {
+      maintenanceAreaRef.current.scrollTop = scrollTop;
+    }
+    
+    setTimeout(() => {
+      isScrollingSyncRef.current = false;
+    }, 16);
+  }, []);
 
-  // Restore saved scroll positions on mount
-  useEffect(() => {
-    const savedPositions = {
-      fixed: getScrollPosition('fixed'),
-      specifications: getScrollPosition('specifications'),
-      maintenance: getScrollPosition('maintenance'),
-    };
 
-    // Restore positions after a short delay to ensure elements are rendered
-    const restoreTimer = setTimeout(() => {
-      if (fixedAreaRef.current && savedPositions.fixed.top > 0) {
-        fixedAreaRef.current.scrollTop = savedPositions.fixed.top;
-      }
-      if (specAreaRef.current && savedPositions.specifications.top > 0) {
-        specAreaRef.current.scrollTop = savedPositions.specifications.top;
-      }
-      if (maintenanceAreaRef.current) {
-        if (savedPositions.maintenance.top > 0) {
-          maintenanceAreaRef.current.scrollTop = savedPositions.maintenance.top;
-        }
-        if (savedPositions.maintenance.left > 0) {
-          maintenanceAreaRef.current.scrollLeft = savedPositions.maintenance.left;
-        }
-      }
-    }, 100);
 
-    return () => clearTimeout(restoreTimer);
-  }, [getScrollPosition]);
+
+
+
 
   // Determine layout based on display mode
   const layoutStyle = useMemo(() => {
@@ -553,37 +466,170 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       maintenance: columnsByArea.maintenance.map(c => c.id)
     });
     
-    // Always include fixed columns (task, bomCode, cycle) plus the mode-specific columns
-    const visibleColumns = [
-      ...columnsByArea.fixed,
+    // Get scrollable columns (non-fixed columns)
+    const scrollableColumns = [
       ...(displayAreaConfig.mode === 'specifications' || displayAreaConfig.mode === 'both' ? columnsByArea.specifications : []),
       ...(displayAreaConfig.mode === 'maintenance' || displayAreaConfig.mode === 'both' ? columnsByArea.maintenance : [])
     ];
     
-    console.log('renderSingleArea visibleColumns count:', visibleColumns.length);
-    console.log('renderSingleArea visibleColumns:', visibleColumns.map(c => ({ id: c.id, header: c.header })));
+    console.log('renderSingleArea fixed columns:', columnsByArea.fixed.map(c => c.id));
+    console.log('renderSingleArea scrollable columns:', scrollableColumns.map(c => c.id));
 
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        <MaintenanceTableHeader
-          columns={visibleColumns}
-          gridState={gridState}
-          onColumnResize={handleEnhancedColumnResize}
-        />
-        <MaintenanceTableBody
-          data={data}
-          columns={visibleColumns}
-          gridState={gridState}
-          viewMode={viewMode}
-          groupedData={groupedData}
-          onCellEdit={onCellEdit}
-          onSelectedCellChange={onSelectedCellChange}
-          onEditingCellChange={onEditingCellChange}
-          onUpdateItem={onUpdateItem}
-          onCellDoubleClick={handleCellDoubleClick}
-          virtualScrolling={virtualScrolling}
-          readOnly={readOnly}
-        />
+      <Box sx={{ display: 'flex', flexDirection: 'row', height: '100%', overflow: 'hidden' }}>
+        {/* Fixed columns area */}
+        <Box
+          sx={{
+            width: areaWidths.fixedWidth,
+            minWidth: areaWidths.fixedWidth,
+            maxWidth: areaWidths.fixedWidth,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '2px solid',
+            borderColor: 'divider',
+            backgroundColor: 'background.paper',
+            position: 'sticky',
+            left: 0,
+            zIndex: 2,
+            boxShadow: '2px 0 4px rgba(0,0,0,0.08)'
+          }}
+        >
+          <Box 
+            sx={{ 
+              width: '100%', 
+              overflow: 'hidden', 
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              backgroundColor: '#2a2a2a'
+            }}
+          >
+            <MaintenanceTableHeader
+              columns={columnsByArea.fixed}
+              gridState={gridState}
+              onColumnResize={handleEnhancedColumnResize}
+            />
+          </Box>
+          <Box 
+            ref={fixedAreaRef}
+            sx={{ 
+              overflowY: 'auto',
+              overflowX: 'hidden', 
+              flex: 1,
+              '&::-webkit-scrollbar': {
+                width: '8px'
+              },
+              '&::-webkit-scrollbar-track': {
+                backgroundColor: 'rgba(0,0,0,0.1)'
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                borderRadius: '4px'
+              }
+            }}
+            onScroll={(e) => {
+              const scrollTop = e.currentTarget.scrollTop;
+              handleScrollSync(scrollTop, 'fixed');
+            }}
+          >
+            <MaintenanceTableBody
+              data={data}
+              columns={columnsByArea.fixed}
+              gridState={gridState}
+              viewMode={viewMode}
+              groupedData={groupedData}
+              onCellEdit={onCellEdit}
+              onSelectedCellChange={onSelectedCellChange}
+              onEditingCellChange={onEditingCellChange}
+              onUpdateItem={onUpdateItem}
+              onCellDoubleClick={handleCellDoubleClick}
+              virtualScrolling={virtualScrolling}
+              readOnly={readOnly}
+            />
+          </Box>
+        </Box>
+
+        {/* Scrollable area */}
+        {scrollableColumns.length > 0 && (
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              backgroundColor: 'background.paper'
+            }}
+          >
+            <Box 
+              ref={maintenanceHeaderRef}
+              sx={{ 
+                width: '100%', 
+                overflowX: 'auto',
+                overflowY: 'hidden', 
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                backgroundColor: '#2a2a2a',
+                '&::-webkit-scrollbar': {
+                  display: 'none'
+                },
+                scrollbarWidth: 'none',
+                pointerEvents: 'none'
+              }}
+            >
+              <MaintenanceTableHeader
+                columns={scrollableColumns}
+                gridState={gridState}
+                onColumnResize={handleEnhancedColumnResize}
+              />
+            </Box>
+            <Box 
+              ref={maintenanceAreaRef}
+              sx={{ 
+                overflow: 'auto', 
+                flex: 1,
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                  height: '8px'
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: 'rgba(0,0,0,0.1)'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: 'rgba(0,0,0,0.3)',
+                  borderRadius: '4px'
+                }
+              }}
+              onScroll={(e) => {
+                const scrollTop = e.currentTarget.scrollTop;
+                const scrollLeft = e.currentTarget.scrollLeft;
+                handleScrollSync(scrollTop, 'maintenance');
+                
+                // Sync header horizontal scroll
+                if (maintenanceHeaderRef.current) {
+                  maintenanceHeaderRef.current.scrollLeft = scrollLeft;
+                }
+              }}
+            >
+              <MaintenanceTableBody
+                data={data}
+                columns={scrollableColumns}
+                gridState={gridState}
+                viewMode={viewMode}
+                groupedData={groupedData}
+                onCellEdit={onCellEdit}
+                onSelectedCellChange={onSelectedCellChange}
+                onEditingCellChange={onEditingCellChange}
+                onUpdateItem={onUpdateItem}
+                onCellDoubleClick={handleCellDoubleClick}
+                virtualScrolling={virtualScrolling}
+                readOnly={readOnly}
+              />
+            </Box>
+          </Box>
+        )}
       </Box>
     );
   };
@@ -610,7 +656,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
             borderRight: '2px solid',
             borderColor: 'divider',
             backgroundColor: 'background.paper',
-            position: 'relative',
+            position: 'sticky',
+            left: 0,
             zIndex: 2,
             boxShadow: '2px 0 4px rgba(0,0,0,0.08)'
           }}
@@ -621,29 +668,30 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
             onResize={handleFixedAreaResize}
             className="fixed-area-resizer"
           />
-          <Box sx={{ width: '100%', overflow: 'hidden', position: 'relative' }}>
-            <Box
-              sx={{
-                overflow: 'hidden',
-                transform: `translateX(-${fixedScrollLeft}px)`,
-                transition: 'transform 0.1s ease-out'
-              }}
-            >
-              <MaintenanceTableHeader
-                columns={columnsByArea.fixed}
-                gridState={gridState}
-                onColumnResize={handleEnhancedColumnResize}
-              />
-            </Box>
+          <Box 
+            sx={{ 
+              width: '100%', 
+              overflow: 'hidden', 
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              backgroundColor: '#2a2a2a'
+            }}
+          >
+            <MaintenanceTableHeader
+              columns={columnsByArea.fixed}
+              gridState={gridState}
+              onColumnResize={handleEnhancedColumnResize}
+            />
           </Box>
           <Box 
             ref={fixedAreaRef}
             sx={{ 
-              overflow: 'auto', 
+              overflowY: 'auto',
+              overflowX: 'hidden', 
               flex: 1,
               '&::-webkit-scrollbar': {
-                width: '8px',
-                height: '8px'
+                width: '8px'
               },
               '&::-webkit-scrollbar-track': {
                 backgroundColor: 'rgba(0,0,0,0.1)'
@@ -655,14 +703,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
             }}
             onScroll={(e) => {
               const scrollTop = e.currentTarget.scrollTop;
-              const scrollLeft = e.currentTarget.scrollLeft;
-              
               handleScrollSync(scrollTop, 'fixed');
-              updateScrollPosition('fixed', { top: scrollTop, left: scrollLeft });
-              syncVerticalScroll('fixed', scrollTop);
               
-              // Update fixed area horizontal scroll
-              setFixedScrollLeft(scrollLeft);
+
             }}
           >
             <MaintenanceTableBody
@@ -689,7 +732,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
           display: 'flex', 
           flex: 1, 
           minWidth: 0, // Allow shrinking
-          overflow: 'hidden' 
+          overflow: 'auto' 
         }}>
           {/* Specifications area */}
           {displayAreaConfig.scrollableAreas.specifications?.visible && (
@@ -720,20 +763,28 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   className="spec-area-resizer"
                 />
               )}
-              <Box sx={{ width: '100%', overflow: 'hidden', position: 'relative' }}>
-                <Box
-                  sx={{
-                    overflow: 'hidden',
-                    transform: `translateX(-${specScrollLeft}px)`,
-                    transition: 'transform 0.1s ease-out'
-                  }}
-                >
-                  <MaintenanceTableHeader
-                    columns={columnsByArea.specifications}
-                    gridState={gridState}
-                    onColumnResize={handleEnhancedColumnResize}
-                  />
-                </Box>
+              <Box 
+                ref={specHeaderRef}
+                sx={{ 
+                  width: '100%', 
+                  overflowX: 'auto',
+                  overflowY: 'hidden', 
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 10,
+                  backgroundColor: '#2a2a2a',
+                  '&::-webkit-scrollbar': {
+                    display: 'none'
+                  },
+                  scrollbarWidth: 'none',
+                  pointerEvents: 'none' // Prevent user interaction with header scroll
+                }}
+              >
+                <MaintenanceTableHeader
+                  columns={columnsByArea.specifications}
+                  gridState={gridState}
+                  onColumnResize={handleEnhancedColumnResize}
+                />
               </Box>
               <Box 
                 ref={specAreaRef}
@@ -755,13 +806,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 onScroll={(e) => {
                   const scrollTop = e.currentTarget.scrollTop;
                   const scrollLeft = e.currentTarget.scrollLeft;
-                  
                   handleScrollSync(scrollTop, 'spec');
-                  updateScrollPosition('specifications', { top: scrollTop, left: scrollLeft });
-                  syncVerticalScroll('specifications', scrollTop);
                   
-                  // Update spec area horizontal scroll
-                  setSpecScrollLeft(scrollLeft);
+                  // Sync header horizontal scroll
+                  if (specHeaderRef.current) {
+                    specHeaderRef.current.scrollLeft = scrollLeft;
+                  }
                 }}
               >
                 <MaintenanceTableBody
@@ -796,20 +846,28 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 backgroundColor: 'background.paper'
               }}
             >
-              <Box sx={{ width: '100%', overflow: 'hidden', position: 'relative' }}>
-                <Box
-                  sx={{
-                    overflow: 'hidden',
-                    transform: `translateX(-${scrollPosition.left || 0}px)`,
-                    transition: 'transform 0.1s ease-out'
-                  }}
-                >
-                  <MaintenanceTableHeader
-                    columns={columnsByArea.maintenance}
-                    gridState={gridState}
-                    onColumnResize={handleEnhancedColumnResize}
-                  />
-                </Box>
+              <Box 
+                ref={maintenanceHeaderRef}
+                sx={{ 
+                  width: '100%', 
+                  overflowX: 'auto',
+                  overflowY: 'hidden', 
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 10,
+                  backgroundColor: '#2a2a2a',
+                  '&::-webkit-scrollbar': {
+                    display: 'none'
+                  },
+                  scrollbarWidth: 'none',
+                  pointerEvents: 'none' // Prevent user interaction with header scroll
+                }}
+              >
+                <MaintenanceTableHeader
+                  columns={columnsByArea.maintenance}
+                  gridState={gridState}
+                  onColumnResize={handleEnhancedColumnResize}
+                />
               </Box>
               <Box 
                 ref={maintenanceAreaRef}
@@ -831,14 +889,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 onScroll={(e) => {
                   const scrollTop = e.currentTarget.scrollTop;
                   const scrollLeft = e.currentTarget.scrollLeft;
-                  
                   handleScrollSync(scrollTop, 'maintenance');
-                  updateScrollPosition('maintenance', { top: scrollTop, left: scrollLeft });
-                  syncVerticalScroll('maintenance', scrollTop);
-                  updateHorizontalScroll(scrollLeft);
                   
-                  // Also update local state for immediate UI updates
-                  setScrollPosition(prev => ({ ...prev, left: scrollLeft }));
+                  // Sync header horizontal scroll
+                  if (maintenanceHeaderRef.current) {
+                    maintenanceHeaderRef.current.scrollLeft = scrollLeft;
+                  }
                 }}
               >
                 <MaintenanceTableBody
@@ -870,7 +926,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       ref={gridContainerRef}
       sx={{ 
         flex: 1, 
-        overflow: 'hidden',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         outline: 'none', // Remove focus outline
         '&:focus': {
           outline: 'none',

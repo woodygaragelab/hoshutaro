@@ -104,9 +104,10 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
         minHeight: '40px !important',
         alignItems: 'center',
         width: `${totalColumnsWidth}px`,
-        minWidth: '100%',
+        minWidth: `${totalColumnsWidth}px`,
         overflow: 'visible',
-        position: 'sticky',
+        flexShrink: 0,
+        position: 'relative',
         top: 0,
         zIndex: 100,
         visibility: 'visible !important'

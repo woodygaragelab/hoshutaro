@@ -153,7 +153,7 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
       // This is acceptable for integration testing
     });
 
-    it('should handle existing BOM code and cycle display toggles', () => {
+    it('should handle existing TAG No. and cycle display toggles', () => {
       const { rerender } = renderWithTheme(
         <EnhancedMaintenanceGrid
           {...defaultProps}
@@ -162,11 +162,11 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
         />
       );
 
-      // Should show BOM code and cycle columns
-      expect(screen.getByText('BOM Code')).toBeInTheDocument();
+      // Should show TAG No. and cycle columns
+      expect(screen.getByText('TAG No.')).toBeInTheDocument();
       expect(screen.getByText('周期')).toBeInTheDocument();
 
-      // Hide BOM code and cycle
+      // Hide TAG No. and cycle
       rerender(
         <ThemeProvider theme={theme}>
           <EnhancedMaintenanceGrid
@@ -177,8 +177,8 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
         </ThemeProvider>
       );
 
-      // Should not show BOM code and cycle columns
-      expect(screen.queryByText('BOM Code')).not.toBeInTheDocument();
+      // Should not show TAG No. and cycle columns
+      expect(screen.queryByText('TAG No.')).not.toBeInTheDocument();
       expect(screen.queryByText('周期')).not.toBeInTheDocument();
     });
 
@@ -346,7 +346,7 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
       );
 
       // Should render without errors even with empty data
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
     });
 
     it('should maintain data integrity during updates', async () => {
@@ -440,7 +440,7 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
       );
 
       // Task column should always be visible
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
 
       rerender(
         <ThemeProvider theme={theme}>
@@ -452,7 +452,7 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
       );
 
       // Task column should still be visible
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
 
       rerender(
         <ThemeProvider theme={theme}>
@@ -464,7 +464,7 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
       );
 
       // Task column should still be visible
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
     });
 
     it('should handle scrollable areas independently', () => {
@@ -510,8 +510,8 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
         />
       );
 
-      // Should show BOM code and cycle in fixed area
-      expect(screen.getByText('BOM Code')).toBeInTheDocument();
+      // Should show TAG No. and cycle in fixed area
+      expect(screen.getByText('TAG No.')).toBeInTheDocument();
       expect(screen.getByText('周期')).toBeInTheDocument();
 
       // Change configuration
@@ -527,7 +527,7 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
       );
 
       // Configuration should be applied to the new display mode
-      expect(screen.queryByText('BOM Code')).not.toBeInTheDocument();
+      expect(screen.queryByText('TAG No.')).not.toBeInTheDocument();
       expect(screen.queryByText('周期')).not.toBeInTheDocument();
     });
 
@@ -568,7 +568,7 @@ describe('EnhancedMaintenanceGrid Integration Tests', () => {
       );
 
       // Should render without performance issues
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
     });
 
     it('should handle invalid data gracefully', () => {

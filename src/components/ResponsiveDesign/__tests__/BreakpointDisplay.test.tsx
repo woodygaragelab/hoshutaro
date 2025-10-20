@@ -249,7 +249,7 @@ describe('Breakpoint Display Tests', () => {
 
       await waitFor(() => {
         // Should show table layout with column controls
-        expect(screen.getByText('作業内容')).toBeInTheDocument();
+        expect(screen.getByText('機器台帳')).toBeInTheDocument();
         expect(screen.getByText('列表示:')).toBeInTheDocument();
       });
     });

@@ -15,45 +15,75 @@ export const GroupHeaderRow: React.FC<GroupHeaderRowProps> = ({
 }) => {
   const totalWidth = columns.reduce((sum, col) => sum + col.width, 0);
 
+  // 固定エリアの場合は、固定エリアの幅のみを使用
+  // スクロール可能エリアの場合は、そのエリアの幅を使用
   return (
     <Box
       className="group-header-row"
       sx={{
         display: 'flex',
-        height: 32, // Fixed height instead of minHeight
+        height: 32,
         backgroundColor: '#1e1e1e !important',
         borderBottom: '1px solid',
         borderColor: '#333333',
-        position: isFixedArea ? 'sticky' : 'relative',
-        left: 0,
-        zIndex: isFixedArea ? 2 : 1,
-        alignItems: 'center' // Ensure vertical alignment
+        position: 'relative',
+        alignItems: 'center',
+        width: isFixedArea ? totalWidth : '100%'
       }}
     >
-      <Box
-        sx={{
-          width: totalWidth,
-          minWidth: totalWidth,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '4px 12px',
-          backgroundColor: '#1e1e1e !important',
-          color: '#ffffff !important'
-        }}
-      >
-        <Typography
-          variant="subtitle2"
+      {/* 固定エリアの場合は、固定エリアの幅内でのみ表示 */}
+      {isFixedArea ? (
+        <Box
           sx={{
-            fontWeight: 600,
-            color: '#ffffff !important',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            width: totalWidth,
+            minWidth: totalWidth,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '4px 12px',
+            backgroundColor: '#1e1e1e !important',
+            color: '#ffffff !important'
           }}
         >
-          {hierarchyPath}
-        </Typography>
-      </Box>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 600,
+              color: '#ffffff !important',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {hierarchyPath}
+          </Typography>
+        </Box>
+      ) : (
+        /* スクロール可能エリアの場合は、全幅を使用してスクロール可能エリアのみに表示 */
+        <Box
+          sx={{
+            width: totalWidth,
+            minWidth: totalWidth,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '4px 12px',
+            backgroundColor: '#1e1e1e !important',
+            color: '#ffffff !important'
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 600,
+              color: '#ffffff !important',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {hierarchyPath}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };

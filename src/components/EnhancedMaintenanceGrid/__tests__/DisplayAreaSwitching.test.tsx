@@ -90,8 +90,8 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
       );
 
       // Should show maintenance columns
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
-      expect(screen.getByText('BOM Code')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
+      expect(screen.getByText('TAG No.')).toBeInTheDocument();
       expect(screen.getByText('周期')).toBeInTheDocument();
       expect(screen.getByText('2024')).toBeInTheDocument();
       expect(screen.getByText('2025')).toBeInTheDocument();
@@ -150,8 +150,8 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
       );
 
       // Should show basic columns
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
-      expect(screen.getByText('BOM Code')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
+      expect(screen.getByText('TAG No.')).toBeInTheDocument();
       expect(screen.getByText('周期')).toBeInTheDocument();
 
       // Should show specification columns
@@ -225,8 +225,8 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
       );
 
       // Should show basic columns
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
-      expect(screen.getByText('BOM Code')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
+      expect(screen.getByText('TAG No.')).toBeInTheDocument();
       expect(screen.getByText('周期')).toBeInTheDocument();
 
       // Should show specification columns
@@ -338,7 +338,7 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
         />
       );
 
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
 
       rerender(
         <ThemeProvider theme={theme}>
@@ -349,7 +349,7 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
         </ThemeProvider>
       );
 
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
 
       rerender(
         <ThemeProvider theme={theme}>
@@ -360,10 +360,10 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
         </ThemeProvider>
       );
 
-      expect(screen.getByText('作業内容')).toBeInTheDocument();
+      expect(screen.getByText('機器台帳')).toBeInTheDocument();
     });
 
-    it('should handle BOM code and cycle column visibility across modes', () => {
+    it('should handle TAG No. and cycle column visibility across modes', () => {
       const { rerender } = renderWithTheme(
         <EnhancedMaintenanceGrid
           {...defaultProps}
@@ -373,7 +373,7 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
         />
       );
 
-      expect(screen.getByText('BOM Code')).toBeInTheDocument();
+      expect(screen.getByText('TAG No.')).toBeInTheDocument();
       expect(screen.getByText('周期')).toBeInTheDocument();
 
       rerender(
@@ -387,7 +387,7 @@ describe('EnhancedMaintenanceGrid Display Area Switching Tests', () => {
         </ThemeProvider>
       );
 
-      expect(screen.queryByText('BOM Code')).not.toBeInTheDocument();
+      expect(screen.queryByText('TAG No.')).not.toBeInTheDocument();
       expect(screen.queryByText('周期')).not.toBeInTheDocument();
     });
   });
