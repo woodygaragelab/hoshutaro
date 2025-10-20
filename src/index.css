@@ -5,6 +5,11 @@ html, body, #root {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  
+  /* タッチ操作の最適化 */
+  touch-action: manipulation;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Force all text to be white */
@@ -148,4 +153,41 @@ a {
 
 .MuiIconButton-root:hover {
   background-color: #333333 !important;
+}
+
+/* タッチ操作の最適化 */
+* {
+  /* パッシブタッチリスナーに対応 */
+  touch-action: manipulation;
+}
+
+/* スクロール可能な要素 */
+.scrollable,
+[data-scrollable="true"],
+.MuiList-root,
+.MuiMenu-list,
+.MuiDialog-paper {
+  touch-action: pan-y pan-x;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ボタンやインタラクティブ要素 */
+button,
+.MuiButton-root,
+.MuiIconButton-root,
+.MuiChip-root,
+.MuiMenuItem-root,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* カードやクリック可能な要素 */
+.MuiCard-root,
+.MuiCardActionArea-root,
+.MuiListItem-root,
+.MuiListItemButton-root {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }

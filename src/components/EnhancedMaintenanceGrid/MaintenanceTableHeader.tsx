@@ -15,6 +15,16 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
 }) => {
   const [resizing, setResizing] = useState<{ columnId: string; startX: number; startWidth: number } | null>(null);
   
+  // Debug logging to check if header is receiving columns
+  console.log('MaintenanceTableHeader rendering with columns count:', columns.length);
+  console.log('First 10 columns:', columns.slice(0, 10).map(c => ({ id: c.id, header: c.header })));
+  console.log('Column types:', columns.reduce((acc, col) => {
+    const type = col.id.startsWith('spec_') ? 'spec' : 
+                 col.id.startsWith('time_') ? 'time' : 'fixed';
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>));
+  
   // Calculate total width of all columns
   const totalColumnsWidth = columns.reduce((sum, col) => {
     return sum + (gridState.columnWidths[col.id] || col.width);
@@ -60,20 +70,46 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
     }
   }, [resizing, handleMouseMove, handleMouseUp]);
 
+  // Debug: Force visibility for troubleshooting
+  if (columns.length === 0) {
+    return (
+      <Box
+        sx={{
+          display: 'flex !important',
+          borderBottom: '2px solid red',
+          backgroundColor: '#ff0000',
+          height: 40,
+          alignItems: 'center',
+          width: '100%',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1000,
+          justifyContent: 'center'
+        }}
+      >
+        <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
+          ヘッダー: 列がありません
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
-        display: 'flex',
-        borderBottom: '1px solid',
-        borderColor: '#333333',
+        display: 'flex !important',
+        borderBottom: '1px solid #333333',
         backgroundColor: '#2a2a2a',
-        height: 40,
+        height: '40px !important',
+        minHeight: '40px !important',
         alignItems: 'center',
-        width: '100%',
-        overflow: 'hidden',
+        width: `${totalColumnsWidth}px`,
+        minWidth: '100%',
+        overflow: 'visible',
         position: 'sticky',
         top: 0,
-        zIndex: 10
+        zIndex: 100,
+        visibility: 'visible !important'
       }}
     >
       {columns.map((column, index) => {
@@ -88,16 +124,16 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
               minWidth: width,
               maxWidth: width,
               flexShrink: 0,
-              display: 'flex',
+              display: 'flex !important',
               alignItems: 'center',
               justifyContent: 'center',
               padding: '8px 4px',
-              borderRight: isLastColumn ? 'none' : '1px solid',
-              borderColor: '#333333',
+              borderRight: isLastColumn ? 'none' : '1px solid #333333',
               position: 'relative',
               backgroundColor: '#2a2a2a',
               userSelect: 'none',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              height: '100%'
             }}
           >
             <Typography
@@ -109,9 +145,9 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 fontSize: '0.875rem',
-                color: '#ffffff !important',
-                textShadow: 'none'
+                color: '#ffffff'
               }}
+              title={`Header: ${column.header} (${column.id})`}
             >
               {column.header}
             </Typography>

@@ -21,7 +21,7 @@ const PerformanceMonitor: React.FC<{ enabled?: boolean }> = ({ enabled = false }
     apiResponseTime: 0,
   });
   const [expanded, setExpanded] = useState(false);
-  const [visible, setVisible] = useState(enabled);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -82,10 +82,10 @@ const PerformanceMonitor: React.FC<{ enabled?: boolean }> = ({ enabled = false }
     };
   }, [enabled]);
 
-  // Keyboard shortcut to toggle performance monitor
+  // Keyboard shortcut to toggle performance monitor (Ctrl+Shift+P)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setVisible(prev => !prev);
       }

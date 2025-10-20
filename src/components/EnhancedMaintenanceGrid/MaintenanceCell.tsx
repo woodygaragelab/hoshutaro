@@ -12,7 +12,7 @@ interface MaintenanceCellProps {
   isEditing: boolean;
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
   onCellClick: () => void;
-  onCellDoubleClick: () => void;
+  onCellDoubleClick: (event: React.MouseEvent<HTMLElement>) => void;
   readOnly: boolean;
   width: number;
   showRightBorder?: boolean;

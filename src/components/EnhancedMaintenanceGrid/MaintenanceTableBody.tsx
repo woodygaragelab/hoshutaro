@@ -15,6 +15,7 @@ interface MaintenanceTableBodyProps {
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
+  onCellDoubleClick?: (rowId: string, columnId: string, event: React.MouseEvent<HTMLElement>) => void;
   virtualScrolling: boolean;
   readOnly: boolean;
   isFixedArea?: boolean;
@@ -33,6 +34,7 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
   onSelectedCellChange,
   onEditingCellChange,
   onUpdateItem,
+  onCellDoubleClick,
   virtualScrolling,
   readOnly,
   isFixedArea = false,
@@ -74,6 +76,7 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
             onSelectedCellChange={onSelectedCellChange}
             onEditingCellChange={onEditingCellChange}
             onUpdateItem={onUpdateItem}
+            onCellDoubleClick={onCellDoubleClick}
             readOnly={readOnly}
           />
         ))}

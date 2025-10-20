@@ -12,6 +12,7 @@ interface MaintenanceTableRowProps {
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
+  onCellDoubleClick?: (rowId: string, columnId: string, event: React.MouseEvent<HTMLElement>) => void;
   readOnly: boolean;
 }
 import MaintenanceCell from './MaintenanceCell';
@@ -25,6 +26,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
   onSelectedCellChange,
   onEditingCellChange,
   onUpdateItem,
+  onCellDoubleClick,
   readOnly
 }) => {
   const [isEditingTask, setIsEditingTask] = useState(false);
@@ -115,14 +117,20 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
   }, [item.id, onSelectedCellChange]);
 
   // Handle cell double click for editing
-  const handleCellDoubleClick = useCallback((columnId: string) => {
+  const handleCellDoubleClick = useCallback((columnId: string, event: React.MouseEvent<HTMLElement>) => {
     if (readOnly) return;
     
     const column = columns.find(col => col.id === columnId);
     if (column?.editable) {
-      onEditingCellChange(item.id, columnId);
+      // Use the enhanced double-click handler if provided
+      if (onCellDoubleClick) {
+        onCellDoubleClick(item.id, columnId, event);
+      } else {
+        // Fallback to the original behavior
+        onEditingCellChange(item.id, columnId);
+      }
     }
-  }, [item.id, columns, readOnly, onEditingCellChange]);
+  }, [item.id, columns, readOnly, onCellDoubleClick, onEditingCellChange]);
 
 
 
@@ -247,7 +255,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
             isEditing={isEditing}
             onCellEdit={onCellEdit}
             onCellClick={() => handleCellClick(column.id)}
-            onCellDoubleClick={() => handleCellDoubleClick(column.id)}
+            onCellDoubleClick={(event) => handleCellDoubleClick(column.id, event)}
             readOnly={readOnly}
             width={width}
             showRightBorder={!isLastColumn}

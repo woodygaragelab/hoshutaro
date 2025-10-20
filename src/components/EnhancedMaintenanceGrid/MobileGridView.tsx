@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useContext } from 'react';
 import {
   Box,
   Card,
@@ -12,25 +12,45 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   Divider,
-  TextField,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   useTheme,
   alpha,
+  useMediaQuery,
+
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Edit as EditIcon,
-  CheckCircle as CheckCircleIcon,
-  RadioButtonUnchecked as RadioButtonUncheckedIcon,
   AttachMoney as AttachMoneyIcon,
+  Smartphone as SmartphoneIcon,
 } from '@mui/icons-material';
 import { HierarchicalData } from '../../types';
-import { ResponsiveLayout } from '../ExcelLikeGrid/types';
+import { ResponsiveLayout as GridResponsiveLayout } from '../ExcelLikeGrid/types';
+import { CommonEditContext } from '../CommonEdit/CommonEditLogic';
+import { createStatusValue } from '../CommonEdit/statusLogic';
+import { 
+  MobileStatusSelection, 
+  MobileCostInput, 
+  MobileSpecificationEdit 
+} from './MobileDialogEnhancements';
+import {
+  ResponsiveText,
+  PriorityInfoDisplay,
+  ExpandableDetail,
+  MobileSkeleton,
+} from './MobileSpecificFeatures';
+import {
+  MobileOrientationProvider,
+  useOrientation,
+  ResponsiveLayout,
+  OrientationAwareGrid,
+  useOrientationPersistence,
+  type DeviceInfo,
+} from './MobileOrientationHandler';
+import {
+  Info as InfoIcon,
+} from '@mui/icons-material';
 
 interface MobileGridViewProps {
   data: HierarchicalData[];
@@ -40,21 +60,20 @@ interface MobileGridViewProps {
   showCycle: boolean;
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
   onSpecificationEdit: (rowId: string, specIndex: number, key: string, value: string) => void;
-  responsive: ResponsiveLayout;
+  responsive: GridResponsiveLayout;
   groupedData?: { [key: string]: HierarchicalData[] };
+  loading?: boolean;
 }
 
 interface ExpandedState {
   [key: string]: boolean;
 }
 
-interface EditDialogState {
-  open: boolean;
-  item: HierarchicalData | null;
-  timeHeader: string | null;
-}
+// 最小タッチターゲットサイズ（44px）
+const MIN_TOUCH_TARGET = 44;
 
-const MobileGridView: React.FC<MobileGridViewProps> = ({
+// 内部コンポーネント（向き対応版）
+const MobileGridViewInternal: React.FC<MobileGridViewProps> = ({
   data,
   timeHeaders,
   viewMode,
@@ -63,69 +82,102 @@ const MobileGridView: React.FC<MobileGridViewProps> = ({
   onCellEdit,
   onSpecificationEdit,
   responsive,
-  groupedData
+  groupedData,
+  loading = false
 }) => {
   const theme = useTheme();
-  const [expanded, setExpanded] = useState<ExpandedState>({});
-  const [editDialog, setEditDialog] = useState<EditDialogState>({
-    open: false,
-    item: null,
-    timeHeader: null
-  });
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  // 向き情報を取得
+  const { deviceInfo, isRotating } = useOrientation();
+  
+  // 展開状態の永続化（画面回転時も保持）
+  const [expanded, setExpanded] = useOrientationPersistence<ExpandedState>('expanded-cards', {});
+  
+  // CommonEditContextを使用
+  const editContext = useContext(CommonEditContext);
+  
+  // 編集ダイアログの状態管理
+  const [currentEditItem, setCurrentEditItem] = useState<{
+    item: HierarchicalData;
+    timeHeader: string;
+    editType: 'status' | 'cost' | 'specification';
+  } | null>(null);
+
+
 
   const handleExpandToggle = useCallback((itemId: string) => {
-    setExpanded(prev => ({
-      ...prev,
-      [itemId]: !prev[itemId]
-    }));
-  }, []);
+    const newExpanded = {
+      ...expanded,
+      [itemId]: !expanded[itemId]
+    };
+    setExpanded(newExpanded);
+  }, [expanded, setExpanded]);
 
-  const handleEditClick = useCallback((item: HierarchicalData, timeHeader: string) => {
-    setEditDialog({
-      open: true,
-      item,
-      timeHeader
-    });
-  }, []);
+  const handleEditClick = useCallback((
+    item: HierarchicalData, 
+    timeHeader: string, 
+    editType: 'status' | 'cost' | 'specification'
+  ) => {
+    if (!editContext) return;
+    
+    setCurrentEditItem({ item, timeHeader, editType });
+    
+    // CommonEditLogicを使用して編集を開始
+    const columnId = editType === 'specification' ? 'specifications' : `time_${timeHeader}`;
+    editContext.startCellEdit(item.id, columnId, editType);
+  }, [editContext]);
 
   const handleEditClose = useCallback(() => {
-    setEditDialog({
-      open: false,
-      item: null,
-      timeHeader: null
-    });
-  }, []);
-
-  const handleEditSave = useCallback((value: any) => {
-    if (editDialog.item && editDialog.timeHeader) {
-      onCellEdit(editDialog.item.id, `time_${editDialog.timeHeader}`, value);
-      handleEditClose();
+    if (editContext) {
+      editContext.cancelEdit();
     }
-  }, [editDialog, onCellEdit, handleEditClose]);
+    setCurrentEditItem(null);
+  }, [editContext]);
 
-  const renderStatusIcon = (planned: boolean, actual: boolean) => {
-    if (actual) {
-      return <CheckCircleIcon sx={{ color: theme.palette.success.main }} />;
+  /**
+   * 星取表の状態記号を正確に表示
+   * 要件3.11: 計画（○）、実績（●）、両方（◎）、未計画（空白）
+   */
+  const renderStatusSymbol = (planned: boolean, actual: boolean) => {
+    let symbol = '';
+    let color = theme.palette.grey[400];
+    
+    if (planned && actual) {
+      symbol = '◎'; // 両方
+      color = theme.palette.success.main;
+    } else if (actual) {
+      symbol = '●'; // 実績のみ
+      color = theme.palette.success.main;
     } else if (planned) {
-      return <RadioButtonUncheckedIcon sx={{ color: theme.palette.primary.main }} />;
+      symbol = '○'; // 計画のみ
+      color = theme.palette.primary.main;
     } else {
-      return <RadioButtonUncheckedIcon sx={{ color: theme.palette.grey[400] }} />;
+      symbol = ''; // 未計画（空白）
+      color = theme.palette.grey[300];
     }
-  };
-
-  const renderCostDisplay = (planCost: number, actualCost: number) => {
+    
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        <Typography variant="caption" color="textSecondary">
-          予定: ¥{planCost.toLocaleString()}
-        </Typography>
-        <Typography variant="body2" fontWeight="bold">
-          実績: ¥{actualCost.toLocaleString()}
-        </Typography>
-      </Box>
+      <Typography
+        variant="h6"
+        sx={{
+          color,
+          fontWeight: 'bold',
+          minWidth: '24px',
+          textAlign: 'center',
+          fontSize: isSmallScreen ? '1.2rem' : '1.5rem',
+        }}
+      >
+        {symbol || '－'}
+      </Typography>
     );
   };
 
+
+
+  /**
+   * タイムライン項目の表示（モバイル最適化）
+   */
   const renderTimelineItem = (item: HierarchicalData, timeHeader: string) => {
     const result = item.results[timeHeader];
     if (!result) return null;
@@ -139,37 +191,66 @@ const MobileGridView: React.FC<MobileGridViewProps> = ({
       <ListItem
         key={timeHeader}
         sx={{
-          borderRadius: 1,
+          borderRadius: 2,
           mb: 1,
           backgroundColor: alpha(theme.palette.primary.main, 0.05),
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
           '&:hover': {
             backgroundColor: alpha(theme.palette.primary.main, 0.1),
-          }
+            transform: 'translateY(-1px)',
+            boxShadow: theme.shadows[2],
+          },
+          transition: 'all 0.2s ease-in-out',
+          minHeight: MIN_TOUCH_TARGET,
         }}
       >
         <ListItemText
-          primary={timeHeader}
-          secondary={viewMode === 'status' ? 
-            `${isPlanned ? '計画済' : '未計画'} / ${isActual ? '実施済' : '未実施'}` :
-            `予定: ¥${planCost.toLocaleString()} / 実績: ¥${actualCost.toLocaleString()}`
+          primary={
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                fontWeight: 'bold',
+                fontSize: isSmallScreen ? '0.85rem' : '0.9rem',
+              }}
+            >
+              {timeHeader}
+            </Typography>
+          }
+          secondary={
+            <Typography 
+              variant="body2" 
+              color="textSecondary"
+              sx={{ 
+                fontSize: isSmallScreen ? '0.75rem' : '0.8rem',
+                mt: 0.5,
+              }}
+            >
+              {viewMode === 'status' ? 
+                `${isPlanned ? '計画済' : '未計画'} / ${isActual ? '実施済' : '未実施'}` :
+                `予定: ¥${planCost.toLocaleString()} / 実績: ¥${actualCost.toLocaleString()}`
+              }
+            </Typography>
           }
         />
         <ListItemSecondaryAction>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {viewMode === 'status' ? 
-              renderStatusIcon(isPlanned, isActual) :
-              <AttachMoneyIcon color="primary" />
+              renderStatusSymbol(isPlanned, isActual) :
+              <AttachMoneyIcon color="primary" sx={{ fontSize: isSmallScreen ? '1.2rem' : '1.5rem' }} />
             }
             <IconButton
-              size="small"
-              onClick={() => handleEditClick(item, timeHeader)}
+              onClick={() => handleEditClick(item, timeHeader, viewMode)}
               sx={{ 
-                minWidth: 44,
-                minHeight: 44,
-                padding: responsive.getSpacing('sm')
+                minWidth: MIN_TOUCH_TARGET,
+                minHeight: MIN_TOUCH_TARGET,
+                borderRadius: 2,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                },
               }}
             >
-              <EditIcon fontSize="small" />
+              <EditIcon fontSize={isSmallScreen ? 'small' : 'medium'} />
             </IconButton>
           </Box>
         </ListItemSecondaryAction>
@@ -177,104 +258,109 @@ const MobileGridView: React.FC<MobileGridViewProps> = ({
     );
   };
 
+  /**
+   * モバイルカードの表示（改善版）
+   * 要件3.1, 3.2, 3.6: レイアウト崩れ修正、カードUI改善、44px以上のタッチターゲット
+   */
   const renderMobileCard = (item: HierarchicalData) => {
     const isExpanded = expanded[item.id] || false;
-    const cellHeight = responsive.getCellHeight();
-    const spacing = responsive.getSpacing('sm');
 
     return (
       <Card
         key={item.id}
         sx={{
-          mb: spacing / 8,
-          borderRadius: 2,
-          boxShadow: theme.shadows[2],
+          mb: 2,
+          borderRadius: 3,
+          boxShadow: theme.shadows[1],
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          overflow: 'hidden',
+          touchAction: 'manipulation', // タッチ操作を最適化
           '&:hover': {
-            boxShadow: theme.shadows[4],
-          }
+            boxShadow: theme.shadows[3],
+            transform: 'translateY(-2px)',
+          },
+          transition: 'all 0.3s ease-in-out',
         }}
       >
-        <CardContent sx={{ p: spacing / 8, '&:last-child': { pb: spacing / 8 } }}>
-          {/* Header */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <Typography 
-                variant="subtitle1" 
-                fontWeight="bold"
-                sx={{ 
-                  wordBreak: 'break-word',
-                  fontSize: responsive.isMobile ? '0.9rem' : '1rem'
-                }}
-              >
-                {item.task}
-              </Typography>
-              
-              {/* Metadata chips */}
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                {showBomCode && item.bomCode && (
-                  <Chip 
-                    label={`TAG: ${item.bomCode}`} 
-                    size="small" 
-                    variant="outlined"
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                )}
-                {showCycle && item.cycle && (
-                  <Chip 
-                    label={`周期: ${item.cycle}`} 
-                    size="small" 
-                    variant="outlined"
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                )}
-                {item.hierarchyPath && (
-                  <Chip 
-                    label={item.hierarchyPath} 
-                    size="small" 
-                    color="primary"
-                    variant="outlined"
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                )}
-              </Box>
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+          {/* Header with Priority Info Display */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+            <Box sx={{ flexGrow: 1, minWidth: 0, pr: 1 }}>
+              {/* 重要情報の優先表示 - 要件3.13, 3.14 */}
+              <PriorityInfoDisplay
+                item={item}
+                timeHeaders={timeHeaders}
+                viewMode={viewMode}
+                showBomCode={showBomCode}
+                showCycle={showCycle}
+              />
             </Box>
             
             <IconButton
               onClick={() => handleExpandToggle(item.id)}
               sx={{ 
-                minWidth: 44,
-                minHeight: 44,
-                ml: 1
+                minWidth: MIN_TOUCH_TARGET,
+                minHeight: MIN_TOUCH_TARGET,
+                borderRadius: 2,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                },
               }}
             >
-              {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              {isExpanded ? 
+                <ExpandLessIcon sx={{ fontSize: isSmallScreen ? '1.5rem' : '1.8rem' }} /> : 
+                <ExpandMoreIcon sx={{ fontSize: isSmallScreen ? '1.5rem' : '1.8rem' }} />
+              }
             </IconButton>
           </Box>
 
-          {/* Specifications preview (if available) */}
-          {item.specifications && item.specifications.length > 0 && (
-            <Box sx={{ mb: 1 }}>
-              <Typography variant="caption" color="textSecondary">
-                仕様: {item.specifications.slice(0, 2).map(spec => `${spec.key}: ${spec.value}`).join(', ')}
-                {item.specifications.length > 2 && '...'}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Timeline summary */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="caption" color="textSecondary">
+          {/* Timeline summary - 要件3.13: 最初の3期間の状態を視覚的に表示 */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            p: 1.5,
+            backgroundColor: alpha(theme.palette.background.default, 0.5),
+            borderRadius: 2,
+          }}>
+            <Typography 
+              variant="caption" 
+              color="textSecondary"
+              sx={{ 
+                fontSize: '0.75rem',
+                fontWeight: 'medium',
+              }}
+            >
               {timeHeaders.length}期間のデータ
             </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               {timeHeaders.slice(0, 3).map(header => {
                 const result = item.results[header];
                 if (!result) return null;
                 
                 if (viewMode === 'status') {
                   return (
-                    <Box key={header} sx={{ fontSize: '0.75rem' }}>
-                      {renderStatusIcon(result.planned || false, result.actual || false)}
+                    <Box 
+                      key={header} 
+                      sx={{ 
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        minWidth: 32,
+                      }}
+                    >
+                      {renderStatusSymbol(result.planned || false, result.actual || false)}
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          fontSize: '0.6rem',
+                          color: theme.palette.text.secondary,
+                          mt: 0.5,
+                        }}
+                      >
+                        {header.slice(-2)}
+                      </Typography>
                     </Box>
                   );
                 } else {
@@ -283,167 +369,177 @@ const MobileGridView: React.FC<MobileGridViewProps> = ({
                       key={header}
                       label={`¥${(result.actualCost || 0).toLocaleString()}`}
                       size="small"
-                      sx={{ fontSize: '0.7rem', height: 20 }}
+                      color="primary"
+                      variant="outlined"
+                      sx={{ 
+                        fontSize: '0.65rem', 
+                        height: 24,
+                        '& .MuiChip-label': { px: 1 }
+                      }}
                     />
                   );
                 }
               })}
               {timeHeaders.length > 3 && (
-                <Typography variant="caption" color="textSecondary">
+                <Typography 
+                  variant="caption" 
+                  color="primary"
+                  sx={{ 
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                    ml: 0.5,
+                  }}
+                >
                   +{timeHeaders.length - 3}
                 </Typography>
               )}
             </Box>
           </Box>
 
-          {/* Expanded content */}
-          <Collapse in={isExpanded}>
-            <Divider sx={{ my: 1 }} />
+          {/* Expanded content - 詳細情報の展開可能UI */}
+          <Collapse in={isExpanded} timeout={300}>
+            <Divider sx={{ my: 2 }} />
             
-            {/* Specifications */}
+            {/* 機器仕様詳細 - 展開可能UI */}
             {item.specifications && item.specifications.length > 0 && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  機器仕様
-                </Typography>
-                <List dense>
+              <ExpandableDetail
+                title="機器仕様詳細"
+                priority="medium"
+                icon={<InfoIcon />}
+                defaultExpanded={false}
+              >
+                <List dense sx={{ backgroundColor: alpha(theme.palette.background.default, 0.3), borderRadius: 2 }}>
                   {item.specifications.map((spec, index) => (
-                    <ListItem key={index} sx={{ py: 0.5 }}>
+                    <ListItem 
+                      key={index} 
+                      sx={{ 
+                        py: 1,
+                        borderBottom: index < item.specifications!.length - 1 ? 
+                          `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none',
+                      }}
+                    >
                       <ListItemText
-                        primary={spec.key}
-                        secondary={spec.value}
-                        primaryTypographyProps={{ fontSize: '0.875rem' }}
-                        secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                        primary={
+                          <ResponsiveText
+                            text={spec.key}
+                            maxLines={1}
+                            variant="subtitle2"
+                            showExpandButton={false}
+                          />
+                        }
+                        secondary={
+                          <ResponsiveText
+                            text={spec.value}
+                            maxLines={3}
+                            variant="body2"
+                          />
+                        }
                       />
                     </ListItem>
                   ))}
                 </List>
-              </Box>
+                <Button
+                  onClick={() => handleEditClick(item, '', 'specification')}
+                  variant="outlined"
+                  size="small"
+                  sx={{ 
+                    mt: 2,
+                    minHeight: MIN_TOUCH_TARGET,
+                  }}
+                >
+                  仕様を編集
+                </Button>
+              </ExpandableDetail>
             )}
 
-            {/* Timeline */}
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                {viewMode === 'status' ? '実施状況' : 'コスト情報'}
-              </Typography>
+            {/* タイムライン詳細 - 展開可能UI */}
+            <ExpandableDetail
+              title={viewMode === 'status' ? '実施状況詳細' : 'コスト情報詳細'}
+              priority="high"
+              defaultExpanded={true}
+            >
               <List dense>
                 {timeHeaders.map(header => renderTimelineItem(item, header))}
               </List>
-            </Box>
+            </ExpandableDetail>
           </Collapse>
         </CardContent>
       </Card>
     );
   };
 
-  const renderEditDialog = () => {
-    if (!editDialog.item || !editDialog.timeHeader) return null;
+  /**
+   * 編集ダイアログの表示（モバイル最適化版）
+   * 要件3.8, 3.5: フルスクリーンまたは適切なサイズでの表示、片手操作対応
+   */
+  const renderEditDialogs = () => {
+    if (!editContext || !currentEditItem) return null;
 
-    const result = editDialog.item.results[editDialog.timeHeader] || {};
-    const [planned, setPlanned] = useState(result.planned || false);
-    const [actual, setActual] = useState(result.actual || false);
-    const [planCost, setPlanCost] = useState(result.planCost || 0);
-    const [actualCost, setActualCost] = useState(result.actualCost || 0);
+    const { item, timeHeader, editType } = currentEditItem;
+    const { editState } = editContext;
 
-    const handleSave = () => {
-      if (viewMode === 'status') {
-        handleEditSave({ planned, actual });
-      } else {
-        handleEditSave({ planCost, actualCost });
-      }
-    };
+    // 現在の値を取得
+    let statusValue = createStatusValue(false, false);
+    let costValue = { planCost: 0, actualCost: 0 };
+    let specificationValue: any[] = [];
+
+    if (editType === 'status') {
+      const result = item.results[timeHeader];
+      statusValue = result ? createStatusValue(result.planned, result.actual) : createStatusValue(false, false);
+    } else if (editType === 'cost') {
+      const result = item.results[timeHeader];
+      costValue = {
+        planCost: result?.planCost || 0,
+        actualCost: result?.actualCost || 0,
+      };
+    } else if (editType === 'specification') {
+      specificationValue = item.specifications || [];
+    }
 
     return (
-      <Dialog 
-        open={editDialog.open} 
-        onClose={handleEditClose}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: { 
-            m: responsive.getSpacing('sm'),
-            maxHeight: `calc(100vh - ${responsive.getSpacing('lg')}px)`
-          }
-        }}
-      >
-        <DialogTitle>
-          {editDialog.timeHeader} - {editDialog.item.task}
-        </DialogTitle>
-        <DialogContent>
-          {viewMode === 'status' ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <IconButton
-                  onClick={() => setPlanned(!planned)}
-                  sx={{ 
-                    color: planned ? theme.palette.primary.main : theme.palette.grey[400],
-                    minWidth: 44,
-                    minHeight: 44
-                  }}
-                >
-                  <RadioButtonUncheckedIcon />
-                </IconButton>
-                <Typography>計画</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <IconButton
-                  onClick={() => setActual(!actual)}
-                  sx={{ 
-                    color: actual ? theme.palette.success.main : theme.palette.grey[400],
-                    minWidth: 44,
-                    minHeight: 44
-                  }}
-                >
-                  <CheckCircleIcon />
-                </IconButton>
-                <Typography>実績</Typography>
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <TextField
-                label="計画コスト"
-                type="number"
-                value={planCost}
-                onChange={(e) => setPlanCost(Number(e.target.value))}
-                fullWidth
-                InputProps={{
-                  startAdornment: '¥',
-                  sx: { minHeight: 44 }
-                }}
-              />
-              <TextField
-                label="実績コスト"
-                type="number"
-                value={actualCost}
-                onChange={(e) => setActualCost(Number(e.target.value))}
-                fullWidth
-                InputProps={{
-                  startAdornment: '¥',
-                  sx: { minHeight: 44 }
-                }}
-              />
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: responsive.getSpacing('md') / 8 }}>
-          <Button 
-            onClick={handleEditClose}
-            sx={{ minHeight: 44 }}
-          >
-            キャンセル
-          </Button>
-          <Button 
-            onClick={handleSave} 
-            variant="contained"
-            sx={{ minHeight: 44 }}
-          >
-            保存
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <>
+        {/* モバイル最適化状態選択ダイアログ */}
+        <MobileStatusSelection
+          open={editState.ui.dialogStates.statusSelection}
+          currentStatus={statusValue}
+          onSelect={(status) => {
+            editContext.updateEditValue(status);
+            editContext.saveEdit();
+          }}
+          onClose={handleEditClose}
+        />
+
+        {/* モバイル最適化コスト入力ダイアログ */}
+        <MobileCostInput
+          open={editState.ui.dialogStates.costInput}
+          currentCost={costValue}
+          onSave={(cost) => {
+            editContext.updateEditValue(cost);
+            editContext.saveEdit();
+          }}
+          onClose={handleEditClose}
+        />
+
+        {/* モバイル最適化機器仕様編集ダイアログ */}
+        <MobileSpecificationEdit
+          open={editState.ui.dialogStates.specificationEdit}
+          specifications={specificationValue}
+          onSave={(specifications) => {
+            editContext.updateEditValue(specifications);
+            editContext.saveEdit();
+          }}
+          onClose={handleEditClose}
+        />
+      </>
     );
   };
+
+  /**
+   * ローディング状態のスケルトン表示（モバイル最適化）
+   */
+  const renderLoadingSkeleton = () => (
+    <MobileSkeleton count={5} showPriority={true} />
+  );
 
   // Group data for mobile display
   const displayData = groupedData ? 
@@ -454,38 +550,134 @@ const MobileGridView: React.FC<MobileGridViewProps> = ({
     data;
 
   return (
-    <Box 
-      sx={{ 
-        height: '100%',
-        overflow: 'auto',
-        p: responsive.getSpacing('sm') / 8,
-        backgroundColor: theme.palette.grey[50]
+    <ResponsiveLayout
+      portraitProps={{
+        sx: {
+          height: '100%',
+          overflow: 'auto',
+          backgroundColor: alpha(theme.palette.background.default, 0.5),
+          scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y pan-x', // タッチスクロールを許可
+          overscrollBehavior: 'contain', // オーバースクロールを制限
+        }
+      }}
+      landscapeProps={{
+        sx: {
+          height: '100%',
+          overflow: 'auto',
+          backgroundColor: alpha(theme.palette.background.default, 0.5),
+          scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y pan-x', // タッチスクロールを許可
+          overscrollBehavior: 'contain', // オーバースクロールを制限
+          // 横向きでは少し異なるスタイル
+          display: 'flex',
+          flexDirection: 'column',
+        }
       }}
     >
-      {displayData.map((item: any, index) => {
-        if (item.isGroupHeader) {
-          return (
-            <Box key={`group-${index}`} sx={{ mb: 2 }}>
+      {loading ? (
+        renderLoadingSkeleton()
+      ) : (
+        <Box sx={{ 
+          p: isSmallScreen ? 1 : 2,
+          // 回転中は少し透明に
+          opacity: isRotating ? 0.7 : 1,
+          transition: 'opacity 0.3s ease-in-out',
+        }}>
+          {displayData.length === 0 ? (
+            <Box 
+              sx={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 200,
+                textAlign: 'center',
+                p: 3,
+              }}
+            >
+              <SmartphoneIcon 
+                sx={{ 
+                  fontSize: 64,
+                  color: theme.palette.grey[400],
+                  mb: 2,
+                }}
+              />
               <Typography 
                 variant="h6" 
-                sx={{ 
-                  p: responsive.getSpacing('sm') / 8,
-                  backgroundColor: theme.palette.primary.main,
-                  color: theme.palette.primary.contrastText,
-                  borderRadius: 1,
-                  fontSize: responsive.isMobile ? '1rem' : '1.25rem'
-                }}
+                color="textSecondary"
+                sx={{ mb: 1 }}
               >
-                {item.groupName} ({item.items.length}件)
+                データがありません
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="textSecondary"
+              >
+                表示するデータが見つかりませんでした
               </Typography>
             </Box>
-          );
-        }
-        return renderMobileCard(item);
-      })}
+          ) : (
+            // 向き対応グリッドレイアウト
+            <OrientationAwareGrid
+              portraitColumns={1}
+              landscapeColumns={deviceInfo.isSmallScreen ? 1 : 2}
+              spacing={2}
+            >
+              {displayData.map((item: any, index) => {
+                if (item.isGroupHeader) {
+                  return (
+                    <Box 
+                      key={`group-${index}`} 
+                      sx={{ 
+                        mb: 3,
+                        gridColumn: '1 / -1', // グループヘッダーは全幅
+                      }}
+                    >
+                      <Typography 
+                        variant="h5" 
+                        sx={{ 
+                          p: 2,
+                          backgroundColor: theme.palette.primary.main,
+                          color: theme.palette.primary.contrastText,
+                          borderRadius: 3,
+                          fontSize: deviceInfo.orientation === 'landscape' && !isSmallScreen ? 
+                            '1.4rem' : isSmallScreen ? '1.1rem' : '1.3rem',
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          boxShadow: theme.shadows[2],
+                        }}
+                      >
+                        {item.groupName} ({item.items.length}件)
+                      </Typography>
+                    </Box>
+                  );
+                }
+                return renderMobileCard(item);
+              })}
+            </OrientationAwareGrid>
+          )}
+        </Box>
+      )}
       
-      {renderEditDialog()}
-    </Box>
+      {renderEditDialogs()}
+    </ResponsiveLayout>
+  );
+};
+
+// メインコンポーネント（プロバイダーでラップ）
+const MobileGridView: React.FC<MobileGridViewProps> = (props) => {
+  return (
+    <MobileOrientationProvider
+      onOrientationChange={(deviceInfo) => {
+        // 向き変更時の処理（必要に応じて追加）
+      }}
+      persistState={true}
+    >
+      <MobileGridViewInternal {...props} />
+    </MobileOrientationProvider>
   );
 };
 

@@ -126,10 +126,19 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
       // Convert to sorted array for consistent ordering
       const sortedSpecKeys = Array.from(specKeys).sort();
       
-
+      // Debug logging for specification keys
+      console.log('Specification keys found:', sortedSpecKeys.length, sortedSpecKeys.slice(0, 10));
+      
+      // Limit the number of specification columns to prevent performance issues
+      const maxSpecColumns = 20;
+      const limitedSpecKeys = sortedSpecKeys.slice(0, maxSpecColumns);
+      
+      if (sortedSpecKeys.length > maxSpecColumns) {
+        console.warn(`Too many specification keys (${sortedSpecKeys.length}), limiting to ${maxSpecColumns}`);
+      }
       
       // Create columns for each specification key
-      sortedSpecKeys.forEach(specKey => {
+      limitedSpecKeys.forEach(specKey => {
         cols.push({
           id: `spec_${specKey}`,
           header: specKey,
@@ -163,6 +172,9 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
       });
     }
 
+    // Debug logging for total columns
+    console.log('Total columns generated:', cols.length, 'displayMode:', displayMode);
+    
     return cols;
   }, [data, timeHeaders, viewMode, displayMode, showBomCode, showCycle]);
 
@@ -191,6 +203,15 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         }
       }
     };
+    
+    // Debug logging to check display area configuration
+    console.log('Display area config:', {
+      mode: displayMode,
+      fixedColumns,
+      specColumns,
+      maintenanceColumns,
+      allColumns: columns.map(c => c.id)
+    });
     
     return config;
   }, [columns, displayMode, showBomCode, showCycle, viewMode]);
@@ -405,7 +426,11 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         case 'p':
           if (e.shiftKey) {
             e.preventDefault();
-            setShowPerformanceMonitor(!showPerformanceMonitor);
+            // Only toggle performance monitor if not in responsive mode to prevent duplicates
+            // Note: Main performance monitor is toggled via Ctrl+Shift+P globally
+            if (!responsive) {
+              setShowPerformanceMonitor(prev => !prev);
+            }
             return;
           }
           break;
@@ -640,14 +665,16 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         </Snackbar>
       )}
 
-      {/* Performance Monitor */}
-      <PerformanceMonitor
-        metrics={getPerformanceMetrics()}
-        dataSize={processedData.length}
-        columnCount={processedColumns.length}
-        virtualScrollingEnabled={virtualScrolling || shouldUseVirtualScrolling}
-        visible={showPerformanceMonitor}
-      />
+      {/* Performance Monitor - Only show if explicitly enabled via keyboard shortcut and not in responsive mode */}
+      {!responsive && showPerformanceMonitor && (
+        <PerformanceMonitor
+          metrics={getPerformanceMetrics()}
+          dataSize={processedData.length}
+          columnCount={processedColumns.length}
+          virtualScrollingEnabled={virtualScrolling || shouldUseVirtualScrolling}
+          visible={true}
+        />
+      )}
     </>
   );
 };

@@ -361,7 +361,7 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <PerformanceMonitor enabled={import.meta.env?.DEV || false} />
+      <PerformanceMonitor enabled={false} />
       <div 
         className={`responsive-container critical-loading ${responsive.isMobile ? 'mobile-layout' : responsive.isTablet ? 'tablet-layout' : 'desktop-layout'}`}
         role="application"
