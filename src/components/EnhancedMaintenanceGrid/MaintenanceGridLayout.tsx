@@ -9,7 +9,6 @@ import CostInputDialog from '../CostInputDialog/CostInputDialog';
 import SpecificationEditDialog from '../SpecificationEditDialog/SpecificationEditDialog';
 import { StatusValue, CostValue, SpecificationValue } from '../CommonEdit/types';
 import { useKeyboardNavigation } from './keyboardNavigation';
-import { useCopyPaste } from './copyPasteManager';
 // import { useScrollManager } from './scrollManager';
 
 interface MaintenanceGridLayoutProps {
@@ -29,6 +28,8 @@ interface MaintenanceGridLayoutProps {
   onSpecificationEdit: (rowId: string, index: number, field: 'key' | 'value', value: string) => void;
   virtualScrolling: boolean;
   readOnly: boolean;
+  onCopy?: () => Promise<void>;
+  onPaste?: () => Promise<void>;
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -48,7 +49,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   onUpdateItem,
   onSpecificationEdit,
   virtualScrolling,
-  readOnly
+  readOnly,
+  onCopy,
+  onPaste
 }) => {
   // Scroll synchronization state
   const [syncScrollTop, setSyncScrollTop] = useState(0);
@@ -76,26 +79,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     anchorEl: null,
   });
 
-  // Device detection for responsive dialogs
-  const [deviceType, setDeviceType] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-
-  // Detect device type on mount and resize
-  useEffect(() => {
-    const detectDeviceType = () => {
-      const width = window.innerWidth;
-      if (width < 768) {
-        setDeviceType('mobile');
-      } else if (width < 1024) {
-        setDeviceType('tablet');
-      } else {
-        setDeviceType('desktop');
-      }
-    };
-
-    detectDeviceType();
-    window.addEventListener('resize', detectDeviceType);
-    return () => window.removeEventListener('resize', detectDeviceType);
-  }, []);
+  // Desktop-only mode
+  const deviceType = 'desktop';
 
   // Keyboard navigation
   const { handleKeyDown } = useKeyboardNavigation(data, columns, {
@@ -103,12 +88,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     wrapAround: false,
     allowEditOnEnter: true,
   });
-
-  // Copy & Paste functionality
-  const { 
-    copySingleCell, 
-    pasteSingleCell
-  } = useCopyPaste(data, columns);
 
   // Basic scroll management (temporarily disabled)
   // const { resetForTimeScaleChange } = useScrollManager(`maintenance-grid-${data.length}`);
@@ -360,51 +339,43 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     return () => clearTimeout(debouncedResize);
   }, [onColumnResize]);
 
-  // Copy & Paste handlers
+  // Copy & Paste handlers (delegated to parent)
   const handleCopy = useCallback(async () => {
-    const currentRowId = gridState.selectedCell?.rowId;
-    const currentColumnId = gridState.selectedCell?.columnId;
-
-    if (currentRowId && currentColumnId) {
-      const success = await copySingleCell(currentRowId, currentColumnId, viewMode);
-      if (success) {
-        console.log('Cell copied successfully');
-        // TODO: Show user feedback
-      }
+    console.log('[MaintenanceGridLayout] handleCopy called', { onCopy: !!onCopy });
+    if (onCopy) {
+      await onCopy();
     }
-  }, [gridState.selectedCell, copySingleCell, viewMode]);
+  }, [onCopy]);
 
   const handlePaste = useCallback(async () => {
-    const currentRowId = gridState.selectedCell?.rowId;
-    const currentColumnId = gridState.selectedCell?.columnId;
-
-    if (currentRowId && currentColumnId && !readOnly) {
-      const result = await pasteSingleCell(currentRowId, currentColumnId, viewMode);
-      if (result.success && result.value !== undefined) {
-        onCellEdit(currentRowId, currentColumnId, result.value);
-        console.log('Cell pasted successfully');
-        // TODO: Show user feedback
-      } else if (result.error) {
-        console.error('Paste failed:', result.error);
-        // TODO: Show error message to user
-      }
+    console.log('[MaintenanceGridLayout] handlePaste called', { onPaste: !!onPaste });
+    if (onPaste) {
+      await onPaste();
     }
-  }, [gridState.selectedCell, pasteSingleCell, viewMode, readOnly, onCellEdit]);
+  }, [onPaste]);
 
   // Keyboard navigation handler
   const handleKeyboardNavigation = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    console.log('[MaintenanceGridLayout] handleKeyboardNavigation called', { 
+      key: event.key, 
+      ctrlKey: event.ctrlKey, 
+      metaKey: event.metaKey 
+    });
     const currentRowId = gridState.selectedCell?.rowId || null;
     const currentColumnId = gridState.selectedCell?.columnId || null;
     const isEditing = gridState.editingCell?.rowId !== null && gridState.editingCell?.columnId !== null;
 
     // Handle copy & paste shortcuts
     if (event.ctrlKey || event.metaKey) {
+      console.log('[MaintenanceGridLayout] Ctrl/Meta key detected, key:', event.key);
       if (event.key === 'c' || event.key === 'C') {
+        console.log('[MaintenanceGridLayout] Copy shortcut detected');
         event.preventDefault();
         handleCopy();
         return;
       }
       if (event.key === 'v' || event.key === 'V') {
+        console.log('[MaintenanceGridLayout] Paste shortcut detected');
         event.preventDefault();
         handlePaste();
         return;
@@ -988,7 +959,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
           currentStatus={editDialogState.currentValue}
           onSelect={handleDialogSave}
           onClose={handleDialogClose}
-          deviceType={deviceType}
           anchorEl={editDialogState.anchorEl}
         />
       )}
@@ -1000,7 +970,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
           currentCost={editDialogState.currentValue}
           onSave={handleDialogSave}
           onClose={handleDialogClose}
-          deviceType={deviceType}
+          anchorEl={editDialogState.anchorEl}
         />
       )}
       
@@ -1011,7 +981,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
           specifications={editDialogState.currentValue}
           onSave={handleDialogSave}
           onClose={handleDialogClose}
-          deviceType={deviceType}
+          anchorEl={editDialogState.anchorEl}
         />
       )}
     </Box>

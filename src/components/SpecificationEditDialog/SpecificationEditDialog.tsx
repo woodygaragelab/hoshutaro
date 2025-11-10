@@ -1,9 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   TextField,
   Typography,
@@ -12,7 +8,6 @@ import {
   Paper,
   useTheme,
   alpha,
-  Slide,
   Fade,
   IconButton,
   List,
@@ -22,12 +17,8 @@ import {
   Divider,
   Chip,
   Tooltip,
-  Collapse,
   ButtonGroup,
 } from '@mui/material';
-import { TabletOptimizedDialog } from '../EnhancedMaintenanceGrid/TabletOptimizedDialog';
-import { TabletOptimizedButton, TabletOptimizedIconButton } from '../EnhancedMaintenanceGrid/TabletOptimizedButton';
-import { TransitionProps } from '@mui/material/transitions';
 import {
   Settings as SettingsIcon,
   Add as AddIcon,
@@ -36,7 +27,6 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
-  SwapVert as ReorderIcon,
   KeyboardArrowUp as ArrowUpIcon,
   KeyboardArrowDown as ArrowDownIcon,
   FirstPage as FirstIcon,
@@ -45,28 +35,19 @@ import {
 import { SpecificationValue } from '../CommonEdit/types';
 import {
   DesktopDragHandler,
-  TouchReorderHandler,
   moveItem,
   updateSpecificationOrder,
   getActiveItemIndices,
   handleKeyboardReorder,
-
   getReorderAriaAttributes,
   getReorderInstructions,
 } from './reorderingUtils';
-import { useResponsiveLayout } from './useResponsiveLayout';
-import {
-  MobileFloatingActions,
-  DeviceErrorDisplay,
-  KeyboardAdjustment,
-} from './DeviceSpecificComponents';
 
 export interface SpecificationEditDialogProps {
   open: boolean;
   specifications: SpecificationValue[];
   onSave: (specifications: SpecificationValue[]) => void;
   onClose: () => void;
-  deviceType: 'desktop' | 'tablet' | 'mobile';
   anchorEl?: HTMLElement | null; // Desktop用のアンカー要素
   animationDuration?: number; // アニメーション時間
   maxItems?: number; // 最大項目数
@@ -95,15 +76,7 @@ export interface SpecificationEditItem {
   valueError?: string;
 }
 
-// アニメーション用のトランジション
-const SlideUpTransition = React.forwardRef(function Transition(
-  props: TransitionProps & {
-    children: React.ReactElement;
-  },
-  ref: React.Ref<unknown>,
-) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
+
 
 /**
  * 機器仕様編集ダイアログ
@@ -113,7 +86,6 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
   specifications,
   onSave,
   onClose,
-  deviceType: propDeviceType,
   anchorEl,
   animationDuration = 300,
   maxItems = 20,
@@ -123,19 +95,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
   allowReorder = true,
 }) => {
   const theme = useTheme();
-  
-  // レスポンシブレイアウトの管理
-  const {
-    layoutState,
-    getDeviceStyles,
-    getDeviceBehavior,
-    isKeyboardVisible,
-  } = useResponsiveLayout();
-  
-  // プロパティで指定されたデバイスタイプを優先、なければ自動検出
-  const deviceType = propDeviceType || layoutState.deviceType;
-  const deviceStyles = getDeviceStyles();
-  const deviceBehavior = getDeviceBehavior();
+  const deviceType = 'desktop';
   
   // 編集状態の管理
   const [editState, setEditState] = useState<SpecificationEditState>({
@@ -145,17 +105,12 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     editingIndex: null,
   });
 
-  // ドラッグ&ドロップとタッチ順序変更の管理
+  // ドラッグ&ドロップ管理
   const dragHandlerRef = useRef<DesktopDragHandler | null>(null);
-  const touchHandlerRef = useRef<TouchReorderHandler | null>(null);
   const [dragState, setDragState] = useState<{ isDragging: boolean; draggedIndex: number | null; dropTargetIndex: number | null }>({ 
     isDragging: false, 
     draggedIndex: null, 
     dropTargetIndex: null 
-  });
-  const [touchReorderState, setTouchReorderState] = useState<{ isReordering: boolean; selectedIndex: number | null }>({ 
-    isReordering: false, 
-    selectedIndex: null 
   });
 
   // アニメーション設定（将来の拡張用）
@@ -196,7 +151,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
       });
       
       // ドラッグ&ドロップハンドラーの初期化
-      if (deviceType === 'desktop' && allowReorder) {
+      if (allowReorder) {
         dragHandlerRef.current = new DesktopDragHandler({
           onDragStart: (index) => {
             setDragState(prev => ({ ...prev, isDragging: true, draggedIndex: index }));
@@ -207,22 +162,6 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
           onDragEnd: (fromIndex, toIndex) => {
             handleReorderItems(fromIndex, toIndex);
             setDragState({ isDragging: false, draggedIndex: null, dropTargetIndex: null });
-          },
-        });
-      }
-      
-      // タッチ順序変更ハンドラーの初期化
-      if ((deviceType === 'tablet' || deviceType === 'mobile') && allowReorder) {
-        touchHandlerRef.current = new TouchReorderHandler({
-          onReorderStart: (index) => {
-            setTouchReorderState({ isReordering: true, selectedIndex: index });
-          },
-          onReorderEnd: (fromIndex, toIndex) => {
-            handleReorderItems(fromIndex, toIndex);
-            setTouchReorderState({ isReordering: false, selectedIndex: null });
-          },
-          onReorderCancel: () => {
-            setTouchReorderState({ isReordering: false, selectedIndex: null });
           },
         });
       }
@@ -412,27 +351,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     handleReorderItems(index, targetIndex);
   }, [editState, allowReorder, handleReorderItems]);
 
-  // タッチ順序変更の開始
-  const handleStartTouchReorder = useCallback((index: number) => {
-    if (!allowReorder || !touchHandlerRef.current) return;
-    
-    const item = editState.items[index];
-    touchHandlerRef.current.startReordering(index, item, editState.items);
-  }, [editState.items, allowReorder]);
 
-  // タッチ順序変更の位置選択
-  const handleSelectTouchPosition = useCallback((targetIndex: number) => {
-    if (!touchHandlerRef.current) return;
-    
-    touchHandlerRef.current.moveToPosition(targetIndex);
-  }, []);
-
-  // タッチ順序変更のキャンセル
-  const handleCancelTouchReorder = useCallback(() => {
-    if (!touchHandlerRef.current) return;
-    
-    touchHandlerRef.current.cancelReordering();
-  }, []);
 
   // 保存処理
   const handleSave = useCallback(() => {
@@ -491,10 +410,10 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
 
   // 項目レベルのキーボードハンドラー
   const handleItemKeyDown = useCallback((event: React.KeyboardEvent, index: number) => {
-    if (allowReorder && deviceType === 'desktop') {
+    if (allowReorder) {
       handleKeyboardReorder(event, index, editState.items, handleReorderItems);
     }
-  }, [allowReorder, deviceType, editState.items, handleReorderItems]);
+  }, [allowReorder, editState.items, handleReorderItems]);
 
   // 編集項目のレンダリング
   const renderEditItem = (item: SpecificationEditItem, index: number) => {
@@ -504,7 +423,6 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     const hasError = item.keyError || item.valueError || editState.validationErrors[index];
     const isDragging = dragState.isDragging && dragState.draggedIndex === index;
     const isDropTarget = dragState.dropTargetIndex === index;
-    const isSelected = touchReorderState.selectedIndex === index;
     const activeIndices = getActiveItemIndices(editState.items);
     const currentActiveIndex = activeIndices.indexOf(index);
     const isFirst = currentActiveIndex === 0;
@@ -513,16 +431,14 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     // アニメーション用のスタイル
     const itemStyle = {
       border: hasError ? `1px solid ${theme.palette.error.main}` : 
-              isDropTarget ? `2px solid ${theme.palette.primary.main}` :
-              isSelected ? `2px solid ${theme.palette.primary.main}` : 'none',
-      borderRadius: (hasError || isDropTarget || isSelected) ? 1 : 0,
-      mb: (hasError || isDropTarget || isSelected) ? 1 : 0,
-      backgroundColor: isDropTarget ? alpha(theme.palette.primary.main, 0.08) :
-                      isSelected ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
+              isDropTarget ? `2px solid ${theme.palette.primary.main}` : 'none',
+      borderRadius: (hasError || isDropTarget) ? 1 : 0,
+      mb: (hasError || isDropTarget) ? 1 : 0,
+      backgroundColor: isDropTarget ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
       transform: isDragging ? 'scale(1.02)' : 'scale(1)',
       opacity: isDragging ? 0.8 : 1,
       transition: 'all 0.2s ease-in-out',
-      cursor: allowReorder && deviceType === 'desktop' ? 'grab' : 'default',
+      cursor: allowReorder ? 'grab' : 'default',
     };
     
     if (isEditing) {
@@ -536,7 +452,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
               onChange={(e) => handleEditItem(index, 'key', e.target.value)}
               error={!!item.keyError}
               helperText={item.keyError}
-              size={deviceType === 'mobile' ? 'medium' : 'small'}
+              size="small"
               disabled={readOnly}
               inputProps={{
                 maxLength: 50,
@@ -549,10 +465,9 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
               onChange={(e) => handleEditItem(index, 'value', e.target.value)}
               error={!!item.valueError}
               helperText={item.valueError}
-              size={deviceType === 'mobile' ? 'medium' : 'small'}
+              size="small"
               disabled={readOnly}
-              multiline={deviceType !== 'desktop'}
-              rows={deviceType === 'mobile' ? 3 : 2}
+              multiline={false}
               inputProps={{
                 maxLength: 200,
               }}
@@ -583,8 +498,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
       );
     }
     
-    // デスクトップ用ドラッグ&ドロップ対応
-    const dragProps = allowReorder && deviceType === 'desktop' && dragHandlerRef.current ? {
+    // ドラッグ&ドロップ対応
+    const dragProps = allowReorder && dragHandlerRef.current ? {
       draggable: true,
       onDragStart: (e: React.DragEvent) => dragHandlerRef.current!.handleDragStart(e, index, item),
       onDragOver: (e: React.DragEvent) => dragHandlerRef.current!.handleDragOver(e, index),
@@ -598,7 +513,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     const ariaAttributes = getReorderAriaAttributes(
       currentActiveIndex,
       activeIndices.length,
-      isSelected,
+      false,
       isDropTarget
     );
     
@@ -610,8 +525,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         {...dragProps}
         {...ariaAttributes}
       >
-        {/* ドラッグハンドル（デスクトップ） */}
-        {allowReorder && deviceType === 'desktop' && (
+        {/* ドラッグハンドル */}
+        {allowReorder && (
           <Tooltip title="ドラッグして順序を変更">
             <DragIcon 
               sx={{ 
@@ -641,9 +556,6 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
               {item.isNew && (
                 <Chip label="新規" size="small" color="primary" variant="outlined" />
               )}
-              {isSelected && (
-                <Chip label="選択中" size="small" color="secondary" variant="filled" />
-              )}
             </Box>
           }
           secondary={
@@ -654,7 +566,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 display: '-webkit-box',
-                WebkitLineClamp: deviceType === 'mobile' ? 3 : 2,
+                WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
               }}
             >
@@ -666,113 +578,65 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         <ListItemSecondaryAction>
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
             {/* 順序変更コントロール */}
-            {allowReorder && !touchReorderState.isReordering && (
+            {allowReorder && (
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                {deviceType === 'desktop' ? (
-                  // デスクトップ用の詳細な順序変更ボタン
-                  <ButtonGroup orientation="vertical" size="small" variant="outlined">
-                    <Tooltip title="最初に移動 (Ctrl+Home)">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveItem(index, 'first')}
-                        disabled={isFirst}
-                      >
-                        <FirstIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="上に移動 (Ctrl+↑)">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveItem(index, 'up')}
-                        disabled={isFirst}
-                      >
-                        <ArrowUpIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="下に移動 (Ctrl+↓)">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveItem(index, 'down')}
-                        disabled={isLast}
-                      >
-                        <ArrowDownIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="最後に移動 (Ctrl+End)">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveItem(index, 'last')}
-                        disabled={isLast}
-                      >
-                        <LastIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </ButtonGroup>
-                ) : (
-                  // タブレット・モバイル用の簡単な順序変更
-                  <>
-                    <Tooltip title="順序を変更">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleStartTouchReorder(index)}
-                        color={isSelected ? 'primary' : 'default'}
-                      >
-                        <ReorderIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Box sx={{ display: 'flex' }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveItem(index, 'up')}
-                        disabled={isFirst}
-                      >
-                        <ArrowUpIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveItem(index, 'down')}
-                        disabled={isLast}
-                      >
-                        <ArrowDownIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </>
-                )}
+                <ButtonGroup orientation="vertical" size="small" variant="outlined">
+                  <Tooltip title="最初に移動 (Ctrl+Home)">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveItem(index, 'first')}
+                      disabled={isFirst}
+                    >
+                      <FirstIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="上に移動 (Ctrl+↑)">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveItem(index, 'up')}
+                      disabled={isFirst}
+                    >
+                      <ArrowUpIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="下に移動 (Ctrl+↓)">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveItem(index, 'down')}
+                      disabled={isLast}
+                    >
+                      <ArrowDownIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="最後に移動 (Ctrl+End)">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveItem(index, 'last')}
+                      disabled={isLast}
+                    >
+                      <LastIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </ButtonGroup>
               </Box>
             )}
             
-            {/* タッチ順序変更中の位置選択ボタン */}
-            {touchReorderState.isReordering && touchReorderState.selectedIndex !== index && (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => handleSelectTouchPosition(index)}
-                sx={{ minWidth: 'auto', px: 1 }}
-              >
-                ここに移動
-              </Button>
-            )}
-            
             {/* 編集・削除ボタン */}
-            {!touchReorderState.isReordering && (
-              <>
-                <IconButton
-                  size="small"
-                  onClick={() => handleToggleEdit(index)}
-                  disabled={readOnly}
-                >
-                  <EditIcon />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => handleDeleteItem(index)}
-                  disabled={readOnly}
-                  color="error"
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </>
-            )}
+            <IconButton
+              size="small"
+              onClick={() => handleToggleEdit(index)}
+              disabled={readOnly}
+            >
+              <EditIcon />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => handleDeleteItem(index)}
+              disabled={readOnly}
+              color="error"
+            >
+              <DeleteIcon />
+            </IconButton>
           </Box>
         </ListItemSecondaryAction>
       </ListItem>
@@ -783,8 +647,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
   const hasErrors = Object.keys(editState.validationErrors).length > 0 || 
                    editState.items.some(item => item.keyError || item.valueError);
 
-  // デスクトップ用ポップオーバー（インライン編集対応）
-  if (deviceType === 'desktop' && anchorEl && deviceBehavior.enableInlineEdit) {
+  // Desktop-only popover
+  if (anchorEl) {
     return (
       <Popover
         open={open}
@@ -802,7 +666,6 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         transitionDuration={animationDuration}
         PaperProps={{
           sx: {
-            ...deviceStyles.dialog,
             minWidth: 480,
             maxWidth: 600,
             boxShadow: theme.shadows[8],
@@ -836,19 +699,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
               </Typography>
             )}
             
-            {/* タッチ順序変更中のキャンセルボタン */}
-            {touchReorderState.isReordering && (
-              <Box sx={{ mb: 2, px: 1 }}>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleCancelTouchReorder}
-                  fullWidth
-                >
-                  順序変更をキャンセル
-                </Button>
-              </Box>
-            )}
+
             
             <List dense>
               {editState.items.map((item, index) => renderEditItem(item, index))}
@@ -890,235 +741,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     );
   }
 
-  // タブレット・モバイル用ダイアログ（デバイス最適化対応）
-  const isFullScreen = deviceType === 'mobile' || layoutState.preferredDialogMode === 'fullscreen';
-  
-  // タブレット用の最適化されたダイアログ
-  if (deviceType === 'tablet') {
-    return (
-      <TabletOptimizedDialog
-        open={open}
-        onClose={onClose}
-        title={
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <SettingsIcon sx={{ color: 'primary.main' }} />
-              機器仕様編集
-            </Box>
-            <Typography variant="caption" color="text.secondary">
-              {activeItemsCount}/{maxItems}
-            </Typography>
-          </Box>
-        }
-        maxWidth="md"
-        keyboardAdjustment={true}
-        actions={
-          <Box sx={{ display: 'flex', gap: 2, width: '100%', justifyContent: 'center' }}>
-            <TabletOptimizedButton 
-              onClick={onClose}
-              variant="outlined"
-              touchOptimized
-              hapticFeedback
-            >
-              キャンセル
-            </TabletOptimizedButton>
-            <TabletOptimizedButton
-              onClick={handleSave}
-              variant="contained"
-              disabled={hasErrors || !editState.hasChanges || readOnly}
-              touchOptimized
-              hapticFeedback
-            >
-              保存
-            </TabletOptimizedButton>
-          </Box>
-        }
-      >
-        <Box onKeyDown={handleKeyDown}>
-          <Box sx={{ mb: 2 }}>
-            <TabletOptimizedButton
-              startIcon={<AddIcon />}
-              onClick={handleAddItem}
-              disabled={activeItemsCount >= maxItems || readOnly}
-              variant="outlined"
-              fullWidth
-              touchOptimized
-              hapticFeedback
-            >
-              新しい項目を追加
-            </TabletOptimizedButton>
-          </Box>
-          
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
-            {/* 順序変更の説明 */}
-            {allowReorder && (
-              <Typography 
-                id="reorder-instructions"
-                variant="caption" 
-                color="text.secondary" 
-                sx={{ 
-                  mb: 2, 
-                  display: 'block',
-                  backgroundColor: alpha(theme.palette.info.main, 0.1),
-                  padding: 1,
-                  borderRadius: 1,
-                }}
-              >
-                タッチして項目を選択し、上下ボタンで順序を変更できます
-              </Typography>
-            )}
-            
-            {/* 仕様項目リスト */}
-            <List sx={{ width: '100%' }}>
-              {editState.items.map((item, index) => renderSpecificationItem(item, index))}
-            </List>
-          </Box>
-        </Box>
-      </TabletOptimizedDialog>
-    );
-  }
-  
-  const dialogContent = (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth={isFullScreen ? false : 'md'}
-      fullWidth={!isFullScreen}
-      fullScreen={isFullScreen}
-      TransitionComponent={SlideUpTransition}
-      transitionDuration={deviceBehavior.preferredAnimationDuration}
-      PaperProps={{
-        sx: {
-          ...deviceStyles.dialog,
-          minHeight: isFullScreen ? '100vh' : '60vh',
-          maxHeight: isFullScreen ? '100vh' : '80vh',
-        },
-      }}
-      onKeyDown={handleKeyDown}
-    >
-      <DialogTitle sx={{ 
-        textAlign: 'center',
-        pb: 1,
-        fontSize: isFullScreen ? '1.5rem' : '1.25rem',
-        fontWeight: 'bold',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: isFullScreen ? `1px solid ${theme.palette.divider}` : 'none',
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SettingsIcon sx={{ color: 'primary.main' }} />
-          機器仕様編集
-        </Box>
-        <Typography variant="caption" color="text.secondary">
-          {activeItemsCount}/{maxItems}
-        </Typography>
-      </DialogTitle>
-      
-      <DialogContent sx={{ px: isFullScreen ? 2 : 3, py: 2, flex: 1 }}>
-        <Box sx={{ mb: 2 }}>
-          <Button
-            startIcon={<AddIcon />}
-            onClick={handleAddItem}
-            disabled={activeItemsCount >= maxItems || readOnly}
-            variant="outlined"
-            fullWidth={isFullScreen}
-            size={isFullScreen ? 'large' : 'medium'}
-          >
-            新しい項目を追加
-          </Button>
-        </Box>
-        
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
-          {/* 順序変更の説明 */}
-          {allowReorder && (
-            <Typography 
-              id="reorder-instructions"
-              variant="caption" 
-              color="text.secondary" 
-              sx={{ display: 'block', mb: 2, px: 1 }}
-            >
-              {getReorderInstructions(deviceType)}
-            </Typography>
-          )}
-          
-          {/* タッチ順序変更中のキャンセルボタン */}
-          <Collapse in={touchReorderState.isReordering}>
-            <Box sx={{ mb: 2, px: 1 }}>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleCancelTouchReorder}
-                fullWidth
-                size={isFullScreen ? 'large' : 'medium'}
-              >
-                順序変更をキャンセル
-              </Button>
-            </Box>
-          </Collapse>
-          
-          <List>
-            {editState.items.map((item, index) => renderEditItem(item, index))}
-          </List>
-        </Box>
-        
-        <DeviceErrorDisplay
-          errors={hasErrors ? ['入力内容を確認してください'] : []}
-          warnings={[]}
-          deviceType={deviceType}
-        />
-      </DialogContent>
-      
-      <DialogActions sx={{ 
-        justifyContent: 'center', 
-        px: isFullScreen ? 2 : 3,
-        pb: isFullScreen ? 3 : 2,
-        borderTop: isFullScreen ? `1px solid ${theme.palette.divider}` : 'none',
-        gap: 2,
-      }}>
-        <Button 
-          onClick={onClose}
-          variant="outlined"
-          size={isFullScreen ? 'large' : 'medium'}
-          sx={{ minWidth: isFullScreen ? 120 : 80 }}
-        >
-          キャンセル
-        </Button>
-        <Button
-          onClick={handleSave}
-          variant="contained"
-          size={isFullScreen ? 'large' : 'medium'}
-          disabled={hasErrors || !editState.hasChanges || readOnly}
-          sx={{ minWidth: isFullScreen ? 120 : 80 }}
-        >
-          保存
-        </Button>
-      </DialogActions>
-      
-      {/* モバイル用フローティングアクション */}
-      {deviceType === 'mobile' && (
-        <MobileFloatingActions
-          onAddItem={handleAddItem}
-          onSave={handleSave}
-          onCancel={onClose}
-          hasChanges={editState.hasChanges}
-          isValid={!hasErrors}
-          readOnly={readOnly}
-        />
-      )}
-    </Dialog>
-  );
 
-  // モバイルでキーボード表示時の調整
-  if (deviceType === 'mobile' && deviceBehavior.adaptToKeyboard) {
-    return (
-      <KeyboardAdjustment isKeyboardVisible={isKeyboardVisible}>
-        {dialogContent}
-      </KeyboardAdjustment>
-    );
-  }
-
-  return dialogContent;
 };
 
 export default SpecificationEditDialog;

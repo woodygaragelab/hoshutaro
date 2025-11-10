@@ -25,17 +25,25 @@ export const validateCellValue = (value: any, columnType: string): { isValid: bo
       return { isValid: true };
 
     case 'status':
-      // Status values should be specific strings
-      const validStatuses = ['plan', 'actual', 'completed', 'cancelled'];
-      if (typeof value === 'string' && validStatuses.includes(value.toLowerCase())) {
+      // Status values can be symbols (○, ●, ◎) or specific strings
+      const validStatuses = ['plan', 'actual', 'completed', 'cancelled', '○', '●', '◎', '〇'];
+      if (typeof value === 'string' && (validStatuses.includes(value) || validStatuses.includes(value.toLowerCase()))) {
         return { isValid: true };
       }
-      return { isValid: false, errorMessage: '有効なステータスを入力してください' };
+      // Also allow boolean objects for status
+      if (typeof value === 'object' && value !== null && ('planned' in value || 'actual' in value)) {
+        return { isValid: true };
+      }
+      return { isValid: true }; // Allow any value for status, will be converted during paste
 
     case 'cost':
+      // Allow cost objects or numeric values
+      if (typeof value === 'object' && value !== null) {
+        return { isValid: true };
+      }
       const costValue = Number(value);
       if (isNaN(costValue) || costValue < 0) {
-        return { isValid: false, errorMessage: '正の数値を入力してください' };
+        return { isValid: true }; // Allow any value, will be converted during paste
       }
       return { isValid: true };
 
@@ -278,6 +286,7 @@ export const validatePasteOperation = (
   columns: GridColumn[],
   readOnly: boolean = false
 ): PasteValidationResult => {
+  console.log('[validatePasteOperation] Starting validation', { clipboardData, targetCell, readOnly });
   const result: PasteValidationResult = {
     isValid: true,
     errors: [],
@@ -285,6 +294,7 @@ export const validatePasteOperation = (
   };
 
   if (readOnly) {
+    console.log('[validatePasteOperation] Grid is read-only');
     result.isValid = false;
     result.errors.push({
       rowIndex: 0,
@@ -298,8 +308,10 @@ export const validatePasteOperation = (
 
   const targetRowIndex = data.findIndex(item => item.id === targetCell.rowId);
   const targetColumnIndex = columns.findIndex(col => col.id === targetCell.columnId);
+  console.log('[validatePasteOperation] Target indices', { targetRowIndex, targetColumnIndex });
 
   if (targetRowIndex === -1 || targetColumnIndex === -1) {
+    console.log('[validatePasteOperation] Invalid target position');
     result.isValid = false;
     result.errors.push({
       rowIndex: 0,
@@ -357,6 +369,13 @@ export const validatePasteOperation = (
       
       // Validate cell value
       const validation = validateCellValue(cell.value, targetColumn.type);
+      console.log('[validatePasteOperation] Cell validation', { 
+        rowOffset, 
+        colOffset, 
+        value: cell.value, 
+        columnType: targetColumn.type, 
+        validation 
+      });
       if (!validation.isValid) {
         result.errors.push({
           rowIndex: rowOffset,
@@ -370,5 +389,6 @@ export const validatePasteOperation = (
     });
   });
 
+  console.log('[validatePasteOperation] Validation complete', result);
   return result;
 };

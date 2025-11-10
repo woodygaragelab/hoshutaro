@@ -2,8 +2,6 @@ import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { Box, Paper, Snackbar, Alert } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from '../ExcelLikeGrid/types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
-import MobileGridView from './MobileGridView';
-import TabletGridView from './TabletGridView';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
 import { useClipboard } from '../ExcelLikeGrid/hooks/useClipboard';
 import { usePerformanceOptimization } from '../ExcelLikeGrid/hooks/usePerformanceOptimization';
@@ -27,7 +25,6 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
   readOnly = false,
   className = '',
   groupedData,
-  responsive,
   // Integrated toolbar props
   searchTerm = '',
   onSearchChange,
@@ -243,18 +240,9 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     batchSize: 50
   });
 
-  const {
-    copyToClipboard,
-    pasteFromClipboard
-  } = useClipboard({
-    data: processedData,
-    columns: processedColumns,
-    onCellEdit,
-    readOnly
-  });
-
   // Handle cell editing with support for both regular cells and specifications
   const handleCellEdit = useCallback((rowId: string, columnId: string, value: any) => {
+    console.log('[handleCellEdit] Called', { rowId, columnId, value, valueType: typeof value });
     if (readOnly) return;
     
     // Check if this is a specification edit
@@ -311,9 +299,31 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
             // Handle time column edits
             if (columnId.startsWith('time_')) {
               const timeHeader = columnId.replace('time_', '');
+              
+              // Convert string status symbols to status object if needed
+              let statusValue = value;
+              if (typeof value === 'string') {
+                console.log('[handleCellEdit] Converting string status to object:', value);
+                switch (value) {
+                  case '◎':
+                    statusValue = { planned: true, actual: true, planCost: 0, actualCost: 0 };
+                    break;
+                  case '〇':
+                  case '○':
+                    statusValue = { planned: true, actual: false, planCost: 0, actualCost: 0 };
+                    break;
+                  case '●':
+                    statusValue = { planned: false, actual: true, planCost: 0, actualCost: 0 };
+                    break;
+                  default:
+                    statusValue = { planned: false, actual: false, planCost: 0, actualCost: 0 };
+                }
+              }
+              
+              console.log('[handleCellEdit] Updating time column', { timeHeader, statusValue });
               const updatedResults = {
                 ...updatedItem.results,
-                [timeHeader]: value
+                [timeHeader]: statusValue
               };
               
               onUpdateItem({
@@ -323,6 +333,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
               });
             } else {
               // Handle other field edits
+              console.log('[handleCellEdit] Updating other field', { columnId, value });
               onUpdateItem({
                 ...updatedItem,
                 [columnId]: value
@@ -333,6 +344,17 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
       }
     }
   }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem]);
+
+  // Initialize clipboard hook with handleCellEdit
+  const {
+    copyToClipboard,
+    pasteFromClipboard
+  } = useClipboard({
+    data: processedData,
+    columns: processedColumns,
+    onCellEdit: handleCellEdit,
+    readOnly
+  });
 
   const handleColumnResize = useCallback((columnId: string, width: number) => {
     updateColumnWidth(columnId, width);
@@ -369,10 +391,16 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
 
   // Handle copy operation with cross-area support
   const handleCopy = useCallback(async () => {
-    if (!gridState.selectedCell && !gridState.selectedRange) return;
+    console.log('[Copy] handleCopy called', { selectedCell: gridState.selectedCell, selectedRange: gridState.selectedRange });
+    if (!gridState.selectedCell && !gridState.selectedRange) {
+      console.log('[Copy] No cell selected, returning');
+      return;
+    }
     
     const sourceArea = getCurrentDisplayArea();
+    console.log('[Copy] Source area:', sourceArea);
     const success = await copyToClipboard(gridState.selectedRange, gridState.selectedCell, sourceArea);
+    console.log('[Copy] Copy result:', success);
     
     if (success) {
       setClipboardMessage({ message: `${sourceArea === 'specifications' ? '機器仕様' : '計画実績'}エリアからコピーしました`, severity: 'success' });
@@ -383,10 +411,16 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
 
   // Handle paste operation with cross-area support
   const handlePaste = useCallback(async () => {
-    if (!gridState.selectedCell || readOnly) return;
+    console.log('[Paste] handlePaste called', { selectedCell: gridState.selectedCell, readOnly });
+    if (!gridState.selectedCell || readOnly) {
+      console.log('[Paste] No cell selected or readOnly, returning');
+      return;
+    }
     
     const targetArea = getCurrentDisplayArea();
+    console.log('[Paste] Target area:', targetArea);
     const result = await pasteFromClipboard(gridState.selectedCell, targetArea);
+    console.log('[Paste] Paste result:', result);
     
     if (result.isValid) {
       const warningCount = result.warnings.length;
@@ -438,11 +472,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         case 'p':
           if (e.shiftKey) {
             e.preventDefault();
-            // Only toggle performance monitor if not in responsive mode to prevent duplicates
-            // Note: Main performance monitor is toggled via Ctrl+Shift+P globally
-            if (!responsive) {
-              setShowPerformanceMonitor(prev => !prev);
-            }
+            // Toggle performance monitor via Ctrl+Shift+P
+            setShowPerformanceMonitor(prev => !prev);
             return;
           }
           break;
@@ -527,89 +558,36 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     };
   });
 
-  // Render responsive view based on screen size - memoized for stability
-  const renderResponsiveView = useMemo(() => {
-    if (!responsive) {
-      // Fallback to desktop view if responsive is not provided
-      return (
-        <MaintenanceGridLayout
-          data={processedData}
-          columns={processedColumns}
-          displayAreaConfig={currentDisplayAreaConfig || displayAreaConfig}
-          gridState={gridState}
-          viewMode={viewMode}
-          groupedData={groupedData}
-          onCellEdit={handleCellEdit}
-          onSpecificationEdit={onSpecificationEdit}
-          onColumnResize={handleColumnResize}
-          onRowResize={handleRowResize}
-          onSelectedCellChange={setSelectedCell}
-          onEditingCellChange={setEditingCell}
-          onSelectedRangeChange={setSelectedRange}
-          onUpdateItem={onUpdateItem}
-          virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
-          readOnly={readOnly}
-        />
-      );
-    }
-
-    if (responsive.isMobile) {
-      return (
-        <MobileGridView
-          data={processedData}
-          timeHeaders={timeHeaders}
-          viewMode={viewMode}
-          showBomCode={showBomCode}
-          showCycle={showCycle}
-          onCellEdit={handleCellEdit}
-          onSpecificationEdit={onSpecificationEdit}
-          responsive={responsive}
-          groupedData={groupedData}
-        />
-      );
-    } else if (responsive.isTablet) {
-      return (
-        <TabletGridView
-          data={processedData}
-          timeHeaders={timeHeaders}
-          viewMode={viewMode}
-          showBomCode={showBomCode}
-          showCycle={showCycle}
-          onCellEdit={handleCellEdit}
-          onSpecificationEdit={onSpecificationEdit}
-          responsive={responsive}
-          groupedData={groupedData}
-        />
-      );
-    } else {
-      // Desktop view
-      return (
-        <MaintenanceGridLayout
-          data={processedData}
-          columns={processedColumns}
-          displayAreaConfig={currentDisplayAreaConfig || displayAreaConfig}
-          gridState={gridState}
-          viewMode={viewMode}
-          groupedData={groupedData}
-          onCellEdit={handleCellEdit}
-          onSpecificationEdit={onSpecificationEdit}
-          onColumnResize={handleColumnResize}
-          onRowResize={handleRowResize}
-          onSelectedCellChange={setSelectedCell}
-          onEditingCellChange={setEditingCell}
-          onSelectedRangeChange={setSelectedRange}
-          onUpdateItem={onUpdateItem}
-          virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
-          readOnly={readOnly}
-        />
-      );
-    }
+  // Desktop-only view
+  const renderGridView = useMemo(() => {
+    return (
+      <MaintenanceGridLayout
+        data={processedData}
+        columns={processedColumns}
+        displayAreaConfig={currentDisplayAreaConfig || displayAreaConfig}
+        gridState={gridState}
+        viewMode={viewMode}
+        groupedData={groupedData}
+        onCellEdit={handleCellEdit}
+        onSpecificationEdit={onSpecificationEdit}
+        onColumnResize={handleColumnResize}
+        onRowResize={handleRowResize}
+        onSelectedCellChange={setSelectedCell}
+        onEditingCellChange={setEditingCell}
+        onSelectedRangeChange={setSelectedRange}
+        onUpdateItem={onUpdateItem}
+        virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
+        readOnly={readOnly}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+      />
+    );
   }, [
-    responsive, processedData, timeHeaders, viewMode, showBomCode, showCycle,
-    handleCellEdit, onSpecificationEdit, groupedData, processedColumns,
-    currentDisplayAreaConfig, displayAreaConfig, gridState, handleColumnResize,
-    handleRowResize, setSelectedCell, setEditingCell, setSelectedRange,
-    onUpdateItem, virtualScrolling, shouldUseVirtualScrolling, readOnly
+    processedData, processedColumns, currentDisplayAreaConfig, displayAreaConfig,
+    gridState, viewMode, groupedData, handleCellEdit, onSpecificationEdit,
+    handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
+    setSelectedRange, onUpdateItem, virtualScrolling, shouldUseVirtualScrolling, readOnly,
+    handleCopy, handlePaste
   ]);
 
   // Memoize the toolbar to prevent unnecessary re-renders
@@ -653,17 +631,10 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     onExportData, onImportData, onResetData, onAIAssistantToggle, isAIAssistantOpen
   ]);
 
-  // Memoize the className to prevent unnecessary re-renders
+  // Desktop-only className
   const paperClassName = useMemo(() => {
-    const responsiveClass = responsive?.isMobile ? 'mobile-view' : 
-                           responsive?.isTablet ? 'tablet-view' : 'desktop-view';
-    console.log('Responsive state changed:', { 
-      isMobile: responsive?.isMobile, 
-      isTablet: responsive?.isTablet, 
-      responsiveClass 
-    });
-    return `enhanced-maintenance-grid ${className} ${responsiveClass}`;
-  }, [className, responsive?.isMobile, responsive?.isTablet]);
+    return `enhanced-maintenance-grid ${className} desktop-view`;
+  }, [className]);
 
   return (
     <>
@@ -697,16 +668,15 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
             {memoizedToolbar}
           </Box>
           
-          {/* Responsive Grid Layout */}
+          {/* Desktop Grid Layout */}
           <Box 
             sx={{ 
               flex: 1, 
               minHeight: 0, 
-              overflow: 'hidden',
-              transition: 'all 0.2s ease-in-out' // Smooth transition for responsive changes
+              overflow: 'hidden'
             }}
           >
-            {renderResponsiveView}
+            {renderGridView}
           </Box>
         </Box>
       </Paper>
@@ -729,8 +699,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         </Snackbar>
       )}
 
-      {/* Performance Monitor - Only show if explicitly enabled via keyboard shortcut and not in responsive mode */}
-      {!responsive && showPerformanceMonitor && (
+      {/* Performance Monitor - Desktop only */}
+      {showPerformanceMonitor && (
         <PerformanceMonitor
           metrics={getPerformanceMetrics()}
           dataSize={processedData.length}

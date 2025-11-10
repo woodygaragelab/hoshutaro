@@ -13,18 +13,13 @@ import PerformanceMonitor from './components/PerformanceMonitor';
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
 import AIAssistantPanel from './components/AIAssistant/AIAssistantPanel';
 import { transformData } from './utils/dataTransformer';
-import { useResponsiveLayout } from './hooks/useResponsiveLayout';
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline, Drawer, Fab } from '@mui/material';
-import { Chat as ChatIcon, Close as CloseIcon } from '@mui/icons-material';
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
 import { darkTheme } from './theme/darkTheme';
 
 const App: React.FC = () => {
   // Performance and accessibility hooks
   const { measureAsync, recordMetric } = usePerformanceMonitor();
   const { announce, setupGridKeyboardNavigation } = useAccessibility();
-  
-  // Responsive layout hook
-  const responsive = useResponsiveLayout();
   
   // Data states
   const [maintenanceData, setMaintenanceData] = useState<HierarchicalData[]>([]);
@@ -331,17 +326,10 @@ const App: React.FC = () => {
     setIsAIAssistantOpen(false);
   };
 
-  // Responsive layout calculations
-  const containerPadding = responsive.getSpacing('md');
-  const gridHeight = responsive.isMobile 
-    ? 'calc(100vh - 120px)' 
-    : responsive.isTablet 
-      ? 'calc(100vh - 130px)' 
-      : 'calc(100vh - 140px)';
-
-  const mainContentWidth = isAIAssistantOpen && !responsive.isMobile 
-    ? `calc(100% - ${aiAssistantWidth}px)` 
-    : '100%';
+  // Desktop-only layout calculations
+  const containerPadding = 16;
+  const gridHeight = 'calc(100vh - 140px)';
+  const mainContentWidth = isAIAssistantOpen ? `calc(100% - ${aiAssistantWidth}px)` : '100%';
 
   // Set up keyboard navigation for the grid
   const gridRef = useRef<HTMLDivElement>(null);
@@ -363,7 +351,7 @@ const App: React.FC = () => {
       <CssBaseline />
       <PerformanceMonitor enabled={false} />
       <div 
-        className={`responsive-container critical-loading ${responsive.isMobile ? 'mobile-layout' : responsive.isTablet ? 'tablet-layout' : 'desktop-layout'}`}
+        className="responsive-container critical-loading desktop-layout"
         role="application"
         aria-label="HOSHUTARO 保全管理システム"
       >
@@ -406,7 +394,6 @@ const App: React.FC = () => {
               groupedData={groupedData}
               virtualScrolling={displayedMaintenanceData.length > 100}
               readOnly={false}
-              responsive={responsive}
               // Integrated toolbar props
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
@@ -435,8 +422,8 @@ const App: React.FC = () => {
             />
           </div>
 
-          {/* AI Assistant Panel - Desktop */}
-          {isAIAssistantOpen && !responsive.isMobile && (
+          {/* AI Assistant Panel - Desktop only */}
+          {isAIAssistantOpen && (
             <div 
               style={{ 
                 width: aiAssistantWidth,
@@ -469,64 +456,6 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* AI Assistant Panel - Mobile Drawer */}
-        <Drawer
-          anchor="right"
-          open={isAIAssistantOpen && responsive.isMobile}
-          onClose={handleAIAssistantClose}
-          PaperProps={{
-            sx: {
-              width: '100vw',
-              maxWidth: '100vw',
-              backgroundColor: '#000000',
-              color: '#ffffff',
-            }
-          }}
-        >
-          <AIAssistantPanel
-            isOpen={isAIAssistantOpen}
-            onClose={handleAIAssistantClose}
-            onSuggestionApply={(suggestion) => {
-              // Apply AI suggestion to maintenance data
-              handleCellEdit(
-                suggestion.equipmentId,
-                `time_${suggestion.timeHeader}`,
-                suggestion.suggestedAction === 'plan' 
-                  ? { planned: true, actual: false }
-                  : suggestion.suggestedAction === 'actual'
-                  ? { planned: false, actual: true }
-                  : { planned: true, actual: true }
-              );
-            }}
-            onExcelImport={(file) => {
-              // Handle Excel file import
-              console.log('Excel file imported:', file.name);
-              showSnackbar(`Excelファイル "${file.name}" をインポートしました`, 'success');
-            }}
-          />
-        </Drawer>
-
-        {/* AI Assistant FAB - Mobile */}
-        {responsive.isMobile && !isAIAssistantOpen && (
-          <Fab
-            color="primary"
-            aria-label="AI Assistant"
-            onClick={handleAIAssistantToggle}
-            sx={{
-              position: 'fixed',
-              bottom: 16,
-              right: 16,
-              backgroundColor: '#333333',
-              color: '#ffffff',
-              '&:hover': {
-                backgroundColor: '#555555',
-              },
-            }}
-          >
-            <ChatIcon />
-          </Fab>
-        )}
 
       {/* Add Year Dialog */}
       <Dialog open={addYearDialogOpen} onClose={() => setAddYearDialogOpen(false)}>

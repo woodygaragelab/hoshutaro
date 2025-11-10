@@ -148,8 +148,9 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               borderColor: '#333333',
               color: '#ffffff',
               '&:hover': {
-                borderColor: '#333333',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                borderColor: '#ffffff !important',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                zIndex: 1
               }
             }
           }}
@@ -162,7 +163,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               minWidth: 60,
               height: 28,
               px: 1,
-              borderColor: '#333333 !important'
+              borderColor: '#333333 !important',
+              '&:hover': {
+                borderColor: '#ffffff !important'
+              }
             }}
           >
             機器仕様
@@ -175,7 +179,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               minWidth: 60,
               height: 28,
               px: 1,
-              borderColor: '#333333 !important'
+              borderColor: '#333333 !important',
+              '&:hover': {
+                borderColor: '#ffffff !important'
+              }
             }}
           >
             計画実績
@@ -188,7 +195,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               minWidth: 40,
               height: 28,
               px: 1,
-              borderColor: '#333333 !important'
+              borderColor: '#333333 !important',
+              '&:hover': {
+                borderColor: '#ffffff !important'
+              }
             }}
           >
             両方
@@ -205,8 +215,9 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               borderColor: '#333333',
               color: '#ffffff',
               '&:hover': {
-                borderColor: '#333333',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                borderColor: '#ffffff !important',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                zIndex: 1
               }
             }
           }}
@@ -219,7 +230,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               minWidth: 30,
               height: 28,
               px: 1,
-              borderColor: '#333333 !important'
+              borderColor: '#333333 !important',
+              '&:hover': {
+                borderColor: '#ffffff !important'
+              }
             }}
           >
             年
@@ -232,7 +246,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               minWidth: 30,
               height: 28,
               px: 1,
-              borderColor: '#333333 !important'
+              borderColor: '#333333 !important',
+              '&:hover': {
+                borderColor: '#ffffff !important'
+              }
             }}
           >
             月
@@ -245,7 +262,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               minWidth: 30,
               height: 28,
               px: 1,
-              borderColor: '#333333 !important'
+              borderColor: '#333333 !important',
+              '&:hover': {
+                borderColor: '#ffffff !important'
+              }
             }}
           >
             週
@@ -258,7 +278,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               minWidth: 30,
               height: 28,
               px: 1,
-              borderColor: '#333333 !important'
+              borderColor: '#333333 !important',
+              '&:hover': {
+                borderColor: '#ffffff !important'
+              }
             }}
           >
             日

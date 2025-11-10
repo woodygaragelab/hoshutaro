@@ -128,7 +128,6 @@ export interface EnhancedMaintenanceGridProps {
   readOnly?: boolean;
   className?: string;
   groupedData?: { [key: string]: HierarchicalData[] };
-  responsive?: ResponsiveLayout;
   
   // Integrated toolbar props
   searchTerm?: string;

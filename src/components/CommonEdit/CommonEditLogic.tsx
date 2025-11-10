@@ -10,7 +10,6 @@ import {
   ValidationResult,
   ValidationError
 } from './types';
-import { detectDevice, setupDeviceChangeListener } from './deviceDetection';
 import { createStatusValue, extractPlannedActual } from './statusLogic';
 
 /**
@@ -26,9 +25,20 @@ export const CommonEditLogic: React.FC<CommonEditLogicProps & { children: React.
   readOnly = false,
   children
 }) => {
-  // デバイス検出状態
+  // デバイス検出状態（デスクトップ固定）
   const [deviceDetection, setDeviceDetection] = useState<DeviceDetection>(
-    initialDeviceDetection || detectDevice()
+    initialDeviceDetection || {
+      type: 'desktop',
+      screenSize: { width: window.innerWidth, height: window.innerHeight },
+      orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
+      touchCapabilities: {
+        hasTouch: 'ontouchstart' in window,
+        hasHover: window.matchMedia('(hover: hover)').matches,
+        hasPointerEvents: 'PointerEvent' in window,
+        maxTouchPoints: navigator.maxTouchPoints || 0,
+      },
+      userAgent: navigator.userAgent,
+    }
   );
 
   // 編集状態管理
@@ -57,11 +67,11 @@ export const CommonEditLogic: React.FC<CommonEditLogicProps & { children: React.
     },
   });
 
-  // デバイス変更の監視
-  useEffect(() => {
-    const cleanup = setupDeviceChangeListener(setDeviceDetection);
-    return cleanup;
-  }, []);
+  // デバイス変更の監視（デスクトップ固定のため不要）
+  // useEffect(() => {
+  //   const cleanup = setupDeviceChangeListener(setDeviceDetection);
+  //   return cleanup;
+  // }, []);
 
   /**
    * セル編集の開始
@@ -323,7 +333,7 @@ export const CommonEditLogic: React.FC<CommonEditLogicProps & { children: React.
         rowId,
         columnId,
         currentValue,
-        dataType: editType,
+        dataType: editType === 'specification' ? 'text' : editType,
       },
       onSave: (value: any) => {
         const validationResult = validateEdit(value, editType);
