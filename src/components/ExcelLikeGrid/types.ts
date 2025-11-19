@@ -118,9 +118,9 @@ export interface EnhancedMaintenanceGridProps {
   viewMode: 'status' | 'cost';
   displayMode: 'specifications' | 'maintenance' | 'both';
   showBomCode: boolean;
-  showCycle: boolean;
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
   onSpecificationEdit: (rowId: string, specIndex: number, key: string, value: string) => void;
+  onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
   onColumnResize?: (columnId: string, width: number) => void;
   onRowResize?: (rowId: string, height: number) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
@@ -145,7 +145,6 @@ export interface EnhancedMaintenanceGridProps {
   timeScale?: 'year' | 'month' | 'week' | 'day';
   onTimeScaleChange?: (event: any) => void;
   onShowBomCodeChange?: (checked: boolean) => void;
-  onShowCycleChange?: (checked: boolean) => void;
   onDisplayModeChange?: (mode: 'specifications' | 'maintenance' | 'both') => void;
   onAddYear?: () => void;
   onDeleteYear?: () => void;

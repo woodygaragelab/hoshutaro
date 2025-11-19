@@ -172,7 +172,14 @@ export const CommonEditLogic: React.FC<CommonEditLogicProps & { children: React.
         onCellEdit(rowId, columnId, { planned, actual });
       } else if (editType === 'cost') {
         const costValue = currentValue as CostValue;
-        onCellEdit(rowId, columnId, costValue);
+        // コスト入力時に星取表のステータスを自動更新
+        const planned = (costValue.planCost || 0) > 0;
+        const actual = (costValue.actualCost || 0) > 0;
+        onCellEdit(rowId, columnId, {
+          ...costValue,
+          planned,
+          actual
+        });
       } else if (editType === 'specification') {
         const specifications = currentValue as SpecificationValue[];
         // 仕様編集の場合は、各仕様項目を個別に保存

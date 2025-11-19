@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Button,
   TextField,
@@ -7,7 +7,6 @@ import {
   Popover,
   Paper,
   useTheme,
-  alpha,
   Fade,
   IconButton,
   List,
@@ -16,45 +15,27 @@ import {
   ListItemSecondaryAction,
   Divider,
   Chip,
-  Tooltip,
-  ButtonGroup,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
-  DragIndicator as DragIcon,
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
-  KeyboardArrowUp as ArrowUpIcon,
-  KeyboardArrowDown as ArrowDownIcon,
-  FirstPage as FirstIcon,
-  LastPage as LastIcon,
 } from '@mui/icons-material';
 import { SpecificationValue } from '../CommonEdit/types';
-import {
-  DesktopDragHandler,
-  moveItem,
-  updateSpecificationOrder,
-  getActiveItemIndices,
-  handleKeyboardReorder,
-  getReorderAriaAttributes,
-  getReorderInstructions,
-} from './reorderingUtils';
 
 export interface SpecificationEditDialogProps {
   open: boolean;
   specifications: SpecificationValue[];
   onSave: (specifications: SpecificationValue[]) => void;
   onClose: () => void;
-  anchorEl?: HTMLElement | null; // Desktop用のアンカー要素
-  animationDuration?: number; // アニメーション時間
-  maxItems?: number; // 最大項目数
-  onValidationError?: (errors: string[]) => void; // バリデーションエラーハンドラー
-  userName?: string; // 変更履歴用のユーザー名
-  readOnly?: boolean; // 読み取り専用モード
-  allowReorder?: boolean; // 順序変更を許可するか
+  anchorEl?: HTMLElement | null;
+  animationDuration?: number;
+  maxItems?: number;
+  onValidationError?: (errors: string[]) => void;
+  readOnly?: boolean;
 }
 
 // 機器仕様編集の状態管理
@@ -90,31 +71,16 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
   animationDuration = 300,
   maxItems = 20,
   onValidationError,
-  userName = 'unknown',
   readOnly = false,
-  allowReorder = true,
 }) => {
   const theme = useTheme();
-  const deviceType = 'desktop';
   
-  // 編集状態の管理
   const [editState, setEditState] = useState<SpecificationEditState>({
     items: [],
     hasChanges: false,
     validationErrors: {},
     editingIndex: null,
   });
-
-  // ドラッグ&ドロップ管理
-  const dragHandlerRef = useRef<DesktopDragHandler | null>(null);
-  const [dragState, setDragState] = useState<{ isDragging: boolean; draggedIndex: number | null; dropTargetIndex: number | null }>({ 
-    isDragging: false, 
-    draggedIndex: null, 
-    dropTargetIndex: null 
-  });
-
-  // アニメーション設定（将来の拡張用）
-  // const reorderAnimationConfig = getReorderAnimationConfig(deviceType);
 
   // 仕様データを編集用アイテムに変換
   const convertToEditItems = useCallback((specs: SpecificationValue[]): SpecificationEditItem[] => {
@@ -139,7 +105,6 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
       }));
   }, []);
 
-  // 初期化
   useEffect(() => {
     if (open) {
       const editItems = convertToEditItems(specifications);
@@ -149,24 +114,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         validationErrors: {},
         editingIndex: null,
       });
-      
-      // ドラッグ&ドロップハンドラーの初期化
-      if (allowReorder) {
-        dragHandlerRef.current = new DesktopDragHandler({
-          onDragStart: (index) => {
-            setDragState(prev => ({ ...prev, isDragging: true, draggedIndex: index }));
-          },
-          onDragOver: (targetIndex) => {
-            setDragState(prev => ({ ...prev, dropTargetIndex: targetIndex }));
-          },
-          onDragEnd: (fromIndex, toIndex) => {
-            handleReorderItems(fromIndex, toIndex);
-            setDragState({ isDragging: false, draggedIndex: null, dropTargetIndex: null });
-          },
-        });
-      }
     }
-  }, [specifications, open, convertToEditItems, deviceType, allowReorder]);
+  }, [specifications, open, convertToEditItems]);
 
   // バリデーション
   const validateItem = useCallback((item: SpecificationEditItem): { keyError?: string; valueError?: string } => {
@@ -283,73 +232,12 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     });
   }, [editState, validateItem, validateAllItems]);
 
-  // 編集モードの切り替え
   const handleToggleEdit = useCallback((index: number | null) => {
     setEditState({
       ...editState,
       editingIndex: index,
     });
   }, [editState]);
-
-  // 順序変更の統一ハンドラー
-  const handleReorderItems = useCallback((fromIndex: number, toIndex: number) => {
-    if (!allowReorder || fromIndex === toIndex) return;
-    
-    const newItems = moveItem(editState.items, fromIndex, toIndex);
-    const updatedItems = updateSpecificationOrder(newItems);
-    
-    setEditState({
-      ...editState,
-      items: updatedItems,
-      hasChanges: true,
-    });
-  }, [editState, allowReorder]);
-
-  // 順序変更（簡易版 - 上下移動）
-  const handleMoveItem = useCallback((index: number, direction: 'up' | 'down' | 'first' | 'last') => {
-    if (!allowReorder) return;
-    
-    const activeIndices = getActiveItemIndices(editState.items);
-    const currentActiveIndex = activeIndices.indexOf(index);
-    
-    if (currentActiveIndex === -1) return;
-    
-    let targetActiveIndex = currentActiveIndex;
-    
-    switch (direction) {
-      case 'up':
-        if (currentActiveIndex > 0) {
-          targetActiveIndex = currentActiveIndex - 1;
-        } else {
-          return;
-        }
-        break;
-      case 'down':
-        if (currentActiveIndex < activeIndices.length - 1) {
-          targetActiveIndex = currentActiveIndex + 1;
-        } else {
-          return;
-        }
-        break;
-      case 'first':
-        if (currentActiveIndex > 0) {
-          targetActiveIndex = 0;
-        } else {
-          return;
-        }
-        break;
-      case 'last':
-        if (currentActiveIndex < activeIndices.length - 1) {
-          targetActiveIndex = activeIndices.length - 1;
-        } else {
-          return;
-        }
-        break;
-    }
-    
-    const targetIndex = activeIndices[targetActiveIndex];
-    handleReorderItems(index, targetIndex);
-  }, [editState, allowReorder, handleReorderItems]);
 
 
 
@@ -380,19 +268,10 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     
     const newSpecifications = convertToSpecifications(editState.items);
     
-    console.log('Specification change:', {
-      from: specifications,
-      to: newSpecifications,
-      user: userName,
-      device: deviceType,
-      timestamp: new Date(),
-    });
-    
     onSave(newSpecifications);
     onClose();
-  }, [editState, validateAllItems, validateItem, convertToSpecifications, specifications, userName, deviceType, onSave, onClose, onValidationError]);
+  }, [editState, validateAllItems, validateItem, convertToSpecifications, onSave, onClose, onValidationError]);
 
-  // キーボードハンドラー
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
     if (event.ctrlKey || event.metaKey) {
       switch (event.key) {
@@ -408,37 +287,18 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     }
   }, [handleSave, onClose]);
 
-  // 項目レベルのキーボードハンドラー
-  const handleItemKeyDown = useCallback((event: React.KeyboardEvent, index: number) => {
-    if (allowReorder) {
-      handleKeyboardReorder(event, index, editState.items, handleReorderItems);
-    }
-  }, [allowReorder, editState.items, handleReorderItems]);
-
-  // 編集項目のレンダリング
   const renderEditItem = (item: SpecificationEditItem, index: number) => {
     if (item.isDeleted) return null;
     
     const isEditing = editState.editingIndex === index;
     const hasError = item.keyError || item.valueError || editState.validationErrors[index];
-    const isDragging = dragState.isDragging && dragState.draggedIndex === index;
-    const isDropTarget = dragState.dropTargetIndex === index;
-    const activeIndices = getActiveItemIndices(editState.items);
-    const currentActiveIndex = activeIndices.indexOf(index);
-    const isFirst = currentActiveIndex === 0;
-    const isLast = currentActiveIndex === activeIndices.length - 1;
+    const activeItems = editState.items.filter(i => !i.isDeleted);
+    const currentActiveIndex = activeItems.indexOf(item);
     
-    // アニメーション用のスタイル
     const itemStyle = {
-      border: hasError ? `1px solid ${theme.palette.error.main}` : 
-              isDropTarget ? `2px solid ${theme.palette.primary.main}` : 'none',
-      borderRadius: (hasError || isDropTarget) ? 1 : 0,
-      mb: (hasError || isDropTarget) ? 1 : 0,
-      backgroundColor: isDropTarget ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-      transform: isDragging ? 'scale(1.02)' : 'scale(1)',
-      opacity: isDragging ? 0.8 : 1,
-      transition: 'all 0.2s ease-in-out',
-      cursor: allowReorder ? 'grab' : 'default',
+      border: hasError ? `1px solid ${theme.palette.error.main}` : 'none',
+      borderRadius: hasError ? 1 : 0,
+      mb: hasError ? 1 : 0,
     };
     
     if (isEditing) {
@@ -498,48 +358,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
       );
     }
     
-    // ドラッグ&ドロップ対応
-    const dragProps = allowReorder && dragHandlerRef.current ? {
-      draggable: true,
-      onDragStart: (e: React.DragEvent) => dragHandlerRef.current!.handleDragStart(e, index, item),
-      onDragOver: (e: React.DragEvent) => dragHandlerRef.current!.handleDragOver(e, index),
-      onDragEnter: (e: React.DragEvent) => dragHandlerRef.current!.handleDragEnter(e),
-      onDragLeave: (e: React.DragEvent) => dragHandlerRef.current!.handleDragLeave(e),
-      onDrop: (e: React.DragEvent) => dragHandlerRef.current!.handleDrop(e, index),
-      onDragEnd: () => dragHandlerRef.current!.handleDragEnd(),
-    } : {};
-    
-    // アクセシビリティ属性
-    const ariaAttributes = getReorderAriaAttributes(
-      currentActiveIndex,
-      activeIndices.length,
-      false,
-      isDropTarget
-    );
-    
     return (
-      <ListItem
-        key={item.id}
-        sx={itemStyle}
-        onKeyDown={(e: React.KeyboardEvent) => handleItemKeyDown(e, index)}
-        {...dragProps}
-        {...ariaAttributes}
-      >
-        {/* ドラッグハンドル */}
-        {allowReorder && (
-          <Tooltip title="ドラッグして順序を変更">
-            <DragIcon 
-              sx={{ 
-                mr: 1, 
-                color: 'text.secondary', 
-                cursor: 'grab',
-                '&:active': { cursor: 'grabbing' }
-              }} 
-            />
-          </Tooltip>
-        )}
-        
-        {/* 順序番号 */}
+      <ListItem key={item.id} sx={itemStyle}>
         <Chip 
           label={currentActiveIndex + 1} 
           size="small" 
@@ -576,52 +396,7 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         />
         
         <ListItemSecondaryAction>
-          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-            {/* 順序変更コントロール */}
-            {allowReorder && (
-              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                <ButtonGroup orientation="vertical" size="small" variant="outlined">
-                  <Tooltip title="最初に移動 (Ctrl+Home)">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleMoveItem(index, 'first')}
-                      disabled={isFirst}
-                    >
-                      <FirstIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="上に移動 (Ctrl+↑)">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleMoveItem(index, 'up')}
-                      disabled={isFirst}
-                    >
-                      <ArrowUpIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="下に移動 (Ctrl+↓)">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleMoveItem(index, 'down')}
-                      disabled={isLast}
-                    >
-                      <ArrowDownIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="最後に移動 (Ctrl+End)">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleMoveItem(index, 'last')}
-                      disabled={isLast}
-                    >
-                      <LastIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </ButtonGroup>
-              </Box>
-            )}
-            
-            {/* 編集・削除ボタン */}
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
             <IconButton
               size="small"
               onClick={() => handleToggleEdit(index)}
@@ -687,20 +462,6 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
           </Box>
           
           <Box sx={{ maxHeight: '50vh', overflow: 'auto' }}>
-            {/* 順序変更の説明 */}
-            {allowReorder && (
-              <Typography 
-                id="reorder-instructions"
-                variant="caption" 
-                color="text.secondary" 
-                sx={{ display: 'block', mb: 1, px: 1 }}
-              >
-                {getReorderInstructions(deviceType)}
-              </Typography>
-            )}
-            
-
-            
             <List dense>
               {editState.items.map((item, index) => renderEditItem(item, index))}
             </List>

@@ -13,6 +13,13 @@
   -webkit-transform: translate3d(0, 0, 0);
 }
 
+/* Remove all focus outlines in the grid */
+.enhanced-maintenance-grid *:focus,
+.enhanced-maintenance-grid *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Ensure text visibility for key elements */
 .enhanced-maintenance-grid .MuiTypography-root {
   color: #ffffff;
@@ -104,20 +111,14 @@
   flex: 1;
   overflow: auto;
   background-color: #000000;
-  /* Optimize scrolling performance */
-  will-change: scroll-position;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  -webkit-transform: translate3d(0, 0, 0);
-}
 }
 
 /* Row styles */
 .enhanced-maintenance-grid .grid-row {
   display: flex;
-  border-bottom: 1px solid #333333;
+  border-bottom: 1px solid #333333 !important;
   min-height: 40px;
+  box-sizing: border-box;
 }
 
 .enhanced-maintenance-grid .grid-row:hover {
@@ -160,9 +161,28 @@
 }
 
 .enhanced-maintenance-grid .grid-cell.selected {
-  background-color: #333333 !important;
-  outline: 2px solid #90caf9;
-  outline-offset: -2px;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* Selected cell text color override - highest priority */
+.enhanced-maintenance-grid .selected-cell,
+.enhanced-maintenance-grid .selected-cell *,
+.enhanced-maintenance-grid .selected-cell .cell-content,
+.enhanced-maintenance-grid .selected-cell .cell-content *,
+.enhanced-maintenance-grid .selected-cell .MuiBox-root,
+.enhanced-maintenance-grid .selected-cell div,
+.enhanced-maintenance-grid .selected-cell span {
+  color: #000000 !important;
+}
+
+/* Selected cell cost colors */
+.enhanced-maintenance-grid .selected-cell .cost-plan {
+  color: #1976d2 !important;
+}
+
+.enhanced-maintenance-grid .selected-cell .cost-actual {
+  color: #388e3c !important;
 }
 
 .enhanced-maintenance-grid .grid-cell.editing {
@@ -177,29 +197,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #ffffff !important;
+  color: #ffffff;
 }
 
-/* Force text color for Material-UI components */
+/* Force text color for Material-UI components (except in selected cells) */
 .enhanced-maintenance-grid .MuiTypography-root {
-  color: #ffffff !important;
+  color: #ffffff;
 }
 
 .enhanced-maintenance-grid .MuiBox-root {
-  color: #ffffff !important;
-}
-
-/* Force text color for all text nodes */
-.enhanced-maintenance-grid div,
-.enhanced-maintenance-grid span,
-.enhanced-maintenance-grid p,
-.enhanced-maintenance-grid h1,
-.enhanced-maintenance-grid h2,
-.enhanced-maintenance-grid h3,
-.enhanced-maintenance-grid h4,
-.enhanced-maintenance-grid h5,
-.enhanced-maintenance-grid h6 {
-  color: #ffffff !important;
+  color: inherit;
 }
 
 .enhanced-maintenance-grid .cell-content.text-center {
@@ -392,10 +399,9 @@
 
 /* Enhanced cell selection for cross-area editing */
 .enhanced-maintenance-grid .grid-cell.cross-area-selected {
-  background-color: #fff3e0 !important;
-  outline: 2px solid #ff9800;
-  outline-offset: -2px;
+  background-color: #ffffff;
   position: relative;
+  color: #000000;
 }
 
 .enhanced-maintenance-grid .grid-cell.cross-area-selected::after {
@@ -615,16 +621,12 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
-/* G
-lobal text color enforcement for all elements */
-.enhanced-maintenance-grid,
-.enhanced-maintenance-grid *,
-.enhanced-maintenance-grid *::before,
-.enhanced-maintenance-grid *::after {
-  color: #ffffff !important;
+/* Global text color - default to white, but allow inline styles to override */
+.enhanced-maintenance-grid {
+  color: #ffffff;
 }
 
-/* Ensure all Material-UI components have white text */
+/* Ensure all Material-UI components have white text by default */
 .enhanced-maintenance-grid .MuiTypography-root,
 .enhanced-maintenance-grid .MuiButton-root,
 .enhanced-maintenance-grid .MuiIconButton-root,
@@ -638,44 +640,39 @@ lobal text color enforcement for all elements */
 .enhanced-maintenance-grid .MuiTableCell-root,
 .enhanced-maintenance-grid .MuiTableHead-root .MuiTableCell-root,
 .enhanced-maintenance-grid .MuiTableBody-root .MuiTableCell-root {
-  color: #ffffff !important;
+  color: #ffffff;
   background-color: inherit;
 }
 
-/* Force all text elements to be white */
+/* Default text color - allow inline styles to override */
 .enhanced-maintenance-grid input,
 .enhanced-maintenance-grid button,
 .enhanced-maintenance-grid select,
 .enhanced-maintenance-grid textarea,
-.enhanced-maintenance-grid label,
-.enhanced-maintenance-grid span,
-.enhanced-maintenance-grid div,
-.enhanced-maintenance-grid p,
-.enhanced-maintenance-grid h1,
-.enhanced-maintenance-grid h2,
-.enhanced-maintenance-grid h3,
-.enhanced-maintenance-grid h4,
-.enhanced-maintenance-grid h5,
-.enhanced-maintenance-grid h6,
-.enhanced-maintenance-grid td,
-.enhanced-maintenance-grid th,
-.enhanced-maintenance-grid li,
-.enhanced-maintenance-grid a {
-  color: #ffffff !important;
+.enhanced-maintenance-grid label {
+  color: #ffffff;
 }
 
-/* Ensure backgrounds are dark */
-.enhanced-maintenance-grid .grid-cell,
+/* Text elements default to white, but can be overridden by inline styles */
+.enhanced-maintenance-grid span,
+.enhanced-maintenance-grid div,
+.enhanced-maintenance-grid p {
+  color: inherit;
+}
+
+/* Ensure backgrounds are dark (except selected cells) */
+.enhanced-maintenance-grid .grid-cell:not(.selected):not(.cross-area-selected),
 .enhanced-maintenance-grid .header-cell,
 .enhanced-maintenance-grid .grid-row {
-  background-color: #000000 !important;
+  background-color: #000000;
 }
 
 .enhanced-maintenance-grid .grid-header,
 .enhanced-maintenance-grid .group-header-row {
   background-color: #1e1e1e !important;
-}/
-* Additional group header styling for dark theme */
+}
+
+/* Additional group header styling for dark theme */
 .enhanced-maintenance-grid .group-header,
 .enhanced-maintenance-grid .group-header-cell,
 .enhanced-maintenance-grid tr.group-header-row,
@@ -687,6 +684,18 @@ lobal text color enforcement for all elements */
   color: #ffffff !important;
   font-weight: bold !important;
   border-color: #333333 !important;
+}
+
+.enhanced-maintenance-grid .group-header-row {
+  border-bottom: 1px solid #333333 !important;
+}
+
+.enhanced-maintenance-grid div.group-header-row {
+  border-bottom: 1px solid #333333 !important;
+}
+
+.enhanced-maintenance-grid .MuiBox-root.group-header-row {
+  border-bottom: 1px solid #333333 !important;
 }
 
 /* Ensure group header text is always visible */
@@ -712,43 +721,68 @@ lobal text color enforcement for all elements */
   color: #ffffff !important;
   font-weight: bold !important;
 }
-/
-* Cell and border optimization for scrolling */
+/* Cell and border optimization for scrolling */
 .enhanced-maintenance-grid .grid-cell,
 .enhanced-maintenance-grid .header-cell {
-  /* Force hardware acceleration for cells */
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  -webkit-transform: translate3d(0, 0, 0);
   /* Ensure borders are always visible */
   border-right: 1px solid #333333 !important;
+  box-sizing: border-box !important;
+}
+
+/* Row optimization - ensure borders are always rendered */
+.enhanced-maintenance-grid .grid-row {
   border-bottom: 1px solid #333333 !important;
   box-sizing: border-box !important;
 }
 
-/* Row optimization */
-.enhanced-maintenance-grid .grid-row {
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  -webkit-transform: translate3d(0, 0, 0);
+/* Force borders on all Box components within the grid - highest specificity */
+.enhanced-maintenance-grid div[data-row-id] {
   border-bottom: 1px solid #333333 !important;
-  box-sizing: border-box !important;
+}
+
+.enhanced-maintenance-grid div.maintenance-cell {
+  border-right: 1px solid #333333 !important;
+}
+
+.enhanced-maintenance-grid div.maintenance-cell:last-child {
+  border-right: none !important;
+}
+
+/* Additional specificity for MUI Box components */
+.enhanced-maintenance-grid .MuiBox-root[data-row-id] {
+  border-bottom: 1px solid #333333 !important;
+}
+
+.enhanced-maintenance-grid .MuiBox-root.maintenance-cell {
+  border-right: 1px solid #333333 !important;
+}
+
+.enhanced-maintenance-grid .MuiBox-root.maintenance-cell:last-child {
+  border-right: none !important;
 }
 
 /* Scrollable area optimization */
 .enhanced-maintenance-grid [data-scroll-area] {
-  will-change: scroll-position;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  -webkit-transform: translate3d(0, 0, 0);
   /* Improve scrolling smoothness */
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+}
+
+/* Ultimate border enforcement - target all possible selectors */
+.enhanced-maintenance-grid > div > div > div > div[data-row-id],
+.enhanced-maintenance-grid div[data-row-id].MuiBox-root {
+  border-bottom: 1px solid #333333 !important;
+  box-sizing: border-box !important;
+}
+
+.enhanced-maintenance-grid div.maintenance-cell.MuiBox-root,
+.enhanced-maintenance-grid > div > div > div > div[data-row-id] > div {
+  border-right: 1px solid #333333 !important;
+  box-sizing: border-box !important;
+}
+
+.enhanced-maintenance-grid div.maintenance-cell.MuiBox-root:last-child,
+.enhanced-maintenance-grid > div > div > div > div[data-row-id] > div:last-child {
+  border-right: none !important;
 }
 
 /* Force repaint on scroll for better border visibility */

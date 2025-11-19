@@ -15,9 +15,9 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
   viewMode,
   displayMode,
   showBomCode,
-  showCycle,
   onCellEdit,
   onSpecificationEdit,
+  onSpecificationColumnReorder,
   onColumnResize,
   onRowResize,
   onUpdateItem,
@@ -41,7 +41,6 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
   timeScale = 'year',
   onTimeScaleChange,
   onShowBomCodeChange,
-  onShowCycleChange,
   onDisplayModeChange,
   onAddYear,
   onDeleteYear,
@@ -85,43 +84,37 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         resizable: true,
         sortable: false,
         type: 'text',
-        editable: false,
-        accessor: 'bomCode'
-      });
-    }
-
-    // Cycle column (conditional)
-    if (showCycle) {
-      cols.push({
-        id: 'cycle',
-        header: '周期',
-        width: 80,
-        minWidth: 60,
-        maxWidth: 120,
-        resizable: true,
-        sortable: false,
-        type: 'number',
         editable: true,
-        accessor: 'cycle'
+        accessor: 'bomCode'
       });
     }
 
     // Specification columns (when in specifications or both mode)
     if (displayMode === 'specifications' || displayMode === 'both') {
-      // Collect all unique specification keys from data
-      const specKeys = new Set<string>();
+      // Collect all unique specification keys with their order from data
+      const specKeysMap = new Map<string, number>();
       data.forEach(item => {
         if (item.specifications) {
           item.specifications.forEach(spec => {
             if (spec.key && spec.key.trim()) {
-              specKeys.add(spec.key);
+              // Use the minimum order value for each key
+              const currentOrder = specKeysMap.get(spec.key);
+              if (currentOrder === undefined || spec.order < currentOrder) {
+                specKeysMap.set(spec.key, spec.order);
+              }
             }
           });
         }
       });
       
-      // Convert to sorted array for consistent ordering
-      const sortedSpecKeys = Array.from(specKeys).sort();
+      // Sort by order field, then alphabetically as fallback
+      const sortedSpecKeys = Array.from(specKeysMap.entries())
+        .sort((a, b) => {
+          const orderDiff = a[1] - b[1];
+          if (orderDiff !== 0) return orderDiff;
+          return a[0].localeCompare(b[0]);
+        })
+        .map(entry => entry[0]);
       
       // Debug logging for specification keys
       console.log('Specification keys found:', sortedSpecKeys.length, sortedSpecKeys.slice(0, 10));
@@ -173,13 +166,12 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     console.log('Total columns generated:', cols.length, 'displayMode:', displayMode);
     
     return cols;
-  }, [data, timeHeaders, viewMode, displayMode, showBomCode, showCycle]);
+  }, [data, timeHeaders, viewMode, displayMode, showBomCode]);
 
   // Generate display area configuration
   const displayAreaConfig = useMemo((): DisplayAreaConfig => {
     const fixedColumns = ['task'];
     if (showBomCode) fixedColumns.push('bomCode');
-    if (showCycle) fixedColumns.push('cycle');
 
     const specColumns = columns.filter(col => col.id.startsWith('spec_')).map(col => col.id);
     const maintenanceColumns = columns.filter(col => col.id.startsWith('time_')).map(col => col.id);
@@ -211,7 +203,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     });
     
     return config;
-  }, [columns, displayMode, showBomCode, showCycle, viewMode]);
+  }, [columns, displayMode, showBomCode, viewMode]);
 
   const {
     gridState,
@@ -444,6 +436,83 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     }
   }, [gridState.selectedCell, readOnly, getCurrentDisplayArea, pasteFromClipboard]);
 
+  // Handle delete operation
+  const handleDelete = useCallback(() => {
+    if (!gridState.selectedCell || readOnly) return;
+    
+    const { rowId, columnId } = gridState.selectedCell;
+    const currentColumn = processedColumns.find(col => col.id === columnId);
+    
+    // Only delete if the cell is editable
+    if (!currentColumn?.editable) return;
+    
+    // Check if this is a specification column
+    if (columnId.startsWith('spec_')) {
+      const specKey = columnId.replace('spec_', '');
+      const updatedItem = processedData.find(item => item.id === rowId);
+      
+      if (updatedItem && onSpecificationEdit) {
+        const newSpecs = [...(updatedItem.specifications || [])];
+        const existingSpecIndex = newSpecs.findIndex(s => s.key === specKey);
+        
+        if (existingSpecIndex >= 0) {
+          // Clear the specification value
+          onSpecificationEdit(rowId, existingSpecIndex, 'value', '');
+          
+          if (onUpdateItem) {
+            newSpecs[existingSpecIndex] = {
+              ...newSpecs[existingSpecIndex],
+              value: ''
+            };
+            onUpdateItem({
+              ...updatedItem,
+              specifications: newSpecs
+            });
+          }
+          
+          setClipboardMessage({ message: '機器仕様を削除しました', severity: 'success' });
+        }
+      }
+    } else if (columnId.startsWith('time_')) {
+      // Delete maintenance status (星取)
+      const timeHeader = columnId.replace('time_', '');
+      const updatedItem = processedData.find(item => item.id === rowId);
+      
+      if (updatedItem && onUpdateItem) {
+        const emptyStatus = { planned: false, actual: false, planCost: 0, actualCost: 0 };
+        const updatedResults = {
+          ...updatedItem.results,
+          [timeHeader]: emptyStatus
+        };
+        
+        onUpdateItem({
+          ...updatedItem,
+          results: updatedResults,
+          rolledUpResults: updatedResults
+        });
+        
+        if (onCellEdit) {
+          onCellEdit(rowId, columnId, emptyStatus);
+        }
+        
+        setClipboardMessage({ message: '星取を削除しました', severity: 'success' });
+      }
+    } else {
+      // Delete other editable fields
+      handleCellEdit(rowId, columnId, '');
+      setClipboardMessage({ message: 'セルを削除しました', severity: 'success' });
+    }
+  }, [
+    gridState.selectedCell,
+    readOnly,
+    processedColumns,
+    processedData,
+    onSpecificationEdit,
+    onUpdateItem,
+    onCellEdit,
+    handleCellEdit
+  ]);
+
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     // Don't handle keyboard events if they come from input elements or if a menu is open
@@ -487,6 +556,11 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     if (!gridState.selectedCell) return;
 
     switch (e.key) {
+      case 'Delete':
+      case 'Backspace':
+        e.preventDefault();
+        handleDelete();
+        break;
       case 'Tab':
         e.preventDefault();
         navigateToCell('tab');
@@ -536,6 +610,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     setSelectedCell,
     handleCopy,
     handlePaste,
+    handleDelete,
     showPerformanceMonitor
   ]);
 
@@ -570,6 +645,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         groupedData={groupedData}
         onCellEdit={handleCellEdit}
         onSpecificationEdit={onSpecificationEdit}
+        onSpecificationColumnReorder={onSpecificationColumnReorder}
         onColumnResize={handleColumnResize}
         onRowResize={handleRowResize}
         onSelectedCellChange={setSelectedCell}
@@ -609,9 +685,7 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
       timeScale={timeScale}
       onTimeScaleChange={onTimeScaleChange || (() => {})}
       showBomCode={showBomCode}
-      showCycle={showCycle}
       onShowBomCodeChange={onShowBomCodeChange || (() => {})}
-      onShowCycleChange={onShowCycleChange || (() => {})}
       displayMode={displayMode}
       onDisplayModeChange={onDisplayModeChange || (() => {})}
       onAddYear={onAddYear || (() => {})}
@@ -626,8 +700,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     searchTerm, onSearchChange, level1Filter, level2Filter, level3Filter,
     onLevel1FilterChange, onLevel2FilterChange, onLevel3FilterChange,
     hierarchyFilterTree, level2Options, level3Options, viewMode, onViewModeChange,
-    timeScale, onTimeScaleChange, showBomCode, showCycle, onShowBomCodeChange,
-    onShowCycleChange, displayMode, onDisplayModeChange, onAddYear, onDeleteYear,
+    timeScale, onTimeScaleChange, showBomCode, onShowBomCodeChange,
+    displayMode, onDisplayModeChange, onAddYear, onDeleteYear,
     onExportData, onImportData, onResetData, onAIAssistantToggle, isAIAssistantOpen
   ]);
 
@@ -650,6 +724,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          margin: 0,
+          padding: 0,
           '&:focus': {
             outline: 'none'
           }

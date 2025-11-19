@@ -22,6 +22,7 @@ import {
   Menu as MenuIcon,
   Storage as DataIcon,
   Chat as ChatIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import Legend from '../EnhancedMaintenanceGrid/Legend';
 import './ModernHeader.css';
@@ -52,9 +53,7 @@ interface ModernHeaderProps {
   
   // Display settings
   showBomCode: boolean;
-  showCycle: boolean;
   onShowBomCodeChange: (checked: boolean) => void;
-  onShowCycleChange: (checked: boolean) => void;
   displayMode: 'specifications' | 'maintenance' | 'both';
   onDisplayModeChange: (mode: 'specifications' | 'maintenance' | 'both') => void;
   
@@ -90,9 +89,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   timeScale,
   onTimeScaleChange,
   showBomCode,
-  showCycle,
   onShowBomCodeChange,
-  onShowCycleChange,
   displayMode,
   onDisplayModeChange,
   onAddYear,
@@ -351,7 +348,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               onClick={() => setDrawerOpen(false)}
               size="small"
             >
-              <MenuIcon sx={{ transform: 'rotate(90deg)' }} />
+              <CloseIcon />
             </IconButton>
           </Box>
 
@@ -437,16 +434,6 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                   />
                 }
                 label="TAG No."
-                sx={{ mb: 1, display: 'flex' }}
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={showCycle}
-                    onChange={(e) => onShowCycleChange(e.target.checked)}
-                  />
-                }
-                label="周期"
                 sx={{ display: 'flex' }}
               />
             </Box>
@@ -462,8 +449,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={() => { onAddYear(); setDrawerOpen(false); }}
-                  disabled={timeScale !== 'year'}
+                  onClick={() => { 
+                    setDrawerOpen(false);
+                    setTimeout(() => onAddYear(), 100);
+                  }}
                   sx={{ flex: 1 }}
                 >
                   年度追加
@@ -471,8 +460,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={() => { onDeleteYear(); setDrawerOpen(false); }}
-                  disabled={timeScale !== 'year'}
+                  onClick={() => { 
+                    setDrawerOpen(false);
+                    setTimeout(() => onDeleteYear(), 100);
+                  }}
                   sx={{ flex: 1 }}
                 >
                   年度削除

@@ -53,7 +53,6 @@ const App: React.FC = () => {
 
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
-  const [showCycle, setShowCycle] = useState(true);
   
   // Display area mode for EnhancedMaintenanceGrid
   const [displayMode, setDisplayMode] = useState<'specifications' | 'maintenance' | 'both'>('both');
@@ -166,30 +165,106 @@ const App: React.FC = () => {
     );
   };
 
+  // Handle specification column reordering (affects all equipment)
+  const handleSpecificationColumnReorder = (fromIndex: number, toIndex: number) => {
+    console.log('[App] handleSpecificationColumnReorder called', { fromIndex, toIndex });
+    
+    // 全機器の仕様キーを収集
+    const allSpecKeys = new Set<string>();
+    maintenanceData.forEach(item => {
+      if (item.specifications) {
+        item.specifications.forEach(spec => {
+          if (spec.key && spec.key.trim()) {
+            allSpecKeys.add(spec.key);
+          }
+        });
+      }
+    });
+    
+    const sortedKeys = Array.from(allSpecKeys).sort();
+    console.log('[App] Sorted spec keys:', sortedKeys);
+    
+    if (fromIndex < 0 || fromIndex >= sortedKeys.length || toIndex < 0 || toIndex >= sortedKeys.length) {
+      console.log('[App] Invalid indices, aborting');
+      return;
+    }
+    
+    // 並び替え
+    const reorderedKeys = [...sortedKeys];
+    const [movedKey] = reorderedKeys.splice(fromIndex, 1);
+    reorderedKeys.splice(toIndex, 0, movedKey);
+    
+    console.log('[App] Reordered keys:', reorderedKeys);
+    console.log('[App] Moved key:', movedKey, 'from', fromIndex, 'to', toIndex);
+    
+    // 全機器の仕様を新しい順序で並び替え
+    setMaintenanceData(prevData => 
+      prevData.map(item => {
+        if (!item.specifications || item.specifications.length === 0) {
+          return item;
+        }
+        
+        // 仕様をキーでマップ化
+        const specMap = new Map<string, { key: string; value: string; order: number }>();
+        item.specifications.forEach(spec => {
+          if (spec.key) {
+            specMap.set(spec.key, spec);
+          }
+        });
+        
+        // 新しい順序で仕様を再構築
+        const reorderedSpecs = reorderedKeys
+          .map((key, index) => {
+            const spec = specMap.get(key);
+            if (spec) {
+              return { ...spec, order: index + 1 };
+            }
+            return null;
+          })
+          .filter(spec => spec !== null) as { key: string; value: string; order: number }[];
+        
+        return { ...item, specifications: reorderedSpecs };
+      })
+    );
+    
+    showSnackbar('機器仕様の列順序を変更しました', 'success');
+  };
+
   // Handle cell editing for EnhancedMaintenanceGrid
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
+    console.log('[App] handleCellEdit called:', { rowId, columnId, value, viewMode });
+    
     setMaintenanceData(prevData => 
       prevData.map(item => {
         if (item.id === rowId) {
           if (columnId === 'task') {
             return { ...item, task: value };
-          } else if (columnId === 'cycle') {
-            return { ...item, cycle: value };
           } else if (columnId.startsWith('time_')) {
             const timeHeader = columnId.replace('time_', '');
             const updatedResults = { ...item.results };
             
             if (viewMode === 'cost') {
-              updatedResults[timeHeader] = {
-                ...updatedResults[timeHeader],
-                planCost: value.planCost || 0,
-                actualCost: value.actualCost || 0
+              // コストモードでは、コストとステータスの両方を更新
+              const currentData = updatedResults[timeHeader] || { planned: false, actual: false, planCost: 0, actualCost: 0 };
+              console.log('[App] Before update:', { timeHeader, currentData, receivedValue: value });
+              
+              const updatedValue = {
+                ...currentData,
+                planCost: typeof value.planCost === 'number' ? value.planCost : currentData.planCost,
+                actualCost: typeof value.actualCost === 'number' ? value.actualCost : currentData.actualCost,
+                planned: typeof value.planned === 'boolean' ? value.planned : currentData.planned,
+                actual: typeof value.actual === 'boolean' ? value.actual : currentData.actual
               };
+              updatedResults[timeHeader] = updatedValue;
+              
+              console.log('[App] After update:', { timeHeader, updatedValue });
             } else {
+              // ステータスモードでは、ステータスのみを更新
+              const currentData = updatedResults[timeHeader] || { planned: false, actual: false, planCost: 0, actualCost: 0 };
               updatedResults[timeHeader] = {
-                ...updatedResults[timeHeader],
-                planned: value.planned || false,
-                actual: value.actual || false
+                ...currentData,
+                planned: typeof value.planned === 'boolean' ? value.planned : currentData.planned,
+                actual: typeof value.actual === 'boolean' ? value.actual : currentData.actual
               };
             }
             
@@ -203,26 +278,81 @@ const App: React.FC = () => {
 
 
 
-  // --- Year Operations ---
+  // --- Time Period Operations ---
   const handleAddYearClick = () => {
     setAddYearDialogOpen(true);
     setNewYearInput('');
     setAddYearError('');
   };
 
+  const generatePeriodsForYear = (year: number): string[] => {
+    const periods: string[] = [];
+    
+    switch (timeScale) {
+      case 'year':
+        periods.push(String(year));
+        break;
+      case 'month':
+        // Generate 12 months for the year
+        for (let month = 1; month <= 12; month++) {
+          periods.push(`${year}-${String(month).padStart(2, '0')}`);
+        }
+        break;
+      case 'week':
+        // Generate approximately 52 weeks for the year
+        for (let week = 1; week <= 52; week++) {
+          periods.push(`${year}-W${String(week).padStart(2, '0')}`);
+        }
+        break;
+      case 'day':
+        // Generate all days for the year (365 or 366 days)
+        const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        const daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        for (let month = 1; month <= 12; month++) {
+          for (let day = 1; day <= daysInMonth[month - 1]; day++) {
+            periods.push(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+          }
+        }
+        break;
+    }
+    
+    return periods;
+  };
+
   const handleAddYearConfirm = () => {
-    const year = parseInt(newYearInput, 10);
+    const input = newYearInput.trim();
+    if (!input) {
+      setAddYearError('年度を入力してください。');
+      return;
+    }
+
+    const year = parseInt(input, 10);
     if (isNaN(year) || year < 1000 || year > 9999) {
       setAddYearError('無効な年度です。4桁の数字で入力してください。');
       return;
     }
-    if (timeHeaders.includes(String(year))) {
-      setAddYearError('その年度は既に存在します。');
+
+    // Generate periods for the year based on time scale
+    const newPeriods = generatePeriodsForYear(year);
+    
+    // Filter out periods that already exist and only add new ones
+    const periodsToAdd = newPeriods.filter(period => !timeHeaders.includes(period));
+    
+    if (periodsToAdd.length === 0) {
+      setAddYearError(`${year}年度はすべて既に存在します。`);
       return;
     }
-    setTimeHeaders(prev => [...prev, String(year)].sort());
+
+    setTimeHeaders(prev => [...prev, ...periodsToAdd].sort());
     setAddYearDialogOpen(false);
-    showSnackbar('年度が追加されました。', 'success');
+    
+    const addedCount = periodsToAdd.length;
+    const totalCount = newPeriods.length;
+    if (addedCount === totalCount) {
+      showSnackbar(`${year}年度が追加されました。`, 'success');
+    } else {
+      showSnackbar(`${year}年度の${addedCount}件の期間が追加されました（${totalCount - addedCount}件は既に存在）。`, 'success');
+    }
   };
 
   const handleDeleteYearClick = () => {
@@ -236,15 +366,30 @@ const App: React.FC = () => {
       setDeleteYearError('削除する年度を選択してください。');
       return;
     }
-    const year = yearToDelete as string;
-    const hasData = maintenanceData.some(item => Object.keys(item.results).some(timeKey => timeKey.startsWith(year)));
+    
+    const year = parseInt(String(yearToDelete), 10);
+    if (isNaN(year)) {
+      setDeleteYearError('無効な年度です。');
+      return;
+    }
+
+    // Generate all periods for the year
+    const periodsToDelete = generatePeriodsForYear(year);
+    
+    // Check if any period has data
+    const hasData = maintenanceData.some(item => 
+      Object.keys(item.results).some(timeKey => periodsToDelete.includes(timeKey))
+    );
+    
     if (hasData) {
       setDeleteYearError('この年度にはデータが存在するため削除できません。');
       return;
     }
-    setTimeHeaders(prev => prev.filter(y => y !== year));
+    
+    // Remove all periods for the year
+    setTimeHeaders(prev => prev.filter(period => !periodsToDelete.includes(period)));
     setDeleteYearDialogOpen(false);
-    showSnackbar('年度が削除されました。', 'success');
+    showSnackbar(`${year}年度が削除されました。`, 'success');
   };
 
   // --- Data Operations ---
@@ -327,8 +472,8 @@ const App: React.FC = () => {
   };
 
   // Desktop-only layout calculations
-  const containerPadding = 16;
-  const gridHeight = 'calc(100vh - 140px)';
+  const containerPadding = 12;
+  const gridHeight = 'calc(100vh - 64px)';
   const mainContentWidth = isAIAssistantOpen ? `calc(100% - ${aiAssistantWidth}px)` : '100%';
 
   // Set up keyboard navigation for the grid
@@ -354,6 +499,7 @@ const App: React.FC = () => {
         className="responsive-container critical-loading desktop-layout"
         role="application"
         aria-label="HOSHUTARO 保全管理システム"
+        style={{ margin: 0, padding: 0, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: '#000000' }}
       >
 
       
@@ -362,7 +508,12 @@ const App: React.FC = () => {
           style={{ 
             display: 'flex',
             width: '100%',
-            height: gridHeight,
+            flex: 1,
+            minHeight: 0,
+            margin: 0,
+            padding: 0,
+            overflow: 'hidden',
+            backgroundColor: '#000000',
           }}
         >
           {/* Enhanced Maintenance Grid */}
@@ -370,11 +521,18 @@ const App: React.FC = () => {
             ref={gridRef}
             className="grid-container-responsive grid-performance"
             style={{ 
-              padding: `${containerPadding}px`, 
+              paddingLeft: `${containerPadding}px`,
+              paddingRight: `${containerPadding}px`,
+              paddingTop: `${containerPadding}px`,
+              paddingBottom: '12px',
               height: '100%',
               overflow: 'hidden',
               width: mainContentWidth,
               transition: 'width 0.3s ease',
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: '#000000',
             }}
             role="grid"
             aria-label="保全計画データグリッド"
@@ -387,9 +545,9 @@ const App: React.FC = () => {
               viewMode={viewMode}
               displayMode={displayMode}
               showBomCode={showBomCode}
-              showCycle={showCycle}
               onCellEdit={handleCellEdit}
               onSpecificationEdit={handleSpecificationEdit}
+              onSpecificationColumnReorder={handleSpecificationColumnReorder}
               onUpdateItem={handleUpdateItem}
               groupedData={groupedData}
               virtualScrolling={displayedMaintenanceData.length > 100}
@@ -410,7 +568,6 @@ const App: React.FC = () => {
               timeScale={timeScale}
               onTimeScaleChange={(e: SelectChangeEvent) => setTimeScale(e.target.value as 'year' | 'month' | 'week' | 'day')}
               onShowBomCodeChange={setShowBomCode}
-              onShowCycleChange={setShowCycle}
               onDisplayModeChange={setDisplayMode}
               onAddYear={handleAddYearClick}
               onDeleteYear={handleDeleteYearClick}
@@ -463,6 +620,9 @@ const App: React.FC = () => {
         <DialogContent>
           <DialogContentText>
             追加する年度を入力してください。
+            {timeScale === 'month' && '（12ヶ月分が追加されます）'}
+            {timeScale === 'week' && '（52週分が追加されます）'}
+            {timeScale === 'day' && '（365日分が追加されます）'}
           </DialogContentText>
           <TextField
             autoFocus
@@ -475,6 +635,7 @@ const App: React.FC = () => {
             onChange={(e) => setNewYearInput(e.target.value)}
             error={!!addYearError}
             helperText={addYearError}
+            placeholder="2024"
           />
         </DialogContent>
         <DialogActions>
@@ -489,6 +650,9 @@ const App: React.FC = () => {
         <DialogContent>
           <DialogContentText>
             削除する年度を選択してください。
+            {timeScale === 'month' && '（12ヶ月分が削除されます）'}
+            {timeScale === 'week' && '（52週分が削除されます）'}
+            {timeScale === 'day' && '（365日分が削除されます）'}
           </DialogContentText>
           <FormControl fullWidth margin="dense">
             <Select
@@ -497,7 +661,13 @@ const App: React.FC = () => {
               displayEmpty
             >
               <option value="">選択してください</option>
-              {timeHeaders.map(year => (
+              {/* Extract unique years from timeHeaders */}
+              {Array.from(new Set(
+                timeHeaders.map(period => {
+                  const yearMatch = period.match(/^(\d{4})/);
+                  return yearMatch ? yearMatch[1] : '';
+                }).filter(y => y !== '')
+              )).sort().map(year => (
                 <option key={year} value={year}>{year}</option>
               ))}
             </Select>

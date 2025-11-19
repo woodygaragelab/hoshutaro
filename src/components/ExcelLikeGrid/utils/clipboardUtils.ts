@@ -58,7 +58,22 @@ export const validateCellValue = (value: any, columnType: string): { isValid: bo
  */
 export const clipboardDataToTSV = (clipboardData: ClipboardData): string => {
   return clipboardData.cells
-    .map(row => row.map(cell => String(cell.value || '')).join('\t'))
+    .map(row => row.map(cell => {
+      const value = cell.value;
+      // オブジェクト形式の値を文字列に変換
+      if (typeof value === 'object' && value !== null) {
+        if ('planned' in value && 'actual' in value) {
+          // コストデータを含むJSON文字列として保存
+          return JSON.stringify({
+            planned: value.planned || false,
+            actual: value.actual || false,
+            planCost: value.planCost || 0,
+            actualCost: value.actualCost || 0
+          });
+        }
+      }
+      return String(value || '');
+    }).join('\t'))
     .join('\n');
 };
 
@@ -85,10 +100,36 @@ export const tsvToClipboardData = (
       const targetRow = data[targetRowIndex];
       const targetColumn = columns[targetColumnIndex];
       
+      let parsedValue: any = value.trim();
+      
+      // time_列の場合、JSON文字列または記号をパース
+      if (targetColumn?.id.startsWith('time_')) {
+        // JSON文字列の場合
+        if (parsedValue.startsWith('{')) {
+          try {
+            parsedValue = JSON.parse(parsedValue);
+          } catch (e) {
+            console.warn('Failed to parse JSON value:', parsedValue);
+            parsedValue = { planned: false, actual: false, planCost: 0, actualCost: 0 };
+          }
+        } else {
+          // 星取表の記号をオブジェクトに変換
+          if (parsedValue === '◎') {
+            parsedValue = { planned: true, actual: true, planCost: 0, actualCost: 0 };
+          } else if (parsedValue === '○' || parsedValue === '〇') {
+            parsedValue = { planned: true, actual: false, planCost: 0, actualCost: 0 };
+          } else if (parsedValue === '●') {
+            parsedValue = { planned: false, actual: true, planCost: 0, actualCost: 0 };
+          } else if (parsedValue === '') {
+            parsedValue = { planned: false, actual: false, planCost: 0, actualCost: 0 };
+          }
+        }
+      }
+      
       return {
         rowId: targetRow?.id || '',
         columnId: targetColumn?.id || '',
-        value: value.trim(),
+        value: parsedValue,
         type: targetColumn?.type || 'text'
       };
     }).filter(cell => cell.rowId && cell.columnId); // Filter out invalid cells
@@ -119,16 +160,20 @@ export const getCellValue = (
     return spec?.value || '';
   }
   
-  // Handle maintenance data with time_ prefix
+  // Handle maintenance data with time_ prefix - コストデータも含める
   if (column.id.startsWith('time_')) {
     const timeKey = column.id.replace('time_', '');
     const result = item.results?.[timeKey];
     if (result) {
-      if (result.planned && result.actual) return '◎';
-      if (result.planned) return '〇';
-      if (result.actual) return '●';
+      // オブジェクト形式で返す（コストデータを含む）
+      return {
+        planned: result.planned || false,
+        actual: result.actual || false,
+        planCost: result.planCost || 0,
+        actualCost: result.actualCost || 0
+      };
     }
-    return '';
+    return { planned: false, actual: false, planCost: 0, actualCost: 0 };
   }
   
   // Use existing cellUtils function for other cases
@@ -172,23 +217,33 @@ export const setCellValue = (
     }
     
     const result = newResults[timeKey];
-    // Parse status symbols
-    switch (value) {
-      case '◎':
-        result.planned = true;
-        result.actual = true;
-        break;
-      case '〇':
-        result.planned = true;
-        result.actual = false;
-        break;
-      case '●':
-        result.planned = false;
-        result.actual = true;
-        break;
-      default:
-        result.planned = false;
-        result.actual = false;
+    
+    // オブジェクト形式の値を処理
+    if (typeof value === 'object' && value !== null && ('planned' in value || 'actual' in value)) {
+      result.planned = value.planned || false;
+      result.actual = value.actual || false;
+      result.planCost = value.planCost || 0;
+      result.actualCost = value.actualCost || 0;
+    } else {
+      // 文字列の場合は記号をパース
+      switch (value) {
+        case '◎':
+          result.planned = true;
+          result.actual = true;
+          break;
+        case '〇':
+        case '○':
+          result.planned = true;
+          result.actual = false;
+          break;
+        case '●':
+          result.planned = false;
+          result.actual = true;
+          break;
+        default:
+          result.planned = false;
+          result.actual = false;
+      }
     }
     
     updatedItem.results = newResults;

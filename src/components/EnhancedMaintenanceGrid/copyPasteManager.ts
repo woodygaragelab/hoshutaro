@@ -38,7 +38,6 @@ export class CopyPasteManager {
     
     if (id === 'task') return item.task;
     if (id === 'bomCode') return item.bomCode;
-    if (id === 'cycle') return item.cycle;
     
     // Handle specification columns
     if (id.startsWith('spec_')) {
@@ -53,9 +52,20 @@ export class CopyPasteManager {
       const result = item.results?.[timeHeader];
       
       if (viewMode === 'cost') {
-        return result ? { planCost: result.planCost, actualCost: result.actualCost } : { planCost: 0, actualCost: 0 };
+        return result ? { 
+          planCost: result.planCost || 0, 
+          actualCost: result.actualCost || 0,
+          planned: result.planned || false,
+          actual: result.actual || false
+        } : { planCost: 0, actualCost: 0, planned: false, actual: false };
       } else {
-        return result ? { planned: result.planned, actual: result.actual } : { planned: false, actual: false };
+        // 星取表モードでもコストデータを含める
+        return result ? { 
+          planned: result.planned || false, 
+          actual: result.actual || false,
+          planCost: result.planCost || 0,
+          actualCost: result.actualCost || 0
+        } : { planned: false, actual: false, planCost: 0, actualCost: 0 };
       }
     }
     
@@ -260,8 +270,6 @@ export class CopyPasteManager {
 
     for (let i = 0; i < targetCells.length; i++) {
       const targetCell = targetCells[i];
-      // Use modulo for circular reference when pasting multiple cells
-      const _sourceCell = this.clipboardData.cells[i % this.clipboardData.cells.length];
 
       const pasteResult = await this.pasteSingleCell(targetCell.rowId, targetCell.columnId, viewMode);
       
@@ -286,6 +294,10 @@ export class CopyPasteManager {
     // 同じタイプは常に互換性あり
     if (sourceType === targetType) return true;
 
+    // statusとcostは相互に互換性あり（両方ともコストデータを含む）
+    if ((sourceType === 'status' && targetType === 'cost') || 
+        (sourceType === 'cost' && targetType === 'status')) return true;
+
     // テキストは他のタイプに変換可能
     if (sourceType === 'text') return true;
 
@@ -308,6 +320,25 @@ export class CopyPasteManager {
   ): any {
     if (sourceType === targetType) return value;
 
+    // statusとcost間の変換（データを保持）
+    if (sourceType === 'status' && targetType === 'cost') {
+      return {
+        planCost: value.planCost || 0,
+        actualCost: value.actualCost || 0,
+        planned: value.planned || false,
+        actual: value.actual || false
+      };
+    }
+    
+    if (sourceType === 'cost' && targetType === 'status') {
+      return {
+        planned: value.planned || false,
+        actual: value.actual || false,
+        planCost: value.planCost || 0,
+        actualCost: value.actualCost || 0
+      };
+    }
+
     switch (targetType) {
       case 'text':
         return this.formatDisplayValue(value, sourceType);
@@ -323,10 +354,10 @@ export class CopyPasteManager {
       case 'status':
         if (sourceType === 'text') {
           const text = String(value).toLowerCase();
-          if (text.includes('◎') || text.includes('両方')) return { planned: true, actual: true };
-          if (text.includes('○') || text.includes('計画')) return { planned: true, actual: false };
-          if (text.includes('●') || text.includes('実績')) return { planned: false, actual: true };
-          return { planned: false, actual: false };
+          if (text.includes('◎') || text.includes('両方')) return { planned: true, actual: true, planCost: 0, actualCost: 0 };
+          if (text.includes('○') || text.includes('計画')) return { planned: true, actual: false, planCost: 0, actualCost: 0 };
+          if (text.includes('●') || text.includes('実績')) return { planned: false, actual: true, planCost: 0, actualCost: 0 };
+          return { planned: false, actual: false, planCost: 0, actualCost: 0 };
         }
         break;
 
@@ -338,6 +369,8 @@ export class CopyPasteManager {
           return {
             planCost: planMatch ? parseInt(planMatch[1], 10) : 0,
             actualCost: actualMatch ? parseInt(actualMatch[1], 10) : 0,
+            planned: planMatch ? true : false,
+            actual: actualMatch ? true : false
           };
         }
         break;

@@ -7,6 +7,7 @@ import { CommonEditLogic } from '../CommonEdit/CommonEditLogic';
 import StatusSelectionDialog from '../StatusSelectionDialog/StatusSelectionDialog';
 import CostInputDialog from '../CostInputDialog/CostInputDialog';
 import SpecificationEditDialog from '../SpecificationEditDialog/SpecificationEditDialog';
+import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
 import { StatusValue, CostValue, SpecificationValue } from '../CommonEdit/types';
 import { useKeyboardNavigation } from './keyboardNavigation';
 // import { useScrollManager } from './scrollManager';
@@ -26,6 +27,7 @@ interface MaintenanceGridLayoutProps {
   onSelectedRangeChange: (range: any) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
   onSpecificationEdit: (rowId: string, index: number, field: 'key' | 'value', value: string) => void;
+  onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
   virtualScrolling: boolean;
   readOnly: boolean;
   onCopy?: () => Promise<void>;
@@ -48,6 +50,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   onEditingCellChange,
   onUpdateItem,
   onSpecificationEdit,
+  onSpecificationColumnReorder,
   virtualScrolling,
   readOnly,
   onCopy,
@@ -64,7 +67,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
   // Enhanced editing state
   const [editDialogState, setEditDialogState] = useState<{
-    type: 'status' | 'cost' | 'specification' | null;
+    type: 'status' | 'cost' | 'specification' | 'tagNo' | null;
     open: boolean;
     rowId: string | null;
     columnId: string | null;
@@ -81,6 +84,23 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
   // Desktop-only mode
   const deviceType = 'desktop';
+
+  // Column drag state
+  const [columnDragState, setColumnDragState] = useState<{
+    draggedColumnIndex: number | null;
+    dragOverColumnIndex: number | null;
+  }>({
+    draggedColumnIndex: null,
+    dragOverColumnIndex: null,
+  });
+
+  const handleColumnDragStateChange = useCallback((draggedIndex: number | null, dragOverIndex: number | null) => {
+    console.log('[GridLayout] Column drag state changed:', { draggedIndex, dragOverIndex });
+    setColumnDragState({
+      draggedColumnIndex: draggedIndex,
+      dragOverColumnIndex: dragOverIndex,
+    });
+  }, []);
 
   // Keyboard navigation
   const { handleKeyDown } = useKeyboardNavigation(data, columns, {
@@ -226,11 +246,14 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       return;
     }
 
-    let editType: 'status' | 'cost' | 'specification' | null = null;
+    let editType: 'status' | 'cost' | 'specification' | 'tagNo' | null = null;
     let currentValue: any = null;
 
     // Determine edit type and current value based on column
-    if (columnId.startsWith('time_')) {
+    if (columnId === 'bomCode') {
+      editType = 'tagNo';
+      currentValue = item.bomCode || '';
+    } else if (columnId.startsWith('time_')) {
       const timeHeader = columnId.replace('time_', '');
       const result = item.results?.[timeHeader];
       
@@ -283,7 +306,16 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
     const { rowId, columnId, type } = editDialogState;
 
-    if (type === 'status') {
+    if (type === 'tagNo') {
+      const tagNo = value as string;
+      const item = data.find(d => d.id === rowId);
+      if (item) {
+        onUpdateItem({
+          ...item,
+          bomCode: tagNo,
+        });
+      }
+    } else if (type === 'status') {
       const statusValue = value as StatusValue;
       onCellEdit(rowId, columnId, {
         planned: statusValue.planned,
@@ -291,7 +323,22 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       });
     } else if (type === 'cost') {
       const costValue = value as CostValue;
-      onCellEdit(rowId, columnId, costValue);
+      // コスト入力時に星取表のステータスを自動更新
+      const planned = (costValue.planCost || 0) > 0;
+      const actual = (costValue.actualCost || 0) > 0;
+      console.log('[MaintenanceGridLayout] Saving cost with status:', {
+        rowId,
+        columnId,
+        planCost: costValue.planCost,
+        actualCost: costValue.actualCost,
+        planned,
+        actual
+      });
+      onCellEdit(rowId, columnId, {
+        ...costValue,
+        planned,
+        actual
+      });
     } else if (type === 'specification') {
       const specifications = value as SpecificationValue[];
       // Update the item's specifications
@@ -510,6 +557,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               columns={columnsByArea.fixed}
               gridState={gridState}
               onColumnResize={handleEnhancedColumnResize}
+              onColumnReorder={onSpecificationColumnReorder}
+              onDragStateChange={handleColumnDragStateChange}
             />
           </Box>
           <Box 
@@ -518,9 +567,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               overflowY: 'auto',
               overflowX: 'hidden', 
               flex: 1,
-              willChange: 'scroll-position',
-              transform: 'translate3d(0, 0, 0)',
-              backfaceVisibility: 'hidden',
               '&::-webkit-scrollbar': {
                 width: '8px'
               },
@@ -551,6 +597,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               virtualScrolling={virtualScrolling}
               readOnly={readOnly}
               isFixedArea={true}
+              draggedColumnIndex={columnDragState.draggedColumnIndex}
+              dragOverColumnIndex={columnDragState.dragOverColumnIndex}
             />
           </Box>
         </Box>
@@ -581,13 +629,14 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   display: 'none'
                 },
                 scrollbarWidth: 'none',
-                pointerEvents: 'none'
               }}
             >
               <MaintenanceTableHeader
                 columns={scrollableColumns}
                 gridState={gridState}
                 onColumnResize={handleEnhancedColumnResize}
+                onColumnReorder={onSpecificationColumnReorder}
+                onDragStateChange={handleColumnDragStateChange}
               />
             </Box>
             <Box 
@@ -595,9 +644,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               sx={{ 
                 overflow: 'auto', 
                 flex: 1,
-                willChange: 'scroll-position',
-                transform: 'translate3d(0, 0, 0)',
-                backfaceVisibility: 'hidden',
                 '&::-webkit-scrollbar': {
                   width: '8px',
                   height: '8px'
@@ -634,6 +680,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 onCellDoubleClick={handleCellDoubleClick}
                 virtualScrolling={virtualScrolling}
                 readOnly={readOnly}
+                draggedColumnIndex={columnDragState.draggedColumnIndex}
+                dragOverColumnIndex={columnDragState.dragOverColumnIndex}
               />
             </Box>
           </Box>
@@ -698,9 +746,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               overflowY: 'auto',
               overflowX: 'hidden', 
               flex: 1,
-              willChange: 'scroll-position',
-              transform: 'translate3d(0, 0, 0)',
-              backfaceVisibility: 'hidden',
               '&::-webkit-scrollbar': {
                 width: '8px'
               },
@@ -731,6 +776,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               virtualScrolling={virtualScrolling}
               readOnly={readOnly}
               isFixedArea={true}
+              draggedColumnIndex={columnDragState.draggedColumnIndex}
+              dragOverColumnIndex={columnDragState.dragOverColumnIndex}
             />
           </Box>
         </Box>
@@ -785,13 +832,14 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                     display: 'none'
                   },
                   scrollbarWidth: 'none',
-                  pointerEvents: 'none' // Prevent user interaction with header scroll
                 }}
               >
                 <MaintenanceTableHeader
                   columns={columnsByArea.specifications}
                   gridState={gridState}
                   onColumnResize={handleEnhancedColumnResize}
+                  onColumnReorder={onSpecificationColumnReorder}
+                  onDragStateChange={handleColumnDragStateChange}
                 />
               </Box>
               <Box 
@@ -799,9 +847,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 sx={{ 
                   overflow: 'auto', 
                   flex: 1,
-                  willChange: 'scroll-position',
-                  transform: 'translate3d(0, 0, 0)',
-                  backfaceVisibility: 'hidden',
                   '&::-webkit-scrollbar': {
                     width: '8px',
                     height: '8px'
@@ -838,6 +883,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   onCellDoubleClick={handleCellDoubleClick}
                   virtualScrolling={virtualScrolling}
                   readOnly={readOnly}
+                  draggedColumnIndex={columnDragState.draggedColumnIndex}
+                  dragOverColumnIndex={columnDragState.dragOverColumnIndex}
                 />
               </Box>
             </Box>
@@ -869,13 +916,14 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                     display: 'none'
                   },
                   scrollbarWidth: 'none',
-                  pointerEvents: 'none' // Prevent user interaction with header scroll
                 }}
               >
                 <MaintenanceTableHeader
                   columns={columnsByArea.maintenance}
                   gridState={gridState}
                   onColumnResize={handleEnhancedColumnResize}
+                  onColumnReorder={onSpecificationColumnReorder}
+                  onDragStateChange={handleColumnDragStateChange}
                 />
               </Box>
               <Box 
@@ -883,9 +931,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 sx={{ 
                   overflow: 'auto', 
                   flex: 1,
-                  willChange: 'scroll-position',
-                  transform: 'translate3d(0, 0, 0)',
-                  backfaceVisibility: 'hidden',
                   '&::-webkit-scrollbar': {
                     width: '8px',
                     height: '8px'
@@ -922,6 +967,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   onCellDoubleClick={handleCellDoubleClick}
                   virtualScrolling={virtualScrolling}
                   readOnly={readOnly}
+                  draggedColumnIndex={columnDragState.draggedColumnIndex}
+                  dragOverColumnIndex={columnDragState.dragOverColumnIndex}
                 />
               </Box>
             </Box>
@@ -939,7 +986,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        outline: 'none', // Remove focus outline
+        outline: 'none',
+        margin: 0,
+        padding: 0,
         '&:focus': {
           outline: 'none',
         }
@@ -974,6 +1023,18 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         />
       )}
       
+      {/* TAG NO. Edit Dialog */}
+      {editDialogState.type === 'tagNo' && (
+        <TagNoEditDialog
+          open={editDialogState.open}
+          tagNo={editDialogState.currentValue}
+          onSave={handleDialogSave}
+          onClose={handleDialogClose}
+          anchorEl={editDialogState.anchorEl}
+          readOnly={readOnly}
+        />
+      )}
+
       {/* Specification Edit Dialog */}
       {editDialogState.type === 'specification' && (
         <SpecificationEditDialog

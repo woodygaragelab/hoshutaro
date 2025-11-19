@@ -229,8 +229,9 @@ export const validateCostInput = (
  * リアルタイム入力フィルタリング（不正な文字の除去）
  */
 export const filterCostInput = (value: string): string => {
-  // 数値、カンマ、小数点、マイナス記号のみ許可
-  return value.replace(/[^\d,.-]/g, '');
+  // 数値（半角・全角）、カンマ、小数点、マイナス記号、円記号、¥記号を許可
+  // 全角数字（０-９）、半角数字（0-9）、カンマ、小数点、マイナス、円、¥を許可
+  return value.replace(/[^\d０-９,.\-円¥]/g, '');
 };
 
 /**

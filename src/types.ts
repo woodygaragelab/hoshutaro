@@ -3,7 +3,6 @@ export interface HierarchicalData {
   task: string;
   level: number;
   bomCode: string;
-  cycle?: number;
   specifications: { key: string; value: string; order: number }[];
   children: any[];
   results: { [timeKey: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };

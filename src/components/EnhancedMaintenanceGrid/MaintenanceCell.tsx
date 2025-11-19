@@ -16,6 +16,8 @@ interface MaintenanceCellProps {
   readOnly: boolean;
   width: number;
   showRightBorder?: boolean;
+  isDragged?: boolean;
+  isDragOver?: boolean;
 }
 
 export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
@@ -29,7 +31,9 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
   onCellDoubleClick,
   readOnly,
   width,
-  showRightBorder = true
+  showRightBorder = true,
+  isDragged = false,
+  isDragOver = false
 }) => {
   const [editValue, setEditValue] = useState(value);
 
@@ -39,10 +43,48 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
   }, [value]);
 
   const handleEditComplete = useCallback(() => {
-    if (editValue !== value) {
-      onCellEdit(item.id, column.id, editValue);
+    let finalValue = editValue;
+    
+    // コスト入力時に星取表のステータスを自動更新
+    if (column.type === 'cost') {
+      const planCost = editValue?.planCost || 0;
+      const actualCost = editValue?.actualCost || 0;
+      
+      // 計画コストが入力されている場合、plannedをtrueに
+      const planned = planCost > 0;
+      // 実績コストが入力されている場合、actualをtrueに
+      const actual = actualCost > 0;
+      
+      finalValue = {
+        ...editValue,
+        planCost,
+        actualCost,
+        planned,
+        actual
+      };
+      
+      console.log('[MaintenanceCell] handleEditComplete - Cost mode:', {
+        rowId: item.id,
+        columnId: column.id,
+        editValue,
+        planCost,
+        actualCost,
+        planned,
+        actual,
+        finalValue
+      });
     }
-  }, [editValue, value, onCellEdit, item.id, column.id]);
+    
+    // 値が変更されているかチェック（コストの場合は常に更新）
+    const hasChanged = column.type === 'cost' || editValue !== value;
+    
+    if (hasChanged) {
+      console.log('[MaintenanceCell] Calling onCellEdit:', { rowId: item.id, columnId: column.id, finalValue });
+      onCellEdit(item.id, column.id, finalValue);
+    } else {
+      console.log('[MaintenanceCell] No change detected, skipping update');
+    }
+  }, [editValue, value, onCellEdit, item.id, column.id, column.type]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -90,11 +132,33 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
         );
       } else if (column.type === 'cost') {
         // Cost editing
+        const handlePlanCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const newPlanCost = parseFloat(e.target.value) || 0;
+          const currentActualCost = editValue?.actualCost || 0;
+          setEditValue({ 
+            ...editValue, 
+            planCost: newPlanCost,
+            planned: newPlanCost > 0, // 計画コストが入力されたらplannedをtrueに
+            actual: currentActualCost > 0 // 実績コストの状態を保持
+          });
+        };
+        
+        const handleActualCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const newActualCost = parseFloat(e.target.value) || 0;
+          const currentPlanCost = editValue?.planCost || 0;
+          setEditValue({ 
+            ...editValue, 
+            actualCost: newActualCost,
+            actual: newActualCost > 0, // 実績コストが入力されたらactualをtrueに
+            planned: currentPlanCost > 0 // 計画コストの状態を保持
+          });
+        };
+        
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <TextField
               value={editValue?.planCost || ''}
-              onChange={(e) => setEditValue({ ...editValue, planCost: parseFloat(e.target.value) || 0 })}
+              onChange={handlePlanCostChange}
               onBlur={handleEditComplete}
               onKeyDown={handleKeyDown}
               placeholder="計画"
@@ -105,7 +169,7 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
             />
             <TextField
               value={editValue?.actualCost || ''}
-              onChange={(e) => setEditValue({ ...editValue, actualCost: parseFloat(e.target.value) || 0 })}
+              onChange={handleActualCostChange}
               onBlur={handleEditComplete}
               onKeyDown={handleKeyDown}
               placeholder="実績"
@@ -145,7 +209,7 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
         else if (actual) symbol = '●';
         
         return (
-          <Box sx={{ textAlign: 'center', fontSize: '1rem', fontWeight: 'bold', color: '#333333 !important' }}>
+          <Box className="cell-content" sx={{ textAlign: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
             {symbol}
           </Box>
         );
@@ -153,26 +217,35 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
         const planCost = value?.planCost || 0;
         const actualCost = value?.actualCost || 0;
         
+        // 千円単位に変換してフォーマット
+        const formatCost = (cost: number) => {
+          if (cost === 0) return '';
+          const costInThousands = Math.round(cost / 1000);
+          return new Intl.NumberFormat('ja-JP').format(costInThousands);
+        };
+        
         return (
-          <Box sx={{ fontSize: '0.75rem', textAlign: 'center', color: '#333333 !important' }}>
+          <Box className="cell-content" sx={{ fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.4 }}>
             {planCost > 0 && (
-              <Box sx={{ color: '#2196f3 !important' }}>({planCost})</Box>
+              <Box className="cost-plan" sx={{ color: 'primary.main' }}>{formatCost(planCost)}</Box>
             )}
             {actualCost > 0 && (
-              <Box sx={{ color: '#4caf50 !important' }}>({actualCost})</Box>
+              <Box className="cost-actual" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>{formatCost(actualCost)}</Box>
             )}
           </Box>
         );
       } else {
         // Text/number display
         return (
-          <Box sx={{ 
-            fontSize: '0.875rem', 
-            overflow: 'hidden', 
-            textOverflow: 'ellipsis',
-            textAlign: column.type === 'number' ? 'center' : 'left',
-            color: '#333333 !important'
-          }}>
+          <Box 
+            className="cell-content"
+            sx={{ 
+              fontSize: '0.875rem', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis',
+              textAlign: column.type === 'number' ? 'center' : 'left'
+            }}
+          >
             {value || ''}
           </Box>
         );
@@ -193,12 +266,13 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
   }, [onCellDoubleClick]);
 
   // Handle single click
-  const handleClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
+  const handleClick = useCallback(() => {
     onCellClick();
   }, [onCellClick]);
 
   return (
     <Box
+      className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
       sx={{
         width,
         minWidth: width,
@@ -208,18 +282,22 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
         alignItems: 'center',
         justifyContent: column.type === 'status' || column.type === 'cost' ? 'center' : 'flex-start',
         padding: '4px 8px',
-        borderRight: showRightBorder ? '1px solid #333333' : 'none',
-        backgroundColor: isSelected ? 'primary.light' : 'transparent',
+        backgroundColor: isSelected ? '#ffffff' : 'transparent',
         cursor: readOnly ? 'default' : 'pointer',
-        color: '#333333', // Ensure text is visible
         boxSizing: 'border-box', // Ensure borders are included in width calculation
         flexShrink: 0, // Prevent shrinking during scroll
-        willChange: 'transform', // Enable hardware acceleration
-        transform: 'translate3d(0, 0, 0)', // Force hardware acceleration
-        backfaceVisibility: 'hidden', // Improve rendering performance
+        opacity: isDragged ? 0.5 : 1,
+        transform: isDragged ? 'translateY(-2px)' : 'translateY(0)',
+        transition: 'all 0.2s ease-in-out',
+        boxShadow: isDragged ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
+        borderLeft: isDragOver ? '2px solid rgba(255,255,255,0.5)' : 'none',
+        borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (showRightBorder ? '1px solid #333333' : 'none'),
         '&:hover': {
-          backgroundColor: isSelected ? 'primary.light' : 'action.hover'
+          backgroundColor: isSelected ? '#ffffff' : 'action.hover'
         }
+      }}
+      style={{
+        borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (showRightBorder ? '1px solid #333333' : 'none')
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}

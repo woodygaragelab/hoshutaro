@@ -22,6 +22,8 @@ interface MaintenanceTableBodyProps {
   isScrollableArea?: boolean;
   syncScrollTop?: number;
   onScrollSync?: (scrollTop: number) => void;
+  draggedColumnIndex?: number | null;
+  dragOverColumnIndex?: number | null;
 }
 
 export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
@@ -40,7 +42,9 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
   isFixedArea = false,
   isScrollableArea = false,
   syncScrollTop,
-  onScrollSync
+  onScrollSync,
+  draggedColumnIndex,
+  dragOverColumnIndex
 }) => {
   // Use grouped data if provided, otherwise create simple list
   const renderData = useMemo((): [string, HierarchicalData[]][] => {
@@ -78,6 +82,8 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
             onUpdateItem={onUpdateItem}
             onCellDoubleClick={onCellDoubleClick}
             readOnly={readOnly}
+            draggedColumnIndex={draggedColumnIndex}
+            dragOverColumnIndex={dragOverColumnIndex}
           />
         ))}
       </React.Fragment>
@@ -103,7 +109,7 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
         flexDirection: 'column',
         flex: 1,
         overflow: isScrollableArea ? 'auto' : 'visible',
-        backgroundColor: 'background.paper'
+        backgroundColor: 'transparent'
       }}
       onScroll={handleScroll}
       style={syncScrollTop !== undefined ? { scrollBehavior: 'auto' } : undefined}

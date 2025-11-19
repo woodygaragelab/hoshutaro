@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Box, TextField } from '@mui/material';
 import { HierarchicalData } from '../../types';
 import { GridColumn, GridState } from '../ExcelLikeGrid/types';
@@ -14,6 +14,8 @@ interface MaintenanceTableRowProps {
   onUpdateItem: (updatedItem: HierarchicalData) => void;
   onCellDoubleClick?: (rowId: string, columnId: string, event: React.MouseEvent<HTMLElement>) => void;
   readOnly: boolean;
+  draggedColumnIndex?: number | null;
+  dragOverColumnIndex?: number | null;
 }
 import MaintenanceCell from './MaintenanceCell';
 
@@ -27,12 +29,12 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
   onEditingCellChange,
   onUpdateItem,
   onCellDoubleClick,
-  readOnly
+  readOnly,
+  draggedColumnIndex,
+  dragOverColumnIndex
 }) => {
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [taskInputValue, setTaskInputValue] = useState(item.task);
-  const [isEditingCycle, setIsEditingCycle] = useState(false);
-  const [cycleInputValue, setCycleInputValue] = useState(item.cycle || '');
 
   // Handle task editing (similar to existing TableRow logic)
   const handleTaskClick = useCallback((e: React.MouseEvent) => {
@@ -57,29 +59,14 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
     }
   }, [item.task]);
 
-  // Handle cycle editing (similar to existing TableRow logic)
-  const handleCycleClick = useCallback((e: React.MouseEvent) => {
+
+
+  // Handle bomCode click (no inline editing, use dialog instead)
+  const handleBomCodeClick = useCallback((e: React.MouseEvent) => {
     if (readOnly) return;
-    setIsEditingCycle(true);
+    // Don't start inline editing, let double-click handle it
     e.stopPropagation();
   }, [readOnly]);
-
-  const handleCycleBlur = useCallback(() => {
-    const newCycle = parseInt(cycleInputValue as string, 10);
-    if (newCycle !== item.cycle) {
-      onUpdateItem({ ...item, cycle: isNaN(newCycle) ? undefined : newCycle });
-    }
-    setIsEditingCycle(false);
-  }, [cycleInputValue, item, onUpdateItem]);
-
-  const handleCycleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
-    } else if (e.key === 'Escape') {
-      setCycleInputValue(item.cycle || '');
-      setIsEditingCycle(false);
-    }
-  }, [item.cycle]);
 
   // Get cell value based on column accessor
   const getCellValue = useCallback((column: any) => {
@@ -87,7 +74,6 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
     
     if (id === 'task') return item.task;
     if (id === 'bomCode') return item.bomCode;
-    if (id === 'cycle') return item.cycle;
     
     // Handle specification columns
     if (id.startsWith('spec_')) {
@@ -132,37 +118,56 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
     }
   }, [item.id, columns, readOnly, onCellDoubleClick, onEditingCellChange]);
 
+  // Ref for the row element
+  const rowRef = useRef<HTMLDivElement>(null);
 
+  // Force border style on mount and update
+  useEffect(() => {
+    if (rowRef.current) {
+      rowRef.current.style.borderBottom = '1px solid #333333';
+    }
+  }, []);
+
+  // Calculate total row width based on columns
+  const totalRowWidth = columns.reduce((sum, col) => {
+    return sum + (gridState.columnWidths[col.id] || col.width);
+  }, 0);
 
   return (
     <Box
+      ref={rowRef}
       sx={{
         display: 'flex',
         height: 40, // Fixed height instead of minHeight
-        borderBottom: '1px solid #333333',
+        width: `${totalRowWidth}px`, // Set explicit width
+        minWidth: `${totalRowWidth}px`, // Ensure minimum width
         alignItems: 'center', // Ensure vertical alignment
         boxSizing: 'border-box', // Ensure borders are included in height calculation
         flexShrink: 0, // Prevent shrinking during scroll
-        willChange: 'transform', // Enable hardware acceleration
-        transform: 'translate3d(0, 0, 0)', // Force hardware acceleration
-        backfaceVisibility: 'hidden', // Improve rendering performance
+        backgroundColor: 'transparent',
         '&:hover': {
           backgroundColor: 'action.hover'
         }
       }}
+      style={{
+        borderBottom: '1px solid #333333'
+      }}
       data-row-id={item.id}
     >
-      {columns.map((column) => {
+      {columns.map((column, columnIndex) => {
         const width = gridState.columnWidths[column.id] || column.width;
         const isSelected = gridState.selectedCell?.rowId === item.id && gridState.selectedCell?.columnId === column.id;
         const isEditing = gridState.editingCell?.rowId === item.id && gridState.editingCell?.columnId === column.id;
+        const isDragged = draggedColumnIndex !== null && draggedColumnIndex === columnIndex;
+        const isDragOver = dragOverColumnIndex !== null && dragOverColumnIndex === columnIndex;
         
-        // Special handling for task and cycle columns to maintain existing behavior
+        // Special handling for task, bomCode, and cycle columns to maintain existing behavior
         if (column.id === 'task') {
           const isLastColumn = columns.indexOf(column) === columns.length - 1;
           return (
             <Box
               key={column.id}
+              className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
               sx={{
                 width,
                 minWidth: width,
@@ -170,11 +175,19 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 padding: '4px 8px',
-                borderRight: isLastColumn ? 'none' : '1px solid #333333',
-                backgroundColor: isSelected ? 'primary.light' : 'transparent',
+                backgroundColor: isSelected ? '#ffffff' : 'transparent',
                 cursor: readOnly ? 'default' : 'pointer',
                 boxSizing: 'border-box',
-                flexShrink: 0
+                flexShrink: 0,
+                opacity: isDragged ? 0.5 : 1,
+                transform: isDragged ? 'translateY(-2px)' : 'translateY(0)',
+                transition: 'all 0.2s ease-in-out',
+                boxShadow: isDragged ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
+                borderLeft: isDragOver ? '2px solid rgba(255,255,255,0.5)' : 'none',
+                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333'),
+              }}
+              style={{
+                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')
               }}
               onClick={() => handleCellClick(column.id)}
             >
@@ -192,7 +205,7 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
                     sx={{ '& .MuiInput-root': { fontSize: '0.875rem' } }}
                   />
                 ) : (
-                  <Box sx={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', color: '#333333 !important' }}>
+                  <Box className="cell-content" sx={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {item.task}
                   </Box>
                 )}
@@ -201,46 +214,40 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
           );
         }
         
-        if (column.id === 'cycle') {
+        if (column.id === 'bomCode') {
           const isLastColumn = columns.indexOf(column) === columns.length - 1;
           return (
             <Box
               key={column.id}
+              className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
               sx={{
                 width,
                 minWidth: width,
                 maxWidth: width,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
                 padding: '4px 8px',
-                borderRight: isLastColumn ? 'none' : '1px solid #333333',
-                backgroundColor: isSelected ? 'primary.light' : 'transparent',
+                backgroundColor: isSelected ? '#ffffff' : 'transparent',
                 cursor: readOnly ? 'default' : 'pointer',
                 boxSizing: 'border-box',
-                flexShrink: 0
+                flexShrink: 0,
+                opacity: isDragged ? 0.5 : 1,
+                transform: isDragged ? 'translateY(-2px)' : 'translateY(0)',
+                transition: 'all 0.2s ease-in-out',
+                boxShadow: isDragged ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
+                borderLeft: isDragOver ? '2px solid rgba(255,255,255,0.5)' : 'none',
+                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333'),
+              }}
+              style={{
+                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')
               }}
               onClick={() => handleCellClick(column.id)}
+              onDoubleClick={(e) => handleCellDoubleClick(column.id, e)}
             >
-              <Box sx={{ width: '100%', textAlign: 'center' }} onClick={handleCycleClick}>
-                {isEditingCycle ? (
-                  <TextField
-                    value={cycleInputValue}
-                    onChange={(e) => setCycleInputValue(e.target.value)}
-                    onBlur={handleCycleBlur}
-                    onKeyDown={handleCycleKeyDown}
-                    autoFocus
-                    fullWidth
-                    variant="standard"
-                    size="small"
-                    type="number"
-                    sx={{ '& .MuiInput-root': { fontSize: '0.875rem', textAlign: 'center' } }}
-                  />
-                ) : (
-                  <Box sx={{ fontSize: '0.875rem', color: '#333333 !important' }}>
-                    {item.cycle || ''}
-                  </Box>
-                )}
+              <Box sx={{ width: '100%' }} onClick={handleBomCodeClick}>
+                <Box className="cell-content" sx={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {item.bomCode || ''}
+                </Box>
               </Box>
             </Box>
           );
@@ -265,6 +272,8 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
             readOnly={readOnly}
             width={width}
             showRightBorder={!isLastColumn}
+            isDragged={isDragged}
+            isDragOver={isDragOver}
           />
         );
       })}

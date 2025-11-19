@@ -24,18 +24,21 @@ export const GroupHeaderRow: React.FC<GroupHeaderRowProps> = ({
         display: 'flex',
         height: 32,
         backgroundColor: '#1e1e1e !important',
-        borderBottom: '1px solid #333333',
         position: 'relative',
         alignItems: 'center',
-        width: isFixedArea ? totalWidth : '100%',
+        width: `${totalWidth}px`,
+        minWidth: `${totalWidth}px`,
         boxSizing: 'border-box',
         flexShrink: 0
+      }}
+      style={{
+        borderBottom: '1px solid #333333'
       }}
     >
       <Box
         sx={{
-          width: isFixedArea ? totalWidth : '100%',
-          minWidth: isFixedArea ? totalWidth : '100%',
+          width: `${totalWidth}px`,
+          minWidth: `${totalWidth}px`,
           display: 'flex',
           alignItems: 'center',
           padding: '4px 12px',

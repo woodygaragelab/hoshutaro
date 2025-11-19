@@ -257,6 +257,31 @@ export class KeyboardNavigationManager {
   }
 
   /**
+   * Delete キーハンドラー
+   */
+  handleDeleteKey(
+    currentRowId: string | null,
+    currentColumnId: string | null
+  ): { shouldDelete: boolean; rowId: string; columnId: string } | null {
+    if (!currentRowId || !currentColumnId) {
+      return null;
+    }
+
+    const { rowIndex, columnIndex } = this.getCurrentCellIndex(currentRowId, currentColumnId);
+    
+    // セルが編集可能かチェック
+    if (this.isCellEditable(rowIndex, columnIndex)) {
+      return {
+        shouldDelete: true,
+        rowId: currentRowId,
+        columnId: currentColumnId
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * キーボードイベントハンドラー
    */
   handleKeyDown(

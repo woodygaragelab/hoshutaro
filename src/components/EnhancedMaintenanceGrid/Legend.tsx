@@ -14,10 +14,8 @@ export const Legend: React.FC<LegendProps> = ({ viewMode, className = '' }) => {
         display: 'flex', 
         alignItems: 'center',
         padding: '8px 12px',
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        backgroundColor: 'background.paper'
+        backgroundColor: 'transparent',
+        border: 'none'
       }}
     >
       {viewMode === 'status' ? (
@@ -40,11 +38,11 @@ export const Legend: React.FC<LegendProps> = ({ viewMode, className = '' }) => {
         <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <strong>凡例 (単位: 千円):</strong>
           <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'primary.main' }}>
-            <span>(123)</span>
+            <span>123</span>
             <span>: 計画</span>
           </Box>
-          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'secondary.main' }}>
-            <span>(123)</span>
+          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'secondary.main', fontWeight: 'bold' }}>
+            <span>456</span>
             <span>: 実績</span>
           </Box>
         </Typography>
