@@ -49,6 +49,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
   onResetData,
   onAIAssistantToggle,
   isAIAssistantOpen = false,
+  currentYear,
+  onJumpToDate,
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -116,16 +118,9 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         })
         .map(entry => entry[0]);
       
-      // Debug logging for specification keys
-      console.log('Specification keys found:', sortedSpecKeys.length, sortedSpecKeys.slice(0, 10));
-      
       // Limit the number of specification columns to prevent performance issues
       const maxSpecColumns = 20;
       const limitedSpecKeys = sortedSpecKeys.slice(0, maxSpecColumns);
-      
-      if (sortedSpecKeys.length > maxSpecColumns) {
-        console.warn(`Too many specification keys (${sortedSpecKeys.length}), limiting to ${maxSpecColumns}`);
-      }
       
       // Create columns for each specification key
       limitedSpecKeys.forEach(specKey => {
@@ -161,9 +156,6 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         });
       });
     }
-
-    // Debug logging for total columns
-    console.log('Total columns generated:', cols.length, 'displayMode:', displayMode);
     
     return cols;
   }, [data, timeHeaders, viewMode, displayMode, showBomCode]);
@@ -176,13 +168,13 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     const specColumns = columns.filter(col => col.id.startsWith('spec_')).map(col => col.id);
     const maintenanceColumns = columns.filter(col => col.id.startsWith('time_')).map(col => col.id);
 
-    const config = {
+    return {
       mode: displayMode,
       fixedColumns,
       scrollableAreas: {
         specifications: {
           visible: displayMode === 'specifications' || displayMode === 'both',
-          width: specColumns.length * 135, // Average width
+          width: specColumns.length * 135,
           columns: specColumns
         },
         maintenance: {
@@ -192,17 +184,6 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         }
       }
     };
-    
-    // Debug logging to check display area configuration
-    console.log('Display area config:', {
-      mode: displayMode,
-      fixedColumns,
-      specColumns,
-      maintenanceColumns,
-      allColumns: columns.map(c => c.id)
-    });
-    
-    return config;
   }, [columns, displayMode, showBomCode, viewMode]);
 
   const {
@@ -214,6 +195,12 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
     setEditingCell,
     navigateToCell
   } = useMaintenanceGridState(columns, data);
+
+  // Auto-enable virtual scrolling for large column counts (week/day views)
+  const autoVirtualScrolling = useMemo(() => {
+    const timeColumns = columns.filter(col => col.id.startsWith('time_')).length;
+    return timeColumns > 50 || virtualScrolling;
+  }, [columns, virtualScrolling]);
 
   // Performance optimization hooks
   const {
@@ -234,7 +221,6 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
 
   // Handle cell editing with support for both regular cells and specifications
   const handleCellEdit = useCallback((rowId: string, columnId: string, value: any) => {
-    console.log('[handleCellEdit] Called', { rowId, columnId, value, valueType: typeof value });
     if (readOnly) return;
     
     // Check if this is a specification edit
@@ -295,7 +281,6 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
               // Convert string status symbols to status object if needed
               let statusValue = value;
               if (typeof value === 'string') {
-                console.log('[handleCellEdit] Converting string status to object:', value);
                 switch (value) {
                   case '◎':
                     statusValue = { planned: true, actual: true, planCost: 0, actualCost: 0 };
@@ -312,7 +297,6 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
                 }
               }
               
-              console.log('[handleCellEdit] Updating time column', { timeHeader, statusValue });
               const updatedResults = {
                 ...updatedItem.results,
                 [timeHeader]: statusValue
@@ -321,11 +305,10 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
               onUpdateItem({
                 ...updatedItem,
                 results: updatedResults,
-                rolledUpResults: updatedResults // Update rolled up results as well
+                rolledUpResults: updatedResults
               });
             } else {
               // Handle other field edits
-              console.log('[handleCellEdit] Updating other field', { columnId, value });
               onUpdateItem({
                 ...updatedItem,
                 [columnId]: value
@@ -383,16 +366,10 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
 
   // Handle copy operation with cross-area support
   const handleCopy = useCallback(async () => {
-    console.log('[Copy] handleCopy called', { selectedCell: gridState.selectedCell, selectedRange: gridState.selectedRange });
-    if (!gridState.selectedCell && !gridState.selectedRange) {
-      console.log('[Copy] No cell selected, returning');
-      return;
-    }
+    if (!gridState.selectedCell && !gridState.selectedRange) return;
     
     const sourceArea = getCurrentDisplayArea();
-    console.log('[Copy] Source area:', sourceArea);
     const success = await copyToClipboard(gridState.selectedRange, gridState.selectedCell, sourceArea);
-    console.log('[Copy] Copy result:', success);
     
     if (success) {
       setClipboardMessage({ message: `${sourceArea === 'specifications' ? '機器仕様' : '計画実績'}エリアからコピーしました`, severity: 'success' });
@@ -403,16 +380,10 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
 
   // Handle paste operation with cross-area support
   const handlePaste = useCallback(async () => {
-    console.log('[Paste] handlePaste called', { selectedCell: gridState.selectedCell, readOnly });
-    if (!gridState.selectedCell || readOnly) {
-      console.log('[Paste] No cell selected or readOnly, returning');
-      return;
-    }
+    if (!gridState.selectedCell || readOnly) return;
     
     const targetArea = getCurrentDisplayArea();
-    console.log('[Paste] Target area:', targetArea);
     const result = await pasteFromClipboard(gridState.selectedCell, targetArea);
-    console.log('[Paste] Paste result:', result);
     
     if (result.isValid) {
       const warningCount = result.warnings.length;
@@ -652,10 +623,11 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
         onEditingCellChange={setEditingCell}
         onSelectedRangeChange={setSelectedRange}
         onUpdateItem={onUpdateItem}
-        virtualScrolling={virtualScrolling || shouldUseVirtualScrolling}
+        virtualScrolling={autoVirtualScrolling || shouldUseVirtualScrolling}
         readOnly={readOnly}
         onCopy={handleCopy}
         onPaste={handlePaste}
+        enableHorizontalVirtualScrolling={autoVirtualScrolling}
       />
     );
   }, [
@@ -695,6 +667,8 @@ export const EnhancedMaintenanceGrid: React.FC<EnhancedMaintenanceGridProps> = (
       onResetData={onResetData || (() => {})}
       onAIAssistantToggle={onAIAssistantToggle || (() => {})}
       isAIAssistantOpen={isAIAssistantOpen}
+      currentYear={currentYear}
+      onJumpToDate={onJumpToDate}
     />
   ), [
     searchTerm, onSearchChange, level1Filter, level2Filter, level3Filter,

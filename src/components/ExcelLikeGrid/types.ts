@@ -153,4 +153,6 @@ export interface EnhancedMaintenanceGridProps {
   onResetData?: () => void;
   onAIAssistantToggle?: () => void;
   isAIAssistantOpen?: boolean;
+  currentYear?: number;
+  onJumpToDate?: (year: number, month?: number, week?: number, day?: number) => void;
 }

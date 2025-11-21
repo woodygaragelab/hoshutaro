@@ -16,10 +16,13 @@ interface MaintenanceTableRowProps {
   readOnly: boolean;
   draggedColumnIndex?: number | null;
   dragOverColumnIndex?: number | null;
+  enableVirtualScrolling?: boolean;
+  virtualOffset?: number;
+  displayColumns?: GridColumn[];
 }
 import MaintenanceCell from './MaintenanceCell';
 
-export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
+const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   item,
   columns,
   viewMode,
@@ -31,8 +34,13 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
   onCellDoubleClick,
   readOnly,
   draggedColumnIndex,
-  dragOverColumnIndex
+  dragOverColumnIndex,
+  enableVirtualScrolling = false,
+  virtualOffset = 0,
+  displayColumns
 }) => {
+  // Use displayColumns if provided (for virtual scrolling), otherwise use all columns
+  const columnsToRender = displayColumns || columns;
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [taskInputValue, setTaskInputValue] = useState(item.task);
 
@@ -138,12 +146,12 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
       ref={rowRef}
       sx={{
         display: 'flex',
-        height: 40, // Fixed height instead of minHeight
-        width: `${totalRowWidth}px`, // Set explicit width
-        minWidth: `${totalRowWidth}px`, // Ensure minimum width
-        alignItems: 'center', // Ensure vertical alignment
-        boxSizing: 'border-box', // Ensure borders are included in height calculation
-        flexShrink: 0, // Prevent shrinking during scroll
+        height: 40,
+        width: `${totalRowWidth}px`,
+        minWidth: `${totalRowWidth}px`,
+        alignItems: 'center',
+        boxSizing: 'border-box',
+        flexShrink: 0,
         backgroundColor: 'transparent',
         '&:hover': {
           backgroundColor: 'action.hover'
@@ -154,7 +162,13 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
       }}
       data-row-id={item.id}
     >
-      {columns.map((column, columnIndex) => {
+      {enableVirtualScrolling && virtualOffset > 0 && (
+        <Box sx={{ width: virtualOffset, flexShrink: 0 }} />
+      )}
+      {columnsToRender.map((column, displayIndex) => {
+        const columnIndex = enableVirtualScrolling ? 
+          columns.findIndex(c => c.id === column.id) : 
+          displayIndex;
         const width = gridState.columnWidths[column.id] || column.width;
         const isSelected = gridState.selectedCell?.rowId === item.id && gridState.selectedCell?.columnId === column.id;
         const isEditing = gridState.editingCell?.rowId === item.id && gridState.editingCell?.columnId === column.id;
@@ -280,5 +294,8 @@ export const MaintenanceTableRow: React.FC<MaintenanceTableRowProps> = ({
     </Box>
   );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+export const MaintenanceTableRow = React.memo(MaintenanceTableRowComponent);
 
 export default MaintenanceTableRow;

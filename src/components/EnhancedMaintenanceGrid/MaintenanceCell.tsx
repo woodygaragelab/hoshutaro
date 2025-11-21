@@ -20,7 +20,7 @@ interface MaintenanceCellProps {
   isDragOver?: boolean;
 }
 
-export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
+const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
   item,
   column,
   value,
@@ -62,27 +62,13 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
         planned,
         actual
       };
-      
-      console.log('[MaintenanceCell] handleEditComplete - Cost mode:', {
-        rowId: item.id,
-        columnId: column.id,
-        editValue,
-        planCost,
-        actualCost,
-        planned,
-        actual,
-        finalValue
-      });
     }
     
     // 値が変更されているかチェック（コストの場合は常に更新）
     const hasChanged = column.type === 'cost' || editValue !== value;
     
     if (hasChanged) {
-      console.log('[MaintenanceCell] Calling onCellEdit:', { rowId: item.id, columnId: column.id, finalValue });
       onCellEdit(item.id, column.id, finalValue);
-    } else {
-      console.log('[MaintenanceCell] No change detected, skipping update');
     }
   }, [editValue, value, onCellEdit, item.id, column.id, column.type]);
 
@@ -306,5 +292,8 @@ export const MaintenanceCell: React.FC<MaintenanceCellProps> = ({
     </Box>
   );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+export const MaintenanceCell = React.memo(MaintenanceCellComponent);
 
 export default MaintenanceCell;

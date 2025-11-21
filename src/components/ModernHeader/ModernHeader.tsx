@@ -23,7 +23,9 @@ import {
   Storage as DataIcon,
   Chat as ChatIcon,
   Close as CloseIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
+import DateJumpDialog from '../DateJumpDialog/DateJumpDialog';
 import Legend from '../EnhancedMaintenanceGrid/Legend';
 import './ModernHeader.css';
 
@@ -69,6 +71,10 @@ interface ModernHeaderProps {
   // AI Assistant
   onAIAssistantToggle: () => void;
   isAIAssistantOpen: boolean;
+  
+  // Date Jump
+  currentYear?: number;
+  onJumpToDate?: (year: number, month?: number, week?: number, day?: number) => void;
 }
 
 // Create a new integrated toolbar component that will be used within the grid
@@ -99,8 +105,27 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   onResetData,
   onAIAssistantToggle,
   isAIAssistantOpen,
+  currentYear = new Date().getFullYear(),
+  onJumpToDate,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dateJumpAnchorEl, setDateJumpAnchorEl] = useState<HTMLElement | null>(null);
+  const dateJumpOpen = Boolean(dateJumpAnchorEl);
+
+  const handleDateJumpClick = (event: React.MouseEvent<HTMLElement>) => {
+    setDateJumpAnchorEl(event.currentTarget);
+  };
+
+  const handleDateJumpClose = () => {
+    setDateJumpAnchorEl(null);
+  };
+
+  const handleJumpToDate = (year: number, month?: number, week?: number, day?: number) => {
+    if (onJumpToDate) {
+      onJumpToDate(year, month, week, day);
+    }
+    handleDateJumpClose();
+  };
 
   return (
     <>
@@ -285,6 +310,26 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
         </ButtonGroup>
 
+        {/* Date Jump Icon - Show only for week/day modes */}
+        {(timeScale === 'week' || timeScale === 'day' || timeScale === 'month') && onJumpToDate && (
+          <IconButton
+            size="small"
+            onClick={handleDateJumpClick}
+            sx={{
+              height: 28,
+              width: 28,
+              ml: 0.5,
+              color: dateJumpOpen ? 'primary.main' : 'inherit',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              }
+            }}
+            title="日付ジャンプ"
+          >
+            <EventIcon fontSize="small" />
+          </IconButton>
+        )}
+
         {/* Legend */}
         <Box sx={{ ml: 2 }}>
           <Legend viewMode={viewMode} />
@@ -366,7 +411,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                     color="primary"
                   />
                 }
-                label={viewMode === 'cost' ? 'コスト表示' : '星取表示'}
+                label="コスト"
               />
             </Box>
 
@@ -506,6 +551,16 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Box>
         </Box>
       </Drawer>
+
+      {/* Date Jump Dialog */}
+      <DateJumpDialog
+        open={dateJumpOpen}
+        anchorEl={dateJumpAnchorEl}
+        onClose={handleDateJumpClose}
+        timeScale={timeScale}
+        currentYear={currentYear || new Date().getFullYear()}
+        onJumpToDate={handleJumpToDate}
+      />
     </>
   );
 };

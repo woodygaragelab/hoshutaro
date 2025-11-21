@@ -4,6 +4,7 @@ import { HierarchicalData } from '../../types';
 import { GridColumn, GridState } from '../ExcelLikeGrid/types';
 import MaintenanceTableRow from './MaintenanceTableRow';
 import GroupHeaderRow from './GroupHeaderRow';
+import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
 
 interface MaintenanceTableBodyProps {
   data: HierarchicalData[];
@@ -24,9 +25,12 @@ interface MaintenanceTableBodyProps {
   onScrollSync?: (scrollTop: number) => void;
   draggedColumnIndex?: number | null;
   dragOverColumnIndex?: number | null;
+  enableHorizontalVirtualScrolling?: boolean;
+  containerWidth?: number;
+  scrollLeft?: number;
 }
 
-export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
+const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   data,
   columns,
   gridState,
@@ -44,8 +48,36 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
   syncScrollTop,
   onScrollSync,
   draggedColumnIndex,
-  dragOverColumnIndex
+  dragOverColumnIndex,
+  enableHorizontalVirtualScrolling = false,
+  containerWidth = 1920,
+  scrollLeft = 0
 }) => {
+  // Horizontal virtual scrolling
+  const shouldUseHorizontalVirtualScrolling = enableHorizontalVirtualScrolling && columns.length > 50;
+  
+  const horizontalVirtualScrolling = useHorizontalVirtualScrolling({
+    columns,
+    columnWidth: (index) => gridState.columnWidths[columns[index].id] || columns[index].width,
+    containerWidth,
+    overscan: 5,
+    enableMemoization: true,
+  });
+
+  // Update virtual scrolling when scrollLeft changes
+  React.useEffect(() => {
+    if (shouldUseHorizontalVirtualScrolling) {
+      horizontalVirtualScrolling.handleScroll(scrollLeft);
+    }
+  }, [scrollLeft, shouldUseHorizontalVirtualScrolling]);
+
+  // Use virtual columns if enabled, otherwise use all columns
+  const displayColumns = shouldUseHorizontalVirtualScrolling ? 
+    horizontalVirtualScrolling.visibleColumns.map(vc => vc.data) : 
+    columns;
+
+  const virtualOffset = shouldUseHorizontalVirtualScrolling && horizontalVirtualScrolling.visibleColumns.length > 0 ?
+    horizontalVirtualScrolling.visibleColumns[0].left : 0;
   // Use grouped data if provided, otherwise create simple list
   const renderData = useMemo((): [string, HierarchicalData[]][] => {
     if (groupedData) {
@@ -84,6 +116,9 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
             readOnly={readOnly}
             draggedColumnIndex={draggedColumnIndex}
             dragOverColumnIndex={dragOverColumnIndex}
+            enableVirtualScrolling={shouldUseHorizontalVirtualScrolling}
+            virtualOffset={virtualOffset}
+            displayColumns={displayColumns}
           />
         ))}
       </React.Fragment>
@@ -118,5 +153,8 @@ export const MaintenanceTableBody: React.FC<MaintenanceTableBodyProps> = ({
     </Box>
   );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+export const MaintenanceTableBody = React.memo(MaintenanceTableBodyComponent);
 
 export default MaintenanceTableBody;

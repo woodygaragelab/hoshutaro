@@ -2,6 +2,7 @@ import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { DragIndicator as DragIcon } from '@mui/icons-material';
 import { GridColumn, GridState } from '../ExcelLikeGrid/types';
+import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
 
 interface MaintenanceTableHeaderProps {
   columns: GridColumn[];
@@ -9,14 +10,20 @@ interface MaintenanceTableHeaderProps {
   onColumnResize: (columnId: string, width: number) => void;
   onColumnReorder?: (fromIndex: number, toIndex: number) => void;
   onDragStateChange?: (draggedIndex: number | null, dragOverIndex: number | null) => void;
+  enableVirtualScrolling?: boolean;
+  containerWidth?: number;
+  scrollLeft?: number;
 }
 
-export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
+const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = ({
   columns,
   gridState,
   onColumnResize,
   onColumnReorder,
-  onDragStateChange
+  onDragStateChange,
+  enableVirtualScrolling = false,
+  containerWidth = 1920,
+  scrollLeft = 0
 }) => {
   const [resizing, setResizing] = useState<{ columnId: string; startX: number; startWidth: number } | null>(null);
   
@@ -34,20 +41,33 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
   
-  // Debug logging to check if header is receiving columns
-  console.log('MaintenanceTableHeader rendering with columns count:', columns.length);
-  console.log('First 10 columns:', columns.slice(0, 10).map(c => ({ id: c.id, header: c.header })));
-  console.log('Column types:', columns.reduce((acc, col) => {
-    const type = col.id.startsWith('spec_') ? 'spec' : 
-                 col.id.startsWith('time_') ? 'time' : 'fixed';
-    acc[type] = (acc[type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>));
-  
   // Calculate total width of all columns
   const totalColumnsWidth = columns.reduce((sum, col) => {
     return sum + (gridState.columnWidths[col.id] || col.width);
   }, 0);
+
+  // Horizontal virtual scrolling
+  const shouldUseVirtualScrolling = enableVirtualScrolling && columns.length > 50;
+  
+  const virtualScrolling = useHorizontalVirtualScrolling({
+    columns,
+    columnWidth: (index) => gridState.columnWidths[columns[index].id] || columns[index].width,
+    containerWidth,
+    overscan: 5,
+    enableMemoization: true,
+  });
+
+  // Update virtual scrolling when scrollLeft changes
+  useEffect(() => {
+    if (shouldUseVirtualScrolling) {
+      virtualScrolling.handleScroll(scrollLeft);
+    }
+  }, [scrollLeft, shouldUseVirtualScrolling]);
+
+  // Use virtual columns if enabled, otherwise use all columns
+  const displayColumns = shouldUseVirtualScrolling ? 
+    virtualScrolling.visibleColumns.map(vc => vc.data) : 
+    columns;
 
   const handleMouseDown = useCallback((e: React.MouseEvent, columnId: string) => {
     const column = columns.find(col => col.id === columnId);
@@ -103,26 +123,16 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
   const handleHeaderMouseDown = useCallback((e: React.MouseEvent, index: number) => {
     const column = columns[index];
     
-    console.log('[Header] Mouse down on column:', column?.id, 'index:', index);
-    
     // 機器仕様列のみドラッグ可能
-    if (!column?.id.startsWith('spec_')) {
-      console.log('[Header] Not a spec column, ignoring');
-      return;
-    }
+    if (!column?.id.startsWith('spec_')) return;
     
     // リサイズハンドルをクリックした場合はドラッグしない
     const target = e.target as HTMLElement;
-    if (target.closest('[data-resize-handle]')) {
-      console.log('[Header] Clicked on resize handle, ignoring');
-      return;
-    }
+    if (target.closest('[data-resize-handle]')) return;
 
-    console.log('[Header] Starting long press timer');
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
 
     longPressTimerRef.current = setTimeout(() => {
-      console.log('[Header] Long press triggered, starting drag for index:', index);
       const newDragState = {
         draggedIndex: index,
         dragOverIndex: null,
@@ -132,7 +142,7 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
       if (onDragStateChange) {
         onDragStateChange(index, null);
       }
-    }, 500); // 500ms長押しでドラッグ開始
+    }, 500);
   }, [columns, onDragStateChange]);
 
   // マウス移動（ドラッグ中）
@@ -144,8 +154,7 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
         const dy = e.clientY - dragStartPosRef.current.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        if (distance > 10) { // 10px以上動いたらキャンセル
-          console.log('[Header] Movement detected during long press, canceling');
+        if (distance > 10) {
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
         }
@@ -158,7 +167,6 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
     if (!column?.id.startsWith('spec_')) return;
 
     if (dragState.draggedIndex !== null && index !== dragState.dragOverIndex) {
-      console.log('[Header] Drag over index:', index);
       setDragState(prev => ({
         ...prev,
         dragOverIndex: index,
@@ -171,15 +179,12 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
 
   // マウスアップ（ドロップ）
   const handleHeaderMouseUp = useCallback(() => {
-    console.log('[Header] Mouse up', { isDragging: dragState.isDragging, draggedIndex: dragState.draggedIndex, dragOverIndex: dragState.dragOverIndex });
-    
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
 
     if (dragState.isDragging && dragState.draggedIndex !== null && dragState.dragOverIndex !== null) {
-      console.log('[Header] Calling handleColumnReorder', dragState.draggedIndex, dragState.dragOverIndex);
       handleColumnReorder(dragState.draggedIndex, dragState.dragOverIndex);
     }
 
@@ -262,6 +267,10 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
     );
   }
 
+  // Calculate offset for virtual scrolling
+  const virtualOffset = shouldUseVirtualScrolling && virtualScrolling.visibleColumns.length > 0 ?
+    virtualScrolling.visibleColumns[0].left : 0;
+
   return (
     <Box
       sx={{
@@ -270,8 +279,8 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
         height: '40px !important',
         minHeight: '40px !important',
         alignItems: 'center',
-        width: `${totalColumnsWidth}px`,
-        minWidth: `${totalColumnsWidth}px`,
+        width: shouldUseVirtualScrolling ? `${virtualScrolling.totalWidth}px` : `${totalColumnsWidth}px`,
+        minWidth: shouldUseVirtualScrolling ? `${virtualScrolling.totalWidth}px` : `${totalColumnsWidth}px`,
         overflow: 'visible',
         flexShrink: 0,
         position: 'relative',
@@ -284,12 +293,18 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
         borderBottom: '1px solid #333333'
       }}
     >
-      {columns.map((column, index) => {
+      {shouldUseVirtualScrolling && virtualOffset > 0 && (
+        <Box sx={{ width: virtualOffset, flexShrink: 0 }} />
+      )}
+      {displayColumns.map((column, displayIndex) => {
+        const actualIndex = shouldUseVirtualScrolling ? 
+          columns.findIndex(c => c.id === column.id) : 
+          displayIndex;
         const width = gridState.columnWidths[column.id] || column.width;
-        const isLastColumn = index === columns.length - 1;
+        const isLastColumn = actualIndex === columns.length - 1;
         const isSpecColumn = column.id.startsWith('spec_');
-        const isDragged = dragState.isDragging && dragState.draggedIndex === index;
-        const isDragOver = dragState.isDragging && dragState.dragOverIndex === index;
+        const isDragged = dragState.isDragging && dragState.draggedIndex === actualIndex;
+        const isDragOver = dragState.isDragging && dragState.dragOverIndex === actualIndex;
         
         return (
           <Box
@@ -328,8 +343,8 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
             style={{
               borderRight: isLastColumn ? 'none' : '1px solid #333333'
             }}
-            onMouseDown={(e) => handleHeaderMouseDown(e, index)}
-            onMouseMove={(e) => handleHeaderMouseMove(e, index)}
+            onMouseDown={(e) => handleHeaderMouseDown(e, actualIndex)}
+            onMouseMove={(e) => handleHeaderMouseMove(e, actualIndex)}
             onMouseUp={handleHeaderMouseUp}
             onMouseLeave={handleHeaderMouseLeave}
           >
@@ -385,5 +400,8 @@ export const MaintenanceTableHeader: React.FC<MaintenanceTableHeaderProps> = ({
     </Box>
   );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+export const MaintenanceTableHeader = React.memo(MaintenanceTableHeaderComponent);
 
 export default MaintenanceTableHeader;

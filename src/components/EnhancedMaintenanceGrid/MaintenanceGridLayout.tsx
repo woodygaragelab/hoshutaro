@@ -26,12 +26,13 @@ interface MaintenanceGridLayoutProps {
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
   onSelectedRangeChange: (range: any) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
-  onSpecificationEdit: (rowId: string, index: number, field: 'key' | 'value', value: string) => void;
+  onSpecificationEdit?: (rowId: string, index: number, field: 'key' | 'value', value: string) => void;
   onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
   virtualScrolling: boolean;
   readOnly: boolean;
   onCopy?: () => Promise<void>;
   onPaste?: () => Promise<void>;
+  enableHorizontalVirtualScrolling?: boolean;
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -54,10 +55,40 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   virtualScrolling,
   readOnly,
   onCopy,
-  onPaste
+  onPaste,
+  enableHorizontalVirtualScrolling = false
 }) => {
+  // Container width for horizontal virtual scrolling
+  const [containerWidth, setContainerWidth] = useState(1920);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Horizontal scroll position for virtual scrolling
+  const [horizontalScrollLeft, setHorizontalScrollLeft] = useState(0);
+
+  // Track viewMode to preserve scroll position on mode change
+  const prevViewModeRef = useRef<'status' | 'cost'>(viewMode);
+  const scrollPositionBeforeModeChangeRef = useRef<number>(0);
+
+  // Update container width on resize
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+    
+    updateWidth();
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(containerRef.current);
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
   // Scroll synchronization state
-  const [syncScrollTop, setSyncScrollTop] = useState(0);
   const fixedAreaRef = useRef<HTMLDivElement>(null);
   const specAreaRef = useRef<HTMLDivElement>(null);
   const maintenanceAreaRef = useRef<HTMLDivElement>(null);
@@ -95,7 +126,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   });
 
   const handleColumnDragStateChange = useCallback((draggedIndex: number | null, dragOverIndex: number | null) => {
-    console.log('[GridLayout] Column drag state changed:', { draggedIndex, dragOverIndex });
     setColumnDragState({
       draggedColumnIndex: draggedIndex,
       dragOverColumnIndex: dragOverIndex,
@@ -125,16 +155,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       displayAreaConfig.scrollableAreas.maintenance?.columns.includes(col.id) || false
     );
 
-    // Debug logging to check column organization
-    console.log('Column organization:', {
-      allColumns: columns.map(c => c.id),
-      fixedColumns: displayAreaConfig.fixedColumns,
-      fixed: fixed.map(c => c.id),
-      specifications: specifications.map(c => c.id),
-      maintenance: maintenance.map(c => c.id),
-      mode: displayAreaConfig.mode
-    });
-
     return { fixed, specifications, maintenance };
   }, [columns, displayAreaConfig]);
 
@@ -154,14 +174,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   // Basic scroll synchronization state (currently unused)
   // const [scrollPosition, setScrollPosition] = useState({ top: 0, left: 0 });
 
-  // Handle scroll synchronization between areas - Updated
+  // Handle scroll synchronization between areas
   const handleScrollSync = useCallback((scrollTop: number, sourceArea: 'fixed' | 'spec' | 'maintenance') => {
     if (isScrollingSyncRef.current) return;
-    
 
     isScrollingSyncRef.current = true;
     
-    setSyncScrollTop(scrollTop);
     // Sync scroll positions
     if (sourceArea !== 'fixed' && fixedAreaRef.current) {
       fixedAreaRef.current.scrollTop = scrollTop;
@@ -178,11 +196,88 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     }, 16);
   }, []);
 
+  // Preserve scroll position when viewMode changes
+  useEffect(() => {
+    if (prevViewModeRef.current !== viewMode) {
+      // ViewMode changed - restore scroll position
+      const maintenanceArea = maintenanceAreaRef.current;
+      const maintenanceHeader = maintenanceHeaderRef.current;
+      
+      if (maintenanceArea && maintenanceHeader) {
+        // Calculate which column index was visible before the change
+        const oldColumnWidth = prevViewModeRef.current === 'cost' ? 120 : 80;
+        const newColumnWidth = viewMode === 'cost' ? 120 : 80;
+        
+        // Calculate the column index that was at the left edge of the viewport
+        const visibleColumnIndex = Math.floor(scrollPositionBeforeModeChangeRef.current / oldColumnWidth);
+        
+        // Calculate the new scroll position to show the same column
+        const newScrollLeft = visibleColumnIndex * newColumnWidth;
+        
+        // Apply the new scroll position
+        requestAnimationFrame(() => {
+          if (maintenanceArea) {
+            maintenanceArea.scrollLeft = newScrollLeft;
+          }
+          if (maintenanceHeader) {
+            maintenanceHeader.scrollLeft = newScrollLeft;
+          }
+          setHorizontalScrollLeft(newScrollLeft);
+        });
+      }
+      
+      prevViewModeRef.current = viewMode;
+    }
+  }, [viewMode]);
 
-
-
-
-
+  // Listen for jump to column events
+  useEffect(() => {
+    const handleJumpToColumn = (event: CustomEvent) => {
+      const { header } = event.detail;
+      
+      // Find the column by header
+      const targetColumn = columns.find(col => col.id === `time_${header}`);
+      if (!targetColumn) return;
+      
+      // Determine which area the column belongs to
+      const isInSpecArea = columnsByArea.specifications.some(col => col.id === targetColumn.id);
+      const isInMaintenanceArea = columnsByArea.maintenance.some(col => col.id === targetColumn.id);
+      
+      if (!isInSpecArea && !isInMaintenanceArea) return;
+      
+      // Calculate scroll position within the scrollable area (excluding fixed columns)
+      let scrollLeft = 0;
+      const targetArea = isInSpecArea ? columnsByArea.specifications : columnsByArea.maintenance;
+      
+      for (let i = 0; i < targetArea.length; i++) {
+        const col = targetArea[i];
+        if (col.id === targetColumn.id) break;
+        scrollLeft += gridState.columnWidths[col.id] || col.width;
+      }
+      
+      // Scroll to the column in the appropriate scrollable area
+      if (isInMaintenanceArea && maintenanceAreaRef.current) {
+        maintenanceAreaRef.current.scrollLeft = scrollLeft;
+        // Also sync the header
+        if (maintenanceHeaderRef.current) {
+          maintenanceHeaderRef.current.scrollLeft = scrollLeft;
+        }
+      }
+      if (isInSpecArea && specAreaRef.current) {
+        specAreaRef.current.scrollLeft = scrollLeft;
+        // Also sync the header
+        if (specHeaderRef.current) {
+          specHeaderRef.current.scrollLeft = scrollLeft;
+        }
+      }
+    };
+    
+    window.addEventListener('jumpToColumn', handleJumpToColumn as EventListener);
+    
+    return () => {
+      window.removeEventListener('jumpToColumn', handleJumpToColumn as EventListener);
+    };
+  }, [columns, gridState.columnWidths, columnsByArea]);
 
   // Determine layout based on display mode
   const layoutStyle = useMemo(() => {
@@ -220,31 +315,17 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     columnId: string, 
     event: React.MouseEvent<HTMLElement>
   ) => {
-    console.log('Cell double-click detected:', { rowId, columnId });
-    
     // Check if any dropdown/menu is open - if so, don't handle the double click
     const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
-    if (hasOpenMenu) {
-      console.log('Menu is open, skipping double-click handling');
-      return; // Don't handle double click when menus are open
-    }
+    if (hasOpenMenu) return;
 
-    if (readOnly) {
-      console.log('Grid is read-only, skipping double-click handling');
-      return;
-    }
+    if (readOnly) return;
 
     const column = columns.find(col => col.id === columnId);
-    if (!column?.editable) {
-      console.log('Column is not editable, skipping double-click handling');
-      return;
-    }
+    if (!column?.editable) return;
 
     const item = data.find(d => d.id === rowId);
-    if (!item) {
-      console.log('Item not found, skipping double-click handling');
-      return;
-    }
+    if (!item) return;
 
     let editType: 'status' | 'cost' | 'specification' | 'tagNo' | null = null;
     let currentValue: any = null;
@@ -282,8 +363,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     }
 
     if (editType) {
-      console.log('Opening edit dialog:', { editType, rowId, columnId, deviceType });
-      
       setEditDialogState({
         type: editType,
         open: true,
@@ -295,8 +374,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
       // Update editing cell state
       onEditingCellChange(rowId, columnId);
-    } else {
-      console.log('No edit type determined for double-click');
     }
   }, [readOnly, columns, data, viewMode, deviceType, onEditingCellChange]);
 
@@ -326,14 +403,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       // コスト入力時に星取表のステータスを自動更新
       const planned = (costValue.planCost || 0) > 0;
       const actual = (costValue.actualCost || 0) > 0;
-      console.log('[MaintenanceGridLayout] Saving cost with status:', {
-        rowId,
-        columnId,
-        planCost: costValue.planCost,
-        actualCost: costValue.actualCost,
-        planned,
-        actual
-      });
       onCellEdit(rowId, columnId, {
         ...costValue,
         planned,
@@ -388,14 +457,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
   // Copy & Paste handlers (delegated to parent)
   const handleCopy = useCallback(async () => {
-    console.log('[MaintenanceGridLayout] handleCopy called', { onCopy: !!onCopy });
     if (onCopy) {
       await onCopy();
     }
   }, [onCopy]);
 
   const handlePaste = useCallback(async () => {
-    console.log('[MaintenanceGridLayout] handlePaste called', { onPaste: !!onPaste });
     if (onPaste) {
       await onPaste();
     }
@@ -403,26 +470,18 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
   // Keyboard navigation handler
   const handleKeyboardNavigation = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-    console.log('[MaintenanceGridLayout] handleKeyboardNavigation called', { 
-      key: event.key, 
-      ctrlKey: event.ctrlKey, 
-      metaKey: event.metaKey 
-    });
     const currentRowId = gridState.selectedCell?.rowId || null;
     const currentColumnId = gridState.selectedCell?.columnId || null;
     const isEditing = gridState.editingCell?.rowId !== null && gridState.editingCell?.columnId !== null;
 
     // Handle copy & paste shortcuts
     if (event.ctrlKey || event.metaKey) {
-      console.log('[MaintenanceGridLayout] Ctrl/Meta key detected, key:', event.key);
       if (event.key === 'c' || event.key === 'C') {
-        console.log('[MaintenanceGridLayout] Copy shortcut detected');
         event.preventDefault();
         handleCopy();
         return;
       }
       if (event.key === 'v' || event.key === 'V') {
-        console.log('[MaintenanceGridLayout] Paste shortcut detected');
         event.preventDefault();
         handlePaste();
         return;
@@ -507,21 +566,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   }, [fixedAreaWidth, specAreaWidth, displayAreaConfig.scrollableAreas]);
 
   const renderSingleArea = () => {
-    console.log('renderSingleArea called for mode:', displayAreaConfig.mode);
-    console.log('columnsByArea:', {
-      fixed: columnsByArea.fixed.map(c => c.id),
-      specifications: columnsByArea.specifications.map(c => c.id),
-      maintenance: columnsByArea.maintenance.map(c => c.id)
-    });
-    
     // Get scrollable columns (non-fixed columns)
     const scrollableColumns = [
       ...(displayAreaConfig.mode === 'specifications' || displayAreaConfig.mode === 'both' ? columnsByArea.specifications : []),
       ...(displayAreaConfig.mode === 'maintenance' || displayAreaConfig.mode === 'both' ? columnsByArea.maintenance : [])
     ];
-    
-    console.log('renderSingleArea fixed columns:', columnsByArea.fixed.map(c => c.id));
-    console.log('renderSingleArea scrollable columns:', scrollableColumns.map(c => c.id));
 
     return (
       <Box sx={{ display: 'flex', flexDirection: 'row', height: '100%', overflow: 'hidden' }}>
@@ -559,6 +608,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               onColumnResize={handleEnhancedColumnResize}
               onColumnReorder={onSpecificationColumnReorder}
               onDragStateChange={handleColumnDragStateChange}
+              enableVirtualScrolling={false}
+              containerWidth={containerWidth}
             />
           </Box>
           <Box 
@@ -637,6 +688,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 onColumnResize={handleEnhancedColumnResize}
                 onColumnReorder={onSpecificationColumnReorder}
                 onDragStateChange={handleColumnDragStateChange}
+                enableVirtualScrolling={enableHorizontalVirtualScrolling}
+                containerWidth={containerWidth}
+                scrollLeft={horizontalScrollLeft}
               />
             </Box>
             <Box 
@@ -661,6 +715,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 const scrollLeft = e.currentTarget.scrollLeft;
                 handleScrollSync(scrollTop, 'maintenance');
                 
+                // Save scroll position before viewMode change
+                scrollPositionBeforeModeChangeRef.current = scrollLeft;
+                
+                // Update horizontal scroll position for virtual scrolling
+                setHorizontalScrollLeft(scrollLeft);
+                
                 // Sync header horizontal scroll
                 if (maintenanceHeaderRef.current) {
                   maintenanceHeaderRef.current.scrollLeft = scrollLeft;
@@ -682,6 +742,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 readOnly={readOnly}
                 draggedColumnIndex={columnDragState.draggedColumnIndex}
                 dragOverColumnIndex={columnDragState.dragOverColumnIndex}
+                enableHorizontalVirtualScrolling={enableHorizontalVirtualScrolling}
+                containerWidth={containerWidth}
+                scrollLeft={horizontalScrollLeft}
               />
             </Box>
           </Box>
@@ -691,13 +754,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   };
 
   const renderSplitAreas = () => {
-    console.log('renderSplitAreas called for mode:', displayAreaConfig.mode);
-    console.log('renderSplitAreas columnsByArea:', {
-      fixed: columnsByArea.fixed.map(c => c.id),
-      specifications: columnsByArea.specifications.map(c => c.id),
-      maintenance: columnsByArea.maintenance.map(c => c.id)
-    });
-    
     return (
       <Box sx={layoutStyle}>
         {/* Fixed columns area - Equipment list */}
@@ -840,6 +896,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   onColumnResize={handleEnhancedColumnResize}
                   onColumnReorder={onSpecificationColumnReorder}
                   onDragStateChange={handleColumnDragStateChange}
+                  enableVirtualScrolling={enableHorizontalVirtualScrolling}
+                  containerWidth={containerWidth}
+                  scrollLeft={horizontalScrollLeft}
                 />
               </Box>
               <Box 
@@ -864,6 +923,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   const scrollLeft = e.currentTarget.scrollLeft;
                   handleScrollSync(scrollTop, 'spec');
                   
+                  // Update horizontal scroll position for virtual scrolling
+                  setHorizontalScrollLeft(scrollLeft);
+                  
                   // Sync header horizontal scroll
                   if (specHeaderRef.current) {
                     specHeaderRef.current.scrollLeft = scrollLeft;
@@ -885,6 +947,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   readOnly={readOnly}
                   draggedColumnIndex={columnDragState.draggedColumnIndex}
                   dragOverColumnIndex={columnDragState.dragOverColumnIndex}
+                  enableHorizontalVirtualScrolling={enableHorizontalVirtualScrolling}
+                  containerWidth={containerWidth}
+                  scrollLeft={horizontalScrollLeft}
                 />
               </Box>
             </Box>
@@ -924,6 +989,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   onColumnResize={handleEnhancedColumnResize}
                   onColumnReorder={onSpecificationColumnReorder}
                   onDragStateChange={handleColumnDragStateChange}
+                  enableVirtualScrolling={enableHorizontalVirtualScrolling}
+                  containerWidth={containerWidth}
+                  scrollLeft={horizontalScrollLeft}
                 />
               </Box>
               <Box 
@@ -948,6 +1016,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   const scrollLeft = e.currentTarget.scrollLeft;
                   handleScrollSync(scrollTop, 'maintenance');
                   
+                  // Save scroll position before viewMode change
+                  scrollPositionBeforeModeChangeRef.current = scrollLeft;
+                  
+                  // Update horizontal scroll position for virtual scrolling
+                  setHorizontalScrollLeft(scrollLeft);
+                  
                   // Sync header horizontal scroll
                   if (maintenanceHeaderRef.current) {
                     maintenanceHeaderRef.current.scrollLeft = scrollLeft;
@@ -969,6 +1043,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   readOnly={readOnly}
                   draggedColumnIndex={columnDragState.draggedColumnIndex}
                   dragOverColumnIndex={columnDragState.dragOverColumnIndex}
+                  enableHorizontalVirtualScrolling={enableHorizontalVirtualScrolling}
+                  containerWidth={containerWidth}
+                  scrollLeft={horizontalScrollLeft}
                 />
               </Box>
             </Box>
@@ -980,7 +1057,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
   return (
     <Box 
-      ref={gridContainerRef}
+      ref={(el: HTMLDivElement | null) => {
+        gridContainerRef.current = el;
+        containerRef.current = el;
+      }}
       sx={{ 
         flex: 1, 
         height: '100%',
@@ -996,10 +1076,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       tabIndex={readOnly ? -1 : 0}
       onKeyDown={handleKeyboardNavigation}
     >
-      {(() => {
-        console.log('MaintenanceGridLayout rendering mode:', displayAreaConfig.mode);
-        return displayAreaConfig.mode === 'both' ? renderSplitAreas() : renderSingleArea();
-      })()}
+      {displayAreaConfig.mode === 'both' ? renderSplitAreas() : renderSingleArea()}
       
       {/* Status Selection Dialog */}
       {editDialogState.type === 'status' && (
@@ -1060,10 +1137,12 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (prop
   const handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
     // For now, we'll handle this differently since the original interface expects field/value
     // This is a temporary adapter until we can update the interface
-    if (key === 'key') {
-      props.onSpecificationEdit(rowId, specIndex, 'key', value);
-    } else {
-      props.onSpecificationEdit(rowId, specIndex, 'value', value);
+    if (props.onSpecificationEdit) {
+      if (key === 'key') {
+        props.onSpecificationEdit(rowId, specIndex, 'key', value);
+      } else {
+        props.onSpecificationEdit(rowId, specIndex, 'value', value);
+      }
     }
   }, [props]);
 

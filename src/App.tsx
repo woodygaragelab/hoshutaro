@@ -95,6 +95,62 @@ const App: React.FC = () => {
     setLevel3Filter('all');
   };
 
+  // Handle date jump - scroll to specific date column
+  const handleJumpToDate = (year: number, month?: number, week?: number, day?: number) => {
+    let targetHeader = '';
+    
+    // Generate header in the same format as dataTransformer.ts
+    if (timeScale === 'year') {
+      targetHeader = String(year);
+    } else if (timeScale === 'month' && month) {
+      targetHeader = `${year}-${String(month).padStart(2, '0')}`;
+    } else if (timeScale === 'week' && week) {
+      targetHeader = `${year}-W${String(week).padStart(2, '0')}`;
+    } else if (timeScale === 'day' && month && day) {
+      targetHeader = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    // Find the column index
+    const columnIndex = timeHeaders.findIndex(header => header === targetHeader);
+    
+    if (columnIndex !== -1) {
+      // Format display message
+      let displayMessage = '';
+      if (timeScale === 'year') {
+        displayMessage = `${year}年`;
+      } else if (timeScale === 'month') {
+        displayMessage = `${year}年${month}月`;
+      } else if (timeScale === 'week') {
+        displayMessage = `${year}年第${week}週`;
+      } else if (timeScale === 'day') {
+        displayMessage = `${year}年${month}月${day}日`;
+      }
+      
+      announce(`${displayMessage}にジャンプしました`);
+      
+      // Trigger scroll event (will be implemented in the grid)
+      const event = new CustomEvent('jumpToColumn', { 
+        detail: { columnIndex, header: targetHeader } 
+      });
+      window.dispatchEvent(event);
+    } else {
+      let displayMessage = '';
+      if (timeScale === 'year') {
+        displayMessage = `${year}年`;
+      } else if (timeScale === 'month') {
+        displayMessage = `${year}年${month}月`;
+      } else if (timeScale === 'week') {
+        displayMessage = `${year}年第${week}週`;
+      } else if (timeScale === 'day') {
+        displayMessage = `${year}年${month}月${day}日`;
+      }
+      
+      setSnackbarMessage(`${displayMessage}が見つかりませんでした`);
+      setSnackbarSeverity('warning');
+      setSnackbarOpen(true);
+    }
+  };
+
   const displayedMaintenanceData = maintenanceData.filter(item => {
     const searchTermMatch = item.task.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -576,6 +632,8 @@ const App: React.FC = () => {
               onResetData={handleResetDataClick}
               onAIAssistantToggle={handleAIAssistantToggle}
               isAIAssistantOpen={isAIAssistantOpen}
+              currentYear={new Date().getFullYear()}
+              onJumpToDate={handleJumpToDate}
             />
           </div>
 
