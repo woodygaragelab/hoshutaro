@@ -20,9 +20,6 @@ export const darkTheme = createTheme({
       default: '#000000',
       paper: '#1e1e1e',
     },
-    surface: {
-      main: '#1e1e1e',
-    },
     text: {
       primary: '#ffffff',
       secondary: '#b3b3b3',

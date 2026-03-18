@@ -16,25 +16,17 @@ const App = LazyWrapper(
   <SkeletonLoaders.Grid rows={10} columns={6} />
 );
 
-const App2 = LazyWrapper(
-  () => import('./App2'),
-  <SkeletonLoaders.Grid rows={8} columns={5} />
-);
+// const App2 = LazyWrapper(
+//   () => import('./App2'),
+//   <SkeletonLoaders.Grid rows={8} columns={5} />
+// );
 
-const ExcelGridDemo = LazyWrapper(
-  () => import('./ExcelGridDemo'),
-  <SkeletonLoaders.Table rows={6} columns={4} />
-);
+// const ExcelGridDemo = LazyWrapper(
+//   () => import('./ExcelGridDemo'),
+//   <SkeletonLoaders.Table rows={6} columns={4} />
+// );
 
-const IntegrationDemo = LazyWrapper(
-  () => import('./components/demo/IntegrationDemo'),
-  <SkeletonLoaders.Card count={3} />
-);
-
-const IntegrationTestRunner = LazyWrapper(
-  () => import('./components/demo/IntegrationTestRunner'),
-  <SkeletonLoaders.Table rows={5} columns={3} />
-);
+// Demo components removed - files don't exist
 
 // Performance monitoring
 performanceMonitor.recordMetric({
@@ -49,22 +41,18 @@ const router = createBrowserRouter([
     path: '/',
     element: <App />,
   },
+  // {
+  //   path: '/app2',
+  //   element: <App2 />,
+  // },
+  // {
+  //   path: '/excel-demo',
+  //   element: <ExcelGridDemo />,
+  // },
   {
-    path: '/app2',
-    element: <App2 />,
-  },
-  {
-    path: '/excel-demo',
-    element: <ExcelGridDemo />,
-  },
-  {
-    path: '/integration-demo',
-    element: <IntegrationDemo />,
-  },
-  {
-    path: '/integration-test',
-    element: <IntegrationTestRunner />,
-  },
+    path: '*',
+    element: <App />, // Redirect to App for any unknown route for now, or use a Navigate component
+  }
 ]);
 
 // Error boundary for better error handling
@@ -94,8 +82,8 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ 
-          padding: '20px', 
+        <div style={{
+          padding: '20px',
           textAlign: 'center',
           color: '#ffffff',
           backgroundColor: '#000000',
@@ -107,7 +95,7 @@ class ErrorBoundary extends React.Component<
         }}>
           <h1>アプリケーションエラーが発生しました</h1>
           <p>ページを再読み込みしてください。</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             style={{
               padding: '10px 20px',
@@ -134,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up global accessibility features
   document.body.setAttribute('role', 'application');
   document.body.setAttribute('aria-label', 'HOSHUTARO 保全管理システム');
-  
+
   // Add skip link for keyboard navigation
   const skipLink = document.createElement('a');
   skipLink.href = '#main-content';

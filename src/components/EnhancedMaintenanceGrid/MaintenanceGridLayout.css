@@ -1,0 +1,70 @@
+/* MaintenanceGridLayout CSS - Layout Stability Improvements */
+
+/* Prevent layout shifts during dialog operations */
+.maintenance-grid-container {
+  contain: layout style;
+  will-change: auto;
+}
+
+/* Stable scrolling areas */
+.maintenance-grid-area {
+  contain: layout;
+  transform: translateZ(0); /* Force hardware acceleration */
+}
+
+/* Prevent reflow during dialog state changes */
+.maintenance-grid-area:not(.scrolling) {
+  contain: strict;
+}
+
+/* Smooth transitions for dialog operations */
+.maintenance-grid-container.dialog-open {
+  pointer-events: none;
+}
+
+.maintenance-grid-container.dialog-open .maintenance-grid-area {
+  pointer-events: auto;
+}
+
+/* Prevent scroll jump during updates */
+.maintenance-scroll-area {
+  scroll-behavior: auto !important;
+  overscroll-behavior: contain;
+}
+
+/* Stable header positioning */
+.maintenance-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  contain: layout style;
+}
+
+/* Prevent column width changes during updates */
+.maintenance-column {
+  flex-shrink: 0;
+  contain: layout;
+}
+
+/* Stable row heights */
+.maintenance-row {
+  contain: layout style;
+  min-height: var(--row-height, 40px);
+}
+
+/* Performance optimizations for large grids */
+.maintenance-cell {
+  contain: layout style paint;
+}
+
+/* Prevent layout thrashing during virtual scrolling */
+.virtual-scroll-container {
+  contain: strict;
+  transform: translateZ(0);
+}
+
+/* Stable dialog positioning */
+.maintenance-dialog-overlay {
+  contain: layout;
+  backdrop-filter: none; /* Prevent expensive filters during layout */
+}

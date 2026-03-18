@@ -87,7 +87,7 @@ export const convertToStatusValue = (
  */
 export const convertFromStatusValue = (
   status: StatusValue,
-  options: StatusConversionOptions = {}
+  _options: StatusConversionOptions = {}
 ): { planned: boolean; actual: boolean; errors: string[]; warnings: string[] } => {
   const errors: string[] = [];
   const warnings: string[] = [];

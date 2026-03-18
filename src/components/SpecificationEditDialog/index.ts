@@ -5,6 +5,18 @@ export type {
   SpecificationEditItem,
 } from './SpecificationEditDialog';
 
+// データモデルアダプターのエクスポート
+export {
+  specificationToValue,
+  valueToSpecification,
+  specificationsToValues,
+  valuesToSpecifications,
+  updateAssetSpecifications,
+  validateSpecifications as validateSpecificationValues,
+  sortSpecificationsByOrder,
+  reorderSpecifications,
+} from './dataModelAdapter';
+
 export {
   validateSpecificationKey,
   validateSpecificationValue,

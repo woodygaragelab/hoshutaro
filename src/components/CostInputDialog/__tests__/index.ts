@@ -3,14 +3,14 @@
  * 
  * このディレクトリには以下のテストが含まれています：
  * 
- * 1. CostInputDialog.test.tsx - メインコンポーネントのテスト
+ * 1. CostInputDialog.desktop.test.tsx - デスクトップ専用コンポーネントのテスト
  *    - 基本的なレンダリング
- *    - 数値フォーマットのテスト
- *    - バリデーションロジックのテスト
- *    - デバイス別表示のテスト
+ *    - キーボード操作
  *    - ユーザーインタラクション
+ *    - 数値フォーマット
+ *    - バリデーション
  *    - アニメーション設定
- *    - エラーハンドリング
+ *    - 読み取り専用モード
  * 
  * 2. costValidation.test.ts - バリデーション機能のテスト
  *    - 通貨パース・フォーマット機能
@@ -20,14 +20,6 @@
  *    - 入力フィルタリング機能
  *    - デフォルトルール設定
  * 
- * 3. deviceOptimization.test.ts - デバイス最適化機能のテスト
- *    - デバイス固有スタイル
- *    - デバイス固有入力属性
- *    - キーボードハンドラー
- *    - フォーカス・ブラーハンドラー
- *    - ボタンスタイル
- *    - アニメーション設定
- * 
  * テスト実行方法：
  * ```bash
  * npm test -- --testPathPattern=CostInputDialog
@@ -35,12 +27,12 @@
  * 
  * 特定のテストファイルのみ実行：
  * ```bash
- * npm test -- CostInputDialog.test.tsx
+ * npm test -- CostInputDialog.desktop.test.tsx
  * npm test -- costValidation.test.ts
- * npm test -- deviceOptimization.test.ts
  * ```
+ * 
+ * 注意: このアプリケーションはデスクトップ専用設計です（1280px以上）
  */
 
-export * from './CostInputDialog.test';
+export * from './CostInputDialog.desktop.test';
 export * from './costValidation.test';
-export * from './deviceOptimization.test';

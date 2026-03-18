@@ -6,6 +6,7 @@ export { default as MaintenanceTableBody } from './MaintenanceTableBody';
 export { default as MaintenanceTableRow } from './MaintenanceTableRow';
 export { default as MaintenanceCell } from './MaintenanceCell';
 export { default as GroupHeaderRow } from './GroupHeaderRow';
+export { default as TaskBasedRow } from './TaskBasedRow';
 
 export * from './types';
 export * from './hooks/useMaintenanceGridState';

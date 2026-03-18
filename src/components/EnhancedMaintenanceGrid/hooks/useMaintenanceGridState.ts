@@ -18,17 +18,23 @@ export const useMaintenanceGridState = (columns: GridColumn[], data: Hierarchica
     return widths;
   }, [columns]);
 
-  // Merge initial widths with current widths
+  // Merge initial widths with current widths - use stable reference
   const currentColumnWidths = useMemo(() => {
-    return { ...initialColumnWidths, ...columnWidths };
+    const merged = { ...initialColumnWidths, ...columnWidths };
+    return merged;
   }, [initialColumnWidths, columnWidths]);
 
+  // Create stable gridState object to prevent infinite re-renders
+  // Use useMemo with proper dependencies to avoid circular dependencies
   const gridState: GridState = useMemo(() => ({
     selectedCell,
     editingCell,
     selectedRange,
     columnWidths: currentColumnWidths,
     rowHeights,
+    sortColumn: null,
+    sortDirection: null,
+    scrollPosition: { x: 0, y: 0 },
     clipboardData: null // Will be managed by clipboard hook
   }), [selectedCell, editingCell, selectedRange, currentColumnWidths, rowHeights]);
 

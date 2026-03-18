@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Box, TextField } from '@mui/material';
 import { HierarchicalData } from '../../types';
 import { GridColumn } from '../ExcelLikeGrid/types';
+import { getDisplaySymbolWithCount } from '../../utils/dataAggregation';
+import type { AggregatedStatus } from '../../types/maintenanceTask';
 
 interface MaintenanceCellProps {
   item: HierarchicalData;
@@ -18,6 +20,7 @@ interface MaintenanceCellProps {
   showRightBorder?: boolean;
   isDragged?: boolean;
   isDragOver?: boolean;
+  isEquipmentBasedMode?: boolean; // New prop for equipment-based mode
 }
 
 const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
@@ -33,17 +36,20 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
   width,
   showRightBorder = true,
   isDragged = false,
-  isDragOver = false
+  isDragOver = false,
+  isEquipmentBasedMode = false
 }) => {
+  // Use value directly instead of state to prevent infinite loops
+  // Only use local state when actually editing
   const [editValue, setEditValue] = useState(value);
+  const [isLocalEditing, setIsLocalEditing] = useState(false);
 
-  // Update edit value when value changes
-  useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+  // Reset local editing state when not editing
+  const currentValue = isLocalEditing ? editValue : value;
 
   const handleEditComplete = useCallback(() => {
-    let finalValue = editValue;
+    let finalValue = currentValue;
+    setIsLocalEditing(false);
     
     // コスト入力時に星取表のステータスを自動更新
     if (column.type === 'cost') {
@@ -70,7 +76,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     if (hasChanged) {
       onCellEdit(item.id, column.id, finalValue);
     }
-  }, [editValue, value, onCellEdit, item.id, column.id, column.type]);
+  }, [currentValue, value, onCellEdit, item.id, column.id, column.type]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -186,22 +192,66 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     } else {
       // Display mode
       if (column.type === 'status') {
-        const planned = value?.planned || false;
-        const actual = value?.actual || false;
+        // Check if this is aggregated status (equipment-based mode with multiple tasks)
+        const isAggregatedStatus = value && typeof value === 'object' && 'count' in value;
         
-        let symbol = '';
-        if (planned && actual) symbol = '◎';
-        else if (planned) symbol = '○';
-        else if (actual) symbol = '●';
-        
-        return (
-          <Box className="cell-content" sx={{ textAlign: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
-            {symbol}
-          </Box>
-        );
+        if (isAggregatedStatus) {
+          // Equipment-based mode: Display aggregated status with task count
+          const aggregatedStatus = value as AggregatedStatus;
+          const displayText = getDisplaySymbolWithCount(aggregatedStatus);
+          
+          return (
+            <Box 
+              className="cell-content aggregated-status" 
+              sx={{ 
+                textAlign: 'center', 
+                fontSize: '1rem', 
+                fontWeight: 'bold',
+                cursor: isEquipmentBasedMode ? 'pointer' : 'default',
+                '&:hover': isEquipmentBasedMode ? {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '4px'
+                } : {}
+              }}
+            >
+              {displayText}
+            </Box>
+          );
+        } else {
+          // Legacy mode: Simple status display
+          const planned = value?.planned || false;
+          const actual = value?.actual || false;
+          
+          let symbol = '';
+          if (planned && actual) symbol = '◎';
+          else if (planned) symbol = '○';
+          else if (actual) symbol = '●';
+          
+          return (
+            <Box className="cell-content" sx={{ textAlign: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
+              {symbol}
+            </Box>
+          );
+        }
       } else if (column.type === 'cost') {
-        const planCost = value?.planCost || 0;
-        const actualCost = value?.actualCost || 0;
+        // Check if this is aggregated cost (equipment-based mode with multiple tasks)
+        const isAggregatedCost = value && typeof value === 'object' && ('totalPlanCost' in value || 'totalActualCost' in value);
+        
+        let planCost = 0;
+        let actualCost = 0;
+        let taskCount = 0;
+        
+        if (isAggregatedCost) {
+          // Equipment-based mode: Use aggregated costs
+          const aggregatedStatus = value as AggregatedStatus;
+          planCost = aggregatedStatus.totalPlanCost || 0;
+          actualCost = aggregatedStatus.totalActualCost || 0;
+          taskCount = aggregatedStatus.count || 0;
+        } else {
+          // Legacy mode: Use simple costs
+          planCost = value?.planCost || 0;
+          actualCost = value?.actualCost || 0;
+        }
         
         // 千円単位に変換してフォーマット
         const formatCost = (cost: number) => {
@@ -211,12 +261,30 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
         };
         
         return (
-          <Box className="cell-content" sx={{ fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.4 }}>
+          <Box 
+            className="cell-content" 
+            sx={{ 
+              fontSize: '0.75rem', 
+              textAlign: 'center', 
+              lineHeight: 1.4,
+              cursor: isEquipmentBasedMode && taskCount > 0 ? 'pointer' : 'default',
+              '&:hover': isEquipmentBasedMode && taskCount > 0 ? {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '4px'
+              } : {}
+            }}
+          >
             {planCost > 0 && (
-              <Box className="cost-plan" sx={{ color: 'primary.main' }}>{formatCost(planCost)}</Box>
+              <Box className="cost-plan" sx={{ color: 'primary.main' }}>
+                {formatCost(planCost)}
+                {isAggregatedCost && taskCount > 1 && <span style={{ fontSize: '0.7rem' }}>({taskCount})</span>}
+              </Box>
             )}
             {actualCost > 0 && (
-              <Box className="cost-actual" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>{formatCost(actualCost)}</Box>
+              <Box className="cost-actual" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
+                {formatCost(actualCost)}
+                {isAggregatedCost && taskCount > 1 && planCost === 0 && <span style={{ fontSize: '0.7rem' }}>({taskCount})</span>}
+              </Box>
             )}
           </Box>
         );
@@ -253,8 +321,25 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
 
   // Handle single click
   const handleClick = useCallback(() => {
+    // In equipment-based mode, clicking on time columns (status/cost) should open TaskEditDialog
+    if (isEquipmentBasedMode && (column.type === 'status' || column.type === 'cost')) {
+      // Check if there's any data to edit
+      const hasData = value && (
+        (typeof value === 'object' && ('count' in value || 'planned' in value || 'actual' in value)) ||
+        (typeof value === 'string' && value.length > 0)
+      );
+      
+      // Always allow clicking in equipment-based mode for time columns
+      // This allows adding new tasks even if no tasks exist yet
+      if (column.id.startsWith('time_')) {
+        onCellClick();
+        return;
+      }
+    }
+    
+    // Default click behavior
     onCellClick();
-  }, [onCellClick]);
+  }, [onCellClick, isEquipmentBasedMode, column.type, column.id, value]);
 
   return (
     <Box

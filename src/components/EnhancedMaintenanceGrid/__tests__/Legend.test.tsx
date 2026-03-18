@@ -1,22 +1,11 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import Legend from '../Legend';
-
-const theme = createTheme();
-
-const renderWithTheme = (component: React.ReactElement) => {
-  return render(
-    <ThemeProvider theme={theme}>
-      {component}
-    </ThemeProvider>
-  );
-};
+import { Legend } from '../Legend';
 
 describe('Legend Component', () => {
-  describe('Status Mode', () => {
-    it('should render status legend correctly', () => {
-      renderWithTheme(<Legend viewMode="status" />);
+  describe('Status View Mode', () => {
+    it('should render status legend symbols', () => {
+      render(<Legend viewMode="status" />);
       
       expect(screen.getByText('凡例:')).toBeInTheDocument();
       expect(screen.getByText(': 計画')).toBeInTheDocument();
@@ -24,45 +13,58 @@ describe('Legend Component', () => {
       expect(screen.getByText(': 計画と実績')).toBeInTheDocument();
     });
 
-    it('should display status symbols', () => {
-      renderWithTheme(<Legend viewMode="status" />);
+    it('should show count indicator in equipment-based mode', () => {
+      render(<Legend viewMode="status" dataViewMode="equipment-based" />);
       
-      // Check for the symbols (○, ●, ◎)
-      expect(screen.getByText('○')).toBeInTheDocument();
-      expect(screen.getByText('●')).toBeInTheDocument();
-      expect(screen.getByText('◎')).toBeInTheDocument();
+      expect(screen.getByText(': 複数作業')).toBeInTheDocument();
+    });
+
+    it('should not show count indicator in task-based mode', () => {
+      render(<Legend viewMode="status" dataViewMode="task-based" />);
+      
+      expect(screen.queryByText(': 複数作業')).not.toBeInTheDocument();
     });
   });
 
-  describe('Cost Mode', () => {
-    it('should render cost legend correctly', () => {
-      renderWithTheme(<Legend viewMode="cost" />);
+  describe('Cost View Mode', () => {
+    it('should render cost legend', () => {
+      render(<Legend viewMode="cost" />);
       
       expect(screen.getByText('凡例 (単位: 千円):')).toBeInTheDocument();
-      expect(screen.getByText(': 計画')).toBeInTheDocument();
-      expect(screen.getByText(': 実績')).toBeInTheDocument();
+      expect(screen.getByText('123')).toBeInTheDocument();
+      expect(screen.getByText('456')).toBeInTheDocument();
     });
 
-    it('should display cost examples', () => {
-      renderWithTheme(<Legend viewMode="cost" />);
+    it('should show aggregated cost indicator in equipment-based mode', () => {
+      render(<Legend viewMode="cost" dataViewMode="equipment-based" />);
       
-      // Check for the cost examples
-      const costExamples = screen.getAllByText('(123)');
-      expect(costExamples).toHaveLength(2); // One for plan, one for actual
+      expect(screen.getByText('合計コスト表示')).toBeInTheDocument();
+    });
+
+    it('should not show aggregated cost indicator in task-based mode', () => {
+      render(<Legend viewMode="cost" dataViewMode="task-based" />);
+      
+      expect(screen.queryByText('合計コスト表示')).not.toBeInTheDocument();
     });
   });
 
-  describe('Styling', () => {
-    it('should apply custom className', () => {
-      const { container } = renderWithTheme(<Legend viewMode="status" className="custom-class" />);
+  describe('Grouping Indicator', () => {
+    it('should show equipment-based grouping indicator', () => {
+      render(<Legend viewMode="status" dataViewMode="equipment-based" />);
       
-      expect(container.querySelector('.custom-class')).toBeInTheDocument();
+      expect(screen.getByText('階層別グループ化')).toBeInTheDocument();
     });
 
-    it('should have legend-container class', () => {
-      const { container } = renderWithTheme(<Legend viewMode="status" />);
+    it('should show task-based grouping indicator', () => {
+      render(<Legend viewMode="status" dataViewMode="task-based" />);
       
-      expect(container.querySelector('.legend-container')).toBeInTheDocument();
+      expect(screen.getByText('作業分類別グループ化')).toBeInTheDocument();
+    });
+
+    it('should default to equipment-based when dataViewMode is not provided', () => {
+      render(<Legend viewMode="status" />);
+      
+      expect(screen.getByText('階層別グループ化')).toBeInTheDocument();
     });
   });
 });

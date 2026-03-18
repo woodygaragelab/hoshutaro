@@ -1,4 +1,15 @@
 export { CostInputDialog, type CostInputDialogProps, type CostInputState } from './CostInputDialog';
+
+// データモデルアダプターのエクスポート
+export {
+  scheduleToCostValue,
+  costValueToSchedule,
+  updateScheduleCost,
+  hasScheduleEntry as hasCostScheduleEntry,
+  getOrCreateScheduleEntry as getOrCreateCostScheduleEntry,
+  validateCostValue,
+} from './dataModelAdapter';
+
 export { 
   validateCostInput,
   formatCurrency,

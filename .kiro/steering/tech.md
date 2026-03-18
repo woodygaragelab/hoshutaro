@@ -2,78 +2,60 @@
 
 ## Core Technologies
 
-### Frontend Framework
-- **React 19** with TypeScript for type-safe component development
-- **Vite** as the build tool and development server
-- **Material-UI v7** for UI components with custom theming
-- **Framer Motion** for animations and transitions
+- **Frontend Framework**: React 19.0.0 with TypeScript
+- **Build Tool**: Vite 6.2.0 with esbuild minification
+- **UI Library**: Material-UI (MUI) 7.3.2 with Emotion styling
+- **State Management**: Zustand 5.0.8 for global state
+- **Data Fetching**: TanStack React Query 5.90.2
+- **Backend**: AWS Amplify with CDK for infrastructure
+- **Testing**: Jest 30.2.0 with React Testing Library
+- **Linting**: ESLint 9.21.0 with TypeScript ESLint
 
-### State Management & Data
-- **React Query (@tanstack/react-query)** for server state management and caching
-- **Zustand** for client-side state management
-- **React Router v7** for navigation
-- **XLSX** library for Excel file processing
+## Key Libraries
 
-### Performance & Optimization
-- **React Window** for virtual scrolling in large datasets
-- **Code splitting** with React.lazy for bundle optimization
-- **Service Worker** for offline support and caching
-
-### Backend Integration (Prepared)
-- **AWS Amplify** for backend services
-- **AWS CDK** for infrastructure as code
-- **Axios** for HTTP client
-
-### Testing & Quality
-- **Jest** with React Testing Library for unit and integration tests
-- **ESLint** with TypeScript rules for code quality
-- **TypeScript** with strict configuration
+- **Excel Processing**: xlsx 0.18.5 for file import/export
+- **Virtualization**: react-window 2.2.0 for performance
+- **Animation**: Framer Motion 12.23.22
+- **Date Handling**: Day.js 1.11.19 with MUI Date Pickers
+- **Property Testing**: fast-check 4.3.0 for robust testing
 
 ## Build Commands
 
-### Development
 ```bash
-npm run dev          # Start development server with HMR
-npm run preview      # Preview production build locally
+# Development
+npm run dev                 # Start development server
+npm run build              # Production build (TypeScript + Vite)
+npm run preview            # Preview production build
+
+# Testing
+npm run test               # Run Jest tests
+npm run test:watch         # Watch mode testing
+npm run test:coverage      # Generate coverage report
+
+# Code Quality
+npm run lint               # ESLint checking
+npm run prepare:deploy     # Full pre-deployment check (test + lint + build)
+
+# Deployment
+npm run deploy:check       # Validate deployment readiness
+npm run deploy:vercel      # Deploy to Vercel
+npm run deploy:netlify     # Deploy to Netlify
+npm run build:analyze      # Bundle size analysis
 ```
 
-### Testing
-```bash
-npm run test         # Run tests once
-npm run test:watch   # Run tests in watch mode
-npm run test:coverage # Generate coverage report
-```
+## Performance Optimizations
 
-### Build & Deploy
-```bash
-npm run build        # TypeScript compilation + Vite build
-npm run lint         # Run ESLint checks
-npm run prepare:deploy # Run tests, lint, and build
-npm run deploy:check # Validate deployment readiness
-npm run deploy:vercel # Deploy to Vercel
-npm run deploy:netlify # Deploy to Netlify
-```
+- **Bundle Splitting**: Manual chunks for vendor libraries (react, mui, utils, query)
+- **Tree Shaking**: ES modules with esbuild optimization
+- **Virtual Scrolling**: react-window for large datasets
+- **Memoization**: Custom memoization utilities for O(1) lookups
+- **Data Indexing**: Optimized data structures for 50,000+ assets
 
-### Analysis
-```bash
-npm run build:analyze # Analyze bundle size
-```
+## Code Style Guidelines
 
-## Project Configuration
-
-### TypeScript
-- Strict mode enabled with `noUnusedLocals` and `noUnusedParameters`
-- ES2020 target with modern module resolution
-- Separate configs for app (`tsconfig.app.json`) and build tools (`tsconfig.node.json`)
-
-### Vite Configuration
-- Manual chunk splitting for vendor libraries (React, MUI, utilities)
-- Source maps enabled for production debugging
-- Optimized dependencies pre-bundling
-- CSS code splitting enabled
-
-### Performance Optimizations
-- Bundle size limit: 1000kb with warnings
-- esbuild minification for faster builds
-- HMR overlay disabled for better dev performance
-- Vendor chunk separation for better caching
+- **TypeScript**: Strict mode enabled, explicit return types required
+- **Components**: Functional components with hooks, no class components
+- **File Organization**: Feature-based folder structure with co-located tests
+- **Naming**: PascalCase for components, camelCase for functions/variables
+- **Imports**: Absolute imports from src/, relative for local files
+- **Testing**: Property-based testing with fast-check for complex logic

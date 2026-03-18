@@ -2,6 +2,15 @@
 export { StatusSelectionDialog } from './StatusSelectionDialog';
 export type { StatusSelectionDialogProps } from './StatusSelectionDialog';
 
+// データモデルアダプターのエクスポート
+export {
+  scheduleToStatusValue,
+  statusValueToSchedule,
+  updateScheduleStatus,
+  hasScheduleEntry,
+  getOrCreateScheduleEntry,
+} from './dataModelAdapter';
+
 // 状態変換ロジックのエクスポート
 export {
   convertToStatusValue,

@@ -39,6 +39,7 @@ export default defineConfig({
   },
   // Development server optimizations
   server: {
+    open: 'chrome',
     hmr: {
       overlay: false, // Disable error overlay for better performance
     },

@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
-import { Box, TextField } from '@mui/material';
+import { Box, TextField, Checkbox } from '@mui/material';
 import { HierarchicalData } from '../../types';
 import { GridColumn, GridState } from '../ExcelLikeGrid/types';
 
@@ -19,6 +19,12 @@ interface MaintenanceTableRowProps {
   enableVirtualScrolling?: boolean;
   virtualOffset?: number;
   displayColumns?: GridColumn[];
+  isEquipmentBasedMode?: boolean;
+  isTaskBasedMode?: boolean;
+  // Asset selection props
+  isAssetSelected?: boolean;
+  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent) => void;
+  showSelectionCheckbox?: boolean;
 }
 import MaintenanceCell from './MaintenanceCell';
 
@@ -37,7 +43,13 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   dragOverColumnIndex,
   enableVirtualScrolling = false,
   virtualOffset = 0,
-  displayColumns
+  displayColumns,
+  isEquipmentBasedMode = false,
+  isTaskBasedMode = false,
+  // Asset selection props
+  isAssetSelected = false,
+  onAssetSelectionToggle,
+  showSelectionCheckbox = false,
 }) => {
   // Use displayColumns if provided (for virtual scrolling), otherwise use all columns
   const columnsToRender = displayColumns || columns;
@@ -105,24 +117,24 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
     return '';
   }, [item, viewMode]);
 
-  // Handle cell click for selection
+  // Handle cell click for selection only
   const handleCellClick = useCallback((columnId: string) => {
     onSelectedCellChange(item.id, columnId);
   }, [item.id, onSelectedCellChange]);
 
-  // Handle cell double click for editing
+  // Handle cell double click for editing or opening dialog
   const handleCellDoubleClick = useCallback((columnId: string, event: React.MouseEvent<HTMLElement>) => {
     if (readOnly) return;
     
     const column = columns.find(col => col.id === columnId);
-    if (column?.editable) {
-      // Use the enhanced double-click handler if provided
-      if (onCellDoubleClick) {
-        onCellDoubleClick(item.id, columnId, event);
-      } else {
-        // Fallback to the original behavior
-        onEditingCellChange(item.id, columnId);
-      }
+    
+    // Always call onCellDoubleClick if provided (for dialog-based editing)
+    // The editable flag is for inline editing, not for dialog-based editing
+    if (onCellDoubleClick) {
+      onCellDoubleClick(item.id, columnId, event);
+    } else if (column?.editable) {
+      // Fallback to inline editing if no dialog handler is provided
+      onEditingCellChange(item.id, columnId);
     }
   }, [item.id, columns, readOnly, onCellDoubleClick, onEditingCellChange]);
 
@@ -141,6 +153,14 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
     return sum + (gridState.columnWidths[col.id] || col.width);
   }, 0);
 
+  // Handle checkbox click
+  const handleCheckboxClick = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (onAssetSelectionToggle && !item.isGroupHeader) {
+      onAssetSelectionToggle(item.id, event);
+    }
+  }, [onAssetSelectionToggle, item.id, item.isGroupHeader]);
+
   return (
     <Box
       ref={rowRef}
@@ -152,9 +172,9 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
         alignItems: 'center',
         boxSizing: 'border-box',
         flexShrink: 0,
-        backgroundColor: 'transparent',
+        backgroundColor: isAssetSelected ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
         '&:hover': {
-          backgroundColor: 'action.hover'
+          backgroundColor: isAssetSelected ? 'rgba(25, 118, 210, 0.12)' : 'action.hover'
         }
       }}
       style={{
@@ -162,6 +182,38 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
       }}
       data-row-id={item.id}
     >
+      {/* Selection checkbox column */}
+      {showSelectionCheckbox && (
+        <Box
+          sx={{
+            width: 48,
+            minWidth: 48,
+            maxWidth: 48,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4px',
+            boxSizing: 'border-box',
+            flexShrink: 0,
+            borderRight: '1px solid #333333',
+          }}
+        >
+          {!item.isGroupHeader && (
+            <Checkbox
+              checked={isAssetSelected}
+              onClick={handleCheckboxClick}
+              size="small"
+              sx={{
+                padding: 0,
+                color: 'rgba(255, 255, 255, 0.7)',
+                '&.Mui-checked': {
+                  color: 'primary.main',
+                },
+              }}
+            />
+          )}
+        </Box>
+      )}
       {enableVirtualScrolling && virtualOffset > 0 && (
         <Box sx={{ width: virtualOffset, flexShrink: 0 }} />
       )}
@@ -288,6 +340,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
             showRightBorder={!isLastColumn}
             isDragged={isDragged}
             isDragOver={isDragOver}
+            isEquipmentBasedMode={isEquipmentBasedMode}
           />
         );
       })}

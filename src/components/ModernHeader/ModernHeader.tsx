@@ -15,6 +15,7 @@ import {
   Divider,
   SelectChangeEvent,
   ButtonGroup,
+  Popover,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -24,9 +25,25 @@ import {
   Chat as ChatIcon,
   Close as CloseIcon,
   Event as EventIcon,
+  ViewList as EquipmentIcon,
+  Assignment as TaskIcon,
+  AccountTree as HierarchyIcon,
+  SwapHoriz as ReassignIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon,
 } from '@mui/icons-material';
-import DateJumpDialog from '../DateJumpDialog/DateJumpDialog';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { MonthCalendar } from '@mui/x-date-pickers/MonthCalendar';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { Dayjs } from 'dayjs';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
+import 'dayjs/locale/ja';
+
+dayjs.extend(weekOfYear);
 import Legend from '../EnhancedMaintenanceGrid/Legend';
+import { ViewMode, HierarchyDefinition, Asset } from '../../types/maintenanceTask';
+import HierarchyEditDialog from '../HierarchyEditDialog/HierarchyEditDialog';
 import './ModernHeader.css';
 
 
@@ -53,6 +70,16 @@ interface ModernHeaderProps {
   timeScale: 'year' | 'month' | 'week' | 'day';
   onTimeScaleChange: (event: SelectChangeEvent) => void;
   
+  // Data view mode (equipment-based vs task-based)
+  // Requirements 6.1, 6.2, 6.5
+  dataViewMode?: ViewMode;
+  onDataViewModeChange?: (mode: ViewMode) => void;
+  
+  // Edit scope (single-asset vs all-assets)
+  // Requirements 4.8, 5.7: User-controllable edit scope
+  editScope?: 'single-asset' | 'all-assets';
+  onEditScopeChange?: (scope: 'single-asset' | 'all-assets') => void;
+  
   // Display settings
   showBomCode: boolean;
   onShowBomCodeChange: (checked: boolean) => void;
@@ -75,6 +102,20 @@ interface ModernHeaderProps {
   // Date Jump
   currentYear?: number;
   onJumpToDate?: (year: number, month?: number, week?: number, day?: number) => void;
+  
+  // Hierarchy management - Requirements 3.1, 3.2
+  hierarchy?: HierarchyDefinition;
+  assets?: Asset[];
+  selectedAssets?: string[]; // Asset IDs
+  onAssetSelectionChange?: (assetIds: string[]) => void;
+  onHierarchyEdit?: (hierarchy: HierarchyDefinition) => void;
+  onOpenAssetReassignDialog?: () => void;
+  
+  // Undo/Redo - Requirements 8.1, 8.2, 8.3
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 // Create a new integrated toolbar component that will be used within the grid
@@ -94,6 +135,10 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   onViewModeChange,
   timeScale,
   onTimeScaleChange,
+  dataViewMode = 'equipment-based',
+  onDataViewModeChange,
+  editScope = 'single-asset',
+  onEditScopeChange,
   showBomCode,
   onShowBomCodeChange,
   displayMode,
@@ -107,12 +152,31 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   isAIAssistantOpen,
   currentYear = new Date().getFullYear(),
   onJumpToDate,
+  hierarchy,
+  assets = [],
+  selectedAssets = [],
+  onAssetSelectionChange,
+  onHierarchyEdit,
+  onOpenAssetReassignDialog,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dateJumpAnchorEl, setDateJumpAnchorEl] = useState<HTMLElement | null>(null);
-  const dateJumpOpen = Boolean(dateJumpAnchorEl);
+  const [hierarchyEditOpen, setHierarchyEditOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(dayjs());
+  const [calendarView, setCalendarView] = useState<'year' | 'month' | 'day'>('day');
 
   const handleDateJumpClick = (event: React.MouseEvent<HTMLElement>) => {
+    setSelectedDate(dayjs());
+    // Set initial view based on timeScale
+    if (timeScale === 'month') {
+      setCalendarView('year'); // Start with year selection for month mode
+    } else {
+      setCalendarView('day'); // Start with day view for day/week mode
+    }
     setDateJumpAnchorEl(event.currentTarget);
   };
 
@@ -120,11 +184,70 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
     setDateJumpAnchorEl(null);
   };
 
-  const handleJumpToDate = (year: number, month?: number, week?: number, day?: number) => {
-    if (onJumpToDate) {
-      onJumpToDate(year, month, week, day);
+  const handleMonthChange = (newDate: Dayjs | null) => {
+    if (!newDate || !onJumpToDate) return;
+    
+    // Only jump when we're in month view (final selection)
+    if (calendarView === 'month') {
+      const year = newDate.year();
+      const month = newDate.month() + 1;
+      
+      onJumpToDate(year, month);
+      handleDateJumpClose();
+    } else {
+      // Just update the selected date for year selection
+      setSelectedDate(newDate);
     }
-    handleDateJumpClose();
+  };
+
+  const handleDateChange = (newDate: Dayjs | null) => {
+    if (!newDate || !onJumpToDate) return;
+
+    const year = newDate.year();
+    const month = newDate.month() + 1;
+    const day = newDate.date();
+
+    // For day and week mode, only jump when day view is active
+    if (calendarView === 'day') {
+      if (timeScale === 'week') {
+        // Calculate week number for week mode
+        const week = newDate.week();
+        onJumpToDate(year, month, week, day);
+      } else if (timeScale === 'day') {
+        onJumpToDate(year, month, undefined, day);
+      }
+      handleDateJumpClose();
+    } else {
+      // Just update the selected date for navigation
+      setSelectedDate(newDate);
+    }
+  };
+
+  const handleViewChange = (newView: 'year' | 'month' | 'day') => {
+    setCalendarView(newView);
+  };
+
+  // Hierarchy management handlers - Requirements 3.1, 3.2
+  const handleOpenHierarchyEdit = () => {
+    setDrawerOpen(false);
+    setTimeout(() => setHierarchyEditOpen(true), 100);
+  };
+
+  const handleCloseHierarchyEdit = () => {
+    setHierarchyEditOpen(false);
+  };
+
+  const handleSaveHierarchy = (newHierarchy: HierarchyDefinition) => {
+    if (onHierarchyEdit) {
+      onHierarchyEdit(newHierarchy);
+    }
+  };
+
+  const handleOpenAssetReassign = () => {
+    setDrawerOpen(false);
+    if (onOpenAssetReassignDialog) {
+      setTimeout(() => onOpenAssetReassignDialog(), 100);
+    }
   };
 
   return (
@@ -161,71 +284,132 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           />
         </Box>
 
-        {/* Display Mode Tabs */}
-        <ButtonGroup 
-          size="small" 
-          sx={{ 
-            height: 28,
-            '& .MuiButton-outlined': {
-              borderColor: '#333333',
-              color: '#ffffff',
-              '&:hover': {
-                borderColor: '#ffffff !important',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                zIndex: 1
-              }
-            }
-          }}
-        >
-          <Button
-            variant={displayMode === 'specifications' ? 'contained' : 'outlined'}
-            onClick={() => onDisplayModeChange('specifications')}
+        {/* Data View Mode Toggle - Requirements 6.1, 6.2, 6.5 */}
+        {onDataViewModeChange && (
+          <ButtonGroup 
+            size="small" 
             sx={{ 
-              fontSize: '0.75rem', 
-              minWidth: 60,
               height: 28,
-              px: 1,
-              borderColor: '#333333 !important',
-              '&:hover': {
-                borderColor: '#ffffff !important'
+              ml: 1,
+              '& .MuiButton-outlined': {
+                borderColor: '#333333',
+                color: '#ffffff',
+                '&:hover': {
+                  borderColor: '#ffffff !important',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  zIndex: 1
+                }
               }
             }}
           >
-            機器仕様
-          </Button>
-          <Button
-            variant={displayMode === 'maintenance' ? 'contained' : 'outlined'}
-            onClick={() => onDisplayModeChange('maintenance')}
+            <Button
+              variant={dataViewMode === 'equipment-based' ? 'contained' : 'outlined'}
+              onClick={() => onDataViewModeChange('equipment-based')}
+              startIcon={<EquipmentIcon sx={{ fontSize: '0.875rem !important' }} />}
+              sx={{ 
+                fontSize: '0.75rem', 
+                minWidth: 80,
+                height: 28,
+                px: 1,
+                borderColor: '#333333 !important',
+                '&:hover': {
+                  borderColor: '#ffffff !important'
+                }
+              }}
+              title="機器ベース表示: 機器を階層別にグループ化して表示。各機器の複数作業を集約して表示します。"
+            >
+              機器ベース
+            </Button>
+            <Button
+              variant={dataViewMode === 'task-based' ? 'contained' : 'outlined'}
+              onClick={() => onDataViewModeChange('task-based')}
+              startIcon={<TaskIcon sx={{ fontSize: '0.875rem !important' }} />}
+              sx={{ 
+                fontSize: '0.75rem', 
+                minWidth: 80,
+                height: 28,
+                px: 1,
+                borderColor: '#333333 !important',
+                '&:hover': {
+                  borderColor: '#ffffff !important'
+                }
+              }}
+              title="作業ベース表示: 作業分類別にグループ化して表示。各作業に関連する機器を表示します。"
+            >
+              作業ベース
+            </Button>
+          </ButtonGroup>
+        )}
+
+
+
+        {/* Display Mode Tabs - Only show in equipment-based mode */}
+        {dataViewMode === 'equipment-based' && (
+          <ButtonGroup 
+            size="small" 
             sx={{ 
-              fontSize: '0.75rem', 
-              minWidth: 60,
               height: 28,
-              px: 1,
-              borderColor: '#333333 !important',
-              '&:hover': {
-                borderColor: '#ffffff !important'
+              '& .MuiButton-outlined': {
+                borderColor: '#333333',
+                color: '#ffffff',
+                '&:hover': {
+                  borderColor: '#ffffff !important',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  zIndex: 1
+                }
               }
             }}
           >
-            計画実績
-          </Button>
-          <Button
-            variant={displayMode === 'both' ? 'contained' : 'outlined'}
-            onClick={() => onDisplayModeChange('both')}
-            sx={{ 
-              fontSize: '0.75rem', 
-              minWidth: 40,
-              height: 28,
-              px: 1,
-              borderColor: '#333333 !important',
-              '&:hover': {
-                borderColor: '#ffffff !important'
-              }
-            }}
-          >
-            両方
-          </Button>
-        </ButtonGroup>
+            <Button
+              variant={displayMode === 'specifications' ? 'contained' : 'outlined'}
+              onClick={() => onDisplayModeChange('specifications')}
+              sx={{ 
+                fontSize: '0.75rem', 
+                minWidth: 60,
+                height: 28,
+                px: 1,
+                borderColor: '#333333 !important',
+                '&:hover': {
+                  borderColor: '#ffffff !important'
+                }
+              }}
+            >
+              機器仕様
+            </Button>
+            <Button
+              variant={displayMode === 'maintenance' ? 'contained' : 'outlined'}
+              onClick={() => onDisplayModeChange('maintenance')}
+              sx={{ 
+                fontSize: '0.75rem', 
+                minWidth: 60,
+                height: 28,
+                px: 1,
+                borderColor: '#333333 !important',
+                '&:hover': {
+                  borderColor: '#ffffff !important'
+                }
+              }}
+            >
+              計画実績
+            </Button>
+            <Button
+              variant={displayMode === 'both' ? 'contained' : 'outlined'}
+              onClick={() => onDisplayModeChange('both')}
+              sx={{ 
+                fontSize: '0.75rem', 
+                minWidth: 40,
+                height: 28,
+                px: 1,
+                borderColor: '#333333 !important',
+                '&:hover': {
+                  borderColor: '#ffffff !important'
+                }
+              }}
+            >
+              両方
+            </Button>
+          </ButtonGroup>
+        )}
 
         {/* Time Scale Tabs */}
         <ButtonGroup 
@@ -310,8 +494,8 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
         </ButtonGroup>
 
-        {/* Date Jump Icon - Show only for week/day modes */}
-        {(timeScale === 'week' || timeScale === 'day' || timeScale === 'month') && onJumpToDate && (
+        {/* Date Jump Icon - Show only for month/week/day modes */}
+        {(timeScale === 'month' || timeScale === 'week' || timeScale === 'day') && onJumpToDate && (
           <IconButton
             size="small"
             onClick={handleDateJumpClick}
@@ -319,7 +503,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               height: 28,
               width: 28,
               ml: 0.5,
-              color: dateJumpOpen ? 'primary.main' : 'inherit',
+              color: dateJumpAnchorEl ? 'primary.main' : 'inherit',
               '&:hover': {
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
               }
@@ -330,12 +514,50 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </IconButton>
         )}
 
-        {/* Legend */}
+        {/* Legend - Requirements 6.5 */}
         <Box sx={{ ml: 2 }}>
-          <Legend viewMode={viewMode} />
+          <Legend viewMode={viewMode} dataViewMode={dataViewMode} />
         </Box>
 
         <Box sx={{ flexGrow: 1 }} />
+
+        {/* Undo/Redo Buttons - Requirements 8.1, 8.2, 8.3 */}
+        {(onUndo || onRedo) && (
+          <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
+            <IconButton
+              size="small"
+              onClick={onUndo}
+              disabled={!canUndo}
+              sx={{
+                width: 28,
+                height: 28,
+                color: canUndo ? 'inherit' : 'action.disabled',
+                '&:hover': {
+                  backgroundColor: canUndo ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                }
+              }}
+              title="元に戻す (Ctrl+Z)"
+            >
+              <UndoIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={onRedo}
+              disabled={!canRedo}
+              sx={{
+                width: 28,
+                height: 28,
+                color: canRedo ? 'inherit' : 'action.disabled',
+                '&:hover': {
+                  backgroundColor: canRedo ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                }
+              }}
+              title="やり直す (Ctrl+Y)"
+            >
+              <RedoIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
 
         {/* AI Assistant */}
         <IconButton
@@ -398,10 +620,24 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+            {/* Data View Mode Info - Requirements 6.5 */}
+            {dataViewMode && (
+              <Box sx={{ mb: 2, p: 1.5, backgroundColor: 'rgba(33, 150, 243, 0.1)', borderRadius: 1 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
+                  現在の表示モード
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                  {dataViewMode === 'equipment-based' 
+                    ? '機器ベース: 機器を階層別にグループ化して表示しています。'
+                    : '作業ベース: 作業を分類別にグループ化して表示しています。'}
+                </Typography>
+              </Box>
+            )}
+
             {/* View Mode */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-                表示モード
+                データ表示モード
               </Typography>
               <FormControlLabel
                 control={
@@ -415,11 +651,29 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               />
             </Box>
 
-            {/* Hierarchy Filters */}
+            {/* Hierarchy Filters - Requirements 6.5 */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-                階層フィルター
+                {dataViewMode === 'task-based' ? '階層・作業分類フィルター' : '階層フィルター'}
               </Typography>
+              
+              {/* Show task classification filter in task-based mode */}
+              {dataViewMode === 'task-based' && (
+                <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                  <InputLabel>作業分類</InputLabel>
+                  <Select
+                    value="all"
+                    label="作業分類"
+                    onChange={() => {}}
+                  >
+                    <MenuItem value="all">すべて</MenuItem>
+                    <MenuItem value="01">01 - 定期点検</MenuItem>
+                    <MenuItem value="02">02 - 予防保全</MenuItem>
+                    <MenuItem value="03">03 - 修理</MenuItem>
+                    <MenuItem value="04">04 - 改造</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
               
               <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                 <InputLabel>レベル1</InputLabel>
@@ -465,6 +719,41 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
             </Box>
 
             <Divider sx={{ my: 2 }} />
+            
+            {/* Hierarchy Management - Requirements 3.1, 3.2 */}
+            {(onHierarchyEdit || onOpenAssetReassignDialog) && hierarchy && (
+              <>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                    階層管理
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {onHierarchyEdit && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleOpenHierarchyEdit}
+                        startIcon={<HierarchyIcon />}
+                      >
+                        階層構造の編集
+                      </Button>
+                    )}
+                    {onOpenAssetReassignDialog && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleOpenAssetReassign}
+                        startIcon={<ReassignIcon />}
+                        disabled={selectedAssets.length === 0}
+                      >
+                        機器の付け替え {selectedAssets.length > 0 && `(${selectedAssets.length}件)`}
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+                <Divider sx={{ my: 2 }} />
+              </>
+            )}
             
             {/* Display Settings */}
             <Box sx={{ mb: 2 }}>
@@ -552,15 +841,82 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
         </Box>
       </Drawer>
 
-      {/* Date Jump Dialog */}
-      <DateJumpDialog
-        open={dateJumpOpen}
+      {/* Date Jump Popover */}
+      <Popover
+        open={Boolean(dateJumpAnchorEl)}
         anchorEl={dateJumpAnchorEl}
         onClose={handleDateJumpClose}
-        timeScale={timeScale}
-        currentYear={currentYear || new Date().getFullYear()}
-        onJumpToDate={handleJumpToDate}
-      />
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'left',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {timeScale === 'month' ? '年月選択' : timeScale === 'week' ? '週選択（日付を選択）' : '日付選択'}
+          </Typography>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ja">
+            {timeScale === 'month' ? (
+              <DateCalendar
+                value={selectedDate}
+                onChange={handleMonthChange}
+                views={['year', 'month']}
+                openTo={calendarView === 'year' ? 'year' : 'month'}
+                onViewChange={handleViewChange}
+                sx={{
+                  '& .MuiPickersCalendarHeader-root': {
+                    paddingLeft: 1,
+                    paddingRight: 1,
+                  },
+                }}
+              />
+            ) : (
+              <DateCalendar
+                value={selectedDate}
+                onChange={handleDateChange}
+                views={['year', 'month', 'day']}
+                openTo="day"
+                displayWeekNumber={timeScale === 'week'}
+                showDaysOutsideCurrentMonth
+                sx={{
+                  '& .MuiPickersCalendarHeader-root': {
+                    paddingLeft: 1,
+                    paddingRight: 1,
+                  },
+                  ...(timeScale === 'week' && {
+                    '& .MuiDayCalendar-weekContainer': {
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                        cursor: 'pointer',
+                      },
+                    },
+                    '& .MuiDayCalendar-weekNumber': {
+                      color: 'primary.main',
+                      fontWeight: 'bold',
+                    },
+                  }),
+                }}
+              />
+            )}
+          </LocalizationProvider>
+        </Box>
+      </Popover>
+
+      {/* Hierarchy Edit Dialog - Requirements 3.1, 3.3, 3.4, 3.5, 3.8 */}
+      {hierarchy && onHierarchyEdit && (
+        <HierarchyEditDialog
+          open={hierarchyEditOpen}
+          hierarchy={hierarchy}
+          assetCount={assets.length}
+          onSave={handleSaveHierarchy}
+          onClose={handleCloseHierarchyEdit}
+        />
+      )}
+
     </>
   );
 };

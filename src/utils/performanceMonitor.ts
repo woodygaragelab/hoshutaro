@@ -28,7 +28,7 @@ class PerformanceMonitor {
             const navEntry = entry as PerformanceNavigationTiming;
             this.recordMetric({
               name: 'page-load',
-              duration: navEntry.loadEventEnd - navEntry.navigationStart,
+              duration: navEntry.loadEventEnd - navEntry.startTime,
               timestamp: Date.now(),
               type: 'bundle-load',
             });

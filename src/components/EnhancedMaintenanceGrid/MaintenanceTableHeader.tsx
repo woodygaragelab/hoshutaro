@@ -13,6 +13,11 @@ interface MaintenanceTableHeaderProps {
   enableVirtualScrolling?: boolean;
   containerWidth?: number;
   scrollLeft?: number;
+  // Asset selection props
+  showSelectionCheckbox?: boolean;
+  allAssetsSelected?: boolean;
+  someAssetsSelected?: boolean;
+  onSelectAllAssets?: () => void;
 }
 
 const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = ({
@@ -23,7 +28,12 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
   onDragStateChange,
   enableVirtualScrolling = false,
   containerWidth = 1920,
-  scrollLeft = 0
+  scrollLeft = 0,
+  // Asset selection props
+  showSelectionCheckbox = false,
+  allAssetsSelected = false,
+  someAssetsSelected = false,
+  onSelectAllAssets,
 }) => {
   const [resizing, setResizing] = useState<{ columnId: string; startX: number; startWidth: number } | null>(null);
   
@@ -53,16 +63,10 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
     columns,
     columnWidth: (index) => gridState.columnWidths[columns[index].id] || columns[index].width,
     containerWidth,
+    scrollLeft,
     overscan: 5,
     enableMemoization: true,
   });
-
-  // Update virtual scrolling when scrollLeft changes
-  useEffect(() => {
-    if (shouldUseVirtualScrolling) {
-      virtualScrolling.handleScroll(scrollLeft);
-    }
-  }, [scrollLeft, shouldUseVirtualScrolling]);
 
   // Use virtual columns if enabled, otherwise use all columns
   const displayColumns = shouldUseVirtualScrolling ? 
@@ -293,6 +297,41 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
         borderBottom: '1px solid #333333'
       }}
     >
+      {/* Selection checkbox column header */}
+      {showSelectionCheckbox && (
+        <Box
+          sx={{
+            width: 48,
+            minWidth: 48,
+            maxWidth: 48,
+            flexShrink: 0,
+            display: 'flex !important',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px 4px',
+            backgroundColor: '#2a2a2a',
+            height: '100%',
+            boxSizing: 'border-box',
+            borderRight: '1px solid #333333',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={allAssetsSelected}
+            ref={(input) => {
+              if (input) {
+                input.indeterminate = someAssetsSelected && !allAssetsSelected;
+              }
+            }}
+            onChange={onSelectAllAssets}
+            style={{
+              cursor: 'pointer',
+              width: 16,
+              height: 16,
+            }}
+          />
+        </Box>
+      )}
       {shouldUseVirtualScrolling && virtualOffset > 0 && (
         <Box sx={{ width: virtualOffset, flexShrink: 0 }} />
       )}

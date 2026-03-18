@@ -1,131 +1,169 @@
+---
+inclusion: always
+---
+
 # Project Structure & Organization
 
-## Root Directory Structure
+## Root Structure
 
-```
-├── amplify/                 # AWS Amplify backend configuration
-├── data/                    # Static data files (test.xlsx)
-├── docs/                    # Project documentation
-├── public/                  # Static assets (service worker, icons)
-├── scripts/                 # Build and deployment scripts
-├── source_files/            # Original HTML/CSS/JS files
-├── src/                     # Main application source code
-└── test-specifications.html # Test specifications
+```text
+├── src/                    # Main application source
+├── docs/                   # Comprehensive documentation
+├── amplify/                # AWS Amplify backend configuration
+├── public/                 # Static assets
+├── scripts/                # Deployment and utility scripts
+└── data/                   # Sample/test data files
 ```
 
 ## Source Code Organization (`src/`)
 
 ### Component Architecture
-```
-src/
-├── components/
-│   ├── EnhancedMaintenanceGrid/    # Main grid component with subcomponents
-│   │   ├── EnhancedMaintenanceGrid.tsx
-│   │   ├── EnhancedMaintenanceGrid.css
-│   │   ├── GroupHeaderRow.tsx
-│   │   ├── MaintenanceGridLayout.tsx
-│   │   ├── MobileGridView.tsx
-│   │   ├── TabletGridView.tsx
-│   │   ├── copyPasteManager.ts
-│   │   ├── keyboardNavigation.ts
-│   │   ├── scrollManager.ts
-│   │   └── __tests__/              # Component-specific tests
-│   ├── ModernHeader/               # Header with integrated controls
-│   ├── AIAssistant/                # AI assistant panel (mock)
-│   ├── DataSync/                   # Data synchronization components
-│   ├── ErrorHandling/              # Error boundaries and recovery
-│   ├── ResponsiveGridManager/      # Responsive grid management
-│   ├── VirtualScrolling/           # Virtual scrolling implementation
-│   ├── SpecificationEditDialog/   # Equipment specification editing
-│   ├── CostInputDialog/            # Cost input dialogs
-│   ├── StatusSelectionDialog/      # Status selection dialogs
-│   └── CommonEdit/                 # Shared editing logic
+
+```text
+src/components/
+├── EnhancedMaintenanceGrid/    # Main grid component (star chart display)
+├── AIAssistant/                # AI-powered data processing
+├── ModernHeader/               # Application header
+├── [Feature]Dialog/            # Modal dialogs for editing
+│   ├── TaskEditDialog/         # Task management
+│   ├── HierarchyEditDialog/    # Hierarchy editing
+│   ├── AssetReassignDialog/    # Equipment reassignment
+│   ├── CostInputDialog/        # Cost data entry
+│   ├── StatusSelectionDialog/  # Status changes
+│   └── SpecificationEditDialog/ # Equipment specifications
+└── [Utility]Components/        # Shared utilities
 ```
 
-### Supporting Directories
+### Service Layer
+
+```text
+src/services/
+├── TaskManager.ts              # Task CRUD operations
+├── AssetManager.ts             # Equipment management
+├── AssociationManager.ts       # Task-asset relationships
+├── HierarchyManager.ts         # Hierarchy operations
+├── ViewModeManager.ts          # Display mode switching
+├── UndoRedoManager.ts          # Operation history
+├── DataStore.ts                # Data persistence
+├── ErrorHandler.ts             # Error management
+├── EditHandlers.ts             # Edit operation coordination
+└── DataMigrationService.ts     # Legacy data conversion
 ```
-├── hooks/                   # Custom React hooks
-├── utils/                   # Utility functions and helpers
-├── providers/               # Context providers (Theme, etc.)
-├── styles/                  # Global styles and CSS modules
-├── theme/                   # Material-UI theme configuration
-├── config/                  # Application configuration
-├── data/                    # Static data and mock data
-└── docs/                    # Component documentation
+
+### Utilities & Hooks
+
+```text
+src/utils/                      # Pure utility functions
+├── dataIndexing.ts             # O(1) lookup optimization
+├── memoization.ts              # Performance caching
+├── performanceMonitor.ts       # Performance tracking
+├── accessibility.ts            # A11y helpers
+└── dataTransformer.ts          # Data format conversion
+
+src/hooks/                      # Custom React hooks
+├── useViewModeTransition.ts    # Mode switching logic
+└── useResponsiveLayout.ts      # Responsive behavior
 ```
 
 ## File Naming Conventions
 
-### Components
-- **PascalCase** for component files: `EnhancedMaintenanceGrid.tsx`
-- **camelCase** for utility files: `copyPasteManager.ts`
-- **kebab-case** for CSS files: `enhanced-maintenance-grid.css`
+- **Components**: PascalCase (e.g., `EnhancedMaintenanceGrid.tsx`)
+- **Services**: PascalCase (e.g., `TaskManager.ts`)
+- **Utilities**: camelCase (e.g., `dataIndexing.ts`)
+- **Hooks**: camelCase with `use` prefix (e.g., `useViewModeTransition.ts`)
+- **Types**: camelCase (e.g., `maintenanceTask.ts`)
+- **Tests**: Same as source with `.test.` suffix
 
-### Test Files
-- Co-located with components in `__tests__/` directories
-- Named with `.test.tsx` or `.test.ts` suffix
-- Match the component name: `EnhancedMaintenanceGrid.test.tsx`
+## Co-location Patterns
 
-### Utility Files
-- Grouped by functionality in `utils/` directory
-- Named descriptively: `dataTransformer.ts`, `performanceMonitor.ts`
+Each major component follows this structure:
 
-## Component Organization Patterns
-
-### Feature-Based Structure
-Each major feature (like EnhancedMaintenanceGrid) contains:
-- Main component file
-- Supporting subcomponents
-- Utility functions specific to the feature
-- CSS/styling files
-- Test files in `__tests__/` subdirectory
-
-### Desktop-Only Components
-All components are optimized for desktop use only.
-
-### Manager Pattern
-Complex functionality is organized using manager classes:
-- `copyPasteManager.ts` - Handles clipboard operations
-- `scrollManager.ts` - Manages scrolling behavior
-- `keyboardNavigation.ts` - Keyboard interaction handling
-
-## Import/Export Conventions
-
-### Barrel Exports
-Use index files for clean imports from directories:
-```typescript
-// components/index.ts
-export { default as EnhancedMaintenanceGrid } from './EnhancedMaintenanceGrid';
-export { default as ModernHeader } from './ModernHeader';
+```text
+ComponentName/
+├── ComponentName.tsx           # Main component
+├── ComponentName.css          # Component styles (if needed)
+├── index.ts                   # Barrel export
+├── README.md                  # Integration guide
+├── types.ts                   # Component-specific types
+├── utils/                     # Component utilities
+├── hooks/                     # Component hooks
+└── __tests__/                 # All test files
+    ├── ComponentName.test.tsx
+    ├── integration.test.tsx
+    └── performance.test.tsx
 ```
 
-### Relative Imports
-- Use relative imports for local files
-- Use absolute imports from `src/` for cross-feature imports
-- Group imports: external libraries, internal modules, relative imports
+## Import Organization Rules
 
-## Configuration Files Location
+Follow this exact order when organizing imports:
 
-### Root Level
-- `package.json` - Dependencies and scripts
-- `vite.config.ts` - Build configuration
-- `tsconfig.*.json` - TypeScript configurations
-- `eslint.config.js` - Linting rules
-- `jest.config.js` - Test configuration
+1. **React imports** first
+2. **Third-party libraries**
+3. **Internal services** (from `src/services/`)
+4. **Internal components** (from `src/components/`)
+5. **Internal utilities** (from `src/utils/`)
+6. **Types** (from `src/types/`)
+7. **Relative imports** last
 
-### Deployment
-- `vercel.json` - Vercel deployment config
-- `netlify.toml` - Netlify deployment config
-- `amplify/` - AWS Amplify backend configuration
+## Architecture Patterns
 
-## Data Management
+### Service Layer Usage
+- Use services for all business logic and data operations
+- Components should only handle UI state and presentation
+- Services are singletons - import and use directly, no dependency injection
 
-### Static Data
-- Equipment data in `src/data/equipments.json`
-- Test data in `data/test.xlsx`
+### Component Patterns
+- Functional components only, no class components
+- Use co-located hooks for component-specific logic
+- Export components through index.ts barrel files
+- Include README.md for complex components with integration examples
 
-### Type Definitions
-- Centralized in `src/types.ts`
-- Feature-specific types co-located with components
+### Data Flow
+- Services manage all data operations and business rules
+- Components consume services directly for data operations
+- Use React Query for server state management
+- Use Zustand for client-side global state
 
-This structure supports scalability, maintainability, and clear separation of concerns while following React and TypeScript best practices.
+### Performance Considerations
+- Virtual scrolling for large datasets (50,000+ records)
+- Memoization utilities for expensive calculations
+- O(1) lookup patterns using dataIndexing utilities
+- Component-level performance monitoring
+
+## File Creation Guidelines
+
+### When creating new components:
+1. Create folder with PascalCase name
+2. Add main component file with same name
+3. Add index.ts barrel export
+4. Add types.ts if component has specific types
+5. Add __tests__ folder with test files
+6. Add README.md for complex components
+
+### When creating new services:
+1. Use PascalCase naming (e.g., `NewManager.ts`)
+2. Follow existing service patterns for consistency
+3. Add comprehensive test coverage
+4. Document public methods and interfaces
+
+### When adding utilities:
+1. Use camelCase naming
+2. Keep functions pure (no side effects)
+3. Add to appropriate category or create new file
+4. Include performance tests for critical utilities
+
+## Documentation Structure
+
+- **`docs/README.md`**: Documentation index and navigation
+- **Feature docs**: Specifications and requirements
+- **Architecture docs**: System design and patterns
+- **Integration docs**: Component usage guides
+- **Component READMEs**: Specific integration patterns
+
+## Configuration Files
+
+- **TypeScript**: Multiple tsconfig files for different contexts
+- **Testing**: Jest configuration with jsdom environment
+- **Linting**: ESLint with TypeScript and React rules
+- **Build**: Vite with performance optimizations
+- **Deployment**: Vercel and Netlify configurations

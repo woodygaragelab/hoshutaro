@@ -72,8 +72,8 @@ describe('Status Conversion Logic', () => {
       expect(result.newStatus).toEqual(mockStatusBoth);
       expect(result.errors).toHaveLength(0);
     });
-  });    
-test('should generate warning for actual without planned when business rules enabled', () => {
+
+    test('should generate warning for actual without planned when business rules enabled', () => {
       const result = convertToStatusValue(false, true, { validateBusinessRules: true });
       
       expect(result.success).toBe(true);
