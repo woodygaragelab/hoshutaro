@@ -103,6 +103,18 @@ export class ViewModeManager {
   }
 
   /**
+   * 時間スケールによる集約
+   * 要件 6.4
+   */
+  aggregateScheduleByTimeScale(
+    schedule: WorkOrderSchedule,
+    timeScale: TimeScale
+  ): { [timeKey: string]: AggregatedStatus } {
+    // bypass faulty `memoize` cache which only uses the 1st arg as key
+    return this.aggregateScheduleByTimeScaleInternal(schedule, timeScale);
+  }
+
+  /**
    * 現在の表示モードを取得
    * 要件 6.1
    */
@@ -304,11 +316,11 @@ export class ViewModeManager {
         relatedLines.forEach(line => {
           const task = this.tasks.get(line.taskId);
           if (task) {
-            const aggregatedSchedule = this.aggregateScheduleByTimeScale(line.schedule, timeScale);
+            const aggregatedSchedule = this.aggregateScheduleByTimeScaleInternal(line.schedule, timeScale);
             const wo = this.workOrders.get(line.workOrderId);
 
             rows.push({
-              id: `task_${task.id}_asset_${asset.id}`,
+              id: `task_${task.id}_asset_${asset.id}_wol_${line.id}`,
               type: 'workOrderLine',
               taskId: task.id,
               taskName: task.name,
@@ -345,24 +357,13 @@ export class ViewModeManager {
     return filteredRows;
   }
 
+  // Moved aggregateScheduleByTimeScale to be closer to memoizedAggregateSchedule
+  
   /**
-   * 時間スケールによる集約
-   * 要件 6.4
-   */
-  aggregateScheduleByTimeScale(
-    schedule: WorkOrderSchedule,
-    timeScale: TimeScale
-  ): { [timeKey: string]: AggregatedStatus } {
-    return this.aggregateScheduleByTimeScaleInternal(schedule, timeScale);
-  }
-
-  /**
-   * 時間スケールによる集約の内部実装
-   *
    * IMPORTANT: Uses string-based key extraction for year/month/day scales
    * to avoid timezone pitfalls with new Date(dateKey) + getFullYear().
    */
-  private aggregateScheduleByTimeScaleInternal(
+  public aggregateScheduleByTimeScaleInternal(
     schedule: WorkOrderSchedule,
     timeScale: TimeScale
   ): { [timeKey: string]: AggregatedStatus } {
@@ -667,7 +668,7 @@ export class ViewModeManager {
       const targetClassification = this.currentState.filters.taskClassification;
       filtered = filtered.filter(row => {
         if (row.type === 'workOrderLine') {
-          return row.classification === targetClassification;
+          return (row as any).classification === targetClassification;
         }
         return true;
       });

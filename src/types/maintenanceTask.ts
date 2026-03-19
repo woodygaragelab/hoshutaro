@@ -61,6 +61,7 @@ export interface Task {
   id: string;
   name: string;           // 機器部位＋作業名
   description: string;    // work description (required)
+  classification?: string; // e.g. task category identifier
   createdAt: Date;
   updatedAt: Date;
 }

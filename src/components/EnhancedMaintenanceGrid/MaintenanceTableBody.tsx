@@ -31,10 +31,7 @@ interface MaintenanceTableBodyProps {
   scrollLeft?: number;
   isEquipmentBasedMode?: boolean;
   isTaskBasedMode?: boolean;
-  // Asset selection props
-  selectedAssets?: string[];
-  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent) => void;
-  showSelectionCheckbox?: boolean;
+
 }
 
 const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
@@ -61,10 +58,6 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   scrollLeft = 0,
   isEquipmentBasedMode = false,
   isTaskBasedMode = false,
-  // Asset selection props
-  selectedAssets = [],
-  onAssetSelectionToggle,
-  showSelectionCheckbox = false,
 }) => {
   console.log('[MaintenanceTableBody] Component rendered with data:', {
     dataLength: data.length,
@@ -75,7 +68,9 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   });
 
   // Horizontal virtual scrolling
-  const shouldUseHorizontalVirtualScrolling = enableHorizontalVirtualScrolling && columns.length > 50;
+  // DISABLED based on user feedback: The caching mechanism was causing severe display breakage
+  // (blank grids/out of bounds) when switching time scales or resizing.
+  const shouldUseHorizontalVirtualScrolling = false;
 
   const horizontalVirtualScrolling = useHorizontalVirtualScrolling({
     columns,
@@ -83,13 +78,11 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
     containerWidth,
     scrollLeft,
     overscan: 5,
-    enableMemoization: true,
+    enableMemoization: false, // Disabled cache
   });
 
-  // Use virtual columns if enabled, otherwise use all columns
-  const displayColumns = shouldUseHorizontalVirtualScrolling ?
-    horizontalVirtualScrolling.visibleColumns.map(vc => vc.data) :
-    columns;
+  // Always use all columns for stability
+  const displayColumns = columns;
 
   const virtualOffset = shouldUseHorizontalVirtualScrolling && horizontalVirtualScrolling.visibleColumns.length > 0 ?
     horizontalVirtualScrolling.visibleColumns[0].left : 0;
@@ -187,10 +180,7 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
             displayColumns={displayColumns}
             isEquipmentBasedMode={isEquipmentBasedMode}
             isTaskBasedMode={isTaskBasedMode}
-            // Asset selection props
-            isAssetSelected={selectedAssets.includes(item.id)}
-            onAssetSelectionToggle={onAssetSelectionToggle}
-            showSelectionCheckbox={showSelectionCheckbox}
+
           />
         ))}
       </React.Fragment>

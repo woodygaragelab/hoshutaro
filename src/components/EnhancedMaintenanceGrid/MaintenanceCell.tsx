@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Box, TextField } from '@mui/material';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import CircleIcon from '@mui/icons-material/Circle';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import { HierarchicalData } from '../../types';
 import { GridColumn } from '../ExcelLikeGrid/types';
 import { getDisplaySymbolWithCount } from '../../utils/dataAggregation';
@@ -198,23 +201,39 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
         if (isAggregatedStatus) {
           // Equipment-based mode: Display aggregated status with task count
           const aggregatedStatus = value as AggregatedStatus;
-          const displayText = getDisplaySymbolWithCount(aggregatedStatus);
+          
+          let IconComponent = null;
+          let iconColor = 'inherit';
+          
+          if (aggregatedStatus.planned && aggregatedStatus.actual) {
+            IconComponent = RadioButtonCheckedIcon;
+          } else if (aggregatedStatus.planned) {
+            IconComponent = RadioButtonUncheckedIcon;
+          } else if (aggregatedStatus.actual) {
+            IconComponent = CircleIcon;
+            iconColor = 'secondary.main';
+          }
           
           return (
             <Box 
               className="cell-content aggregated-status" 
               sx={{ 
-                textAlign: 'center', 
-                fontSize: '1rem', 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.25,
                 fontWeight: 'bold',
                 cursor: isEquipmentBasedMode ? 'pointer' : 'default',
+                width: '100%',
+                height: '100%',
                 '&:hover': isEquipmentBasedMode ? {
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   borderRadius: '4px'
                 } : {}
               }}
             >
-              {displayText}
+              {IconComponent && <IconComponent sx={{ fontSize: '1.2rem', color: iconColor }} />}
+              {aggregatedStatus.count > 1 && <span style={{ fontSize: '0.875rem' }}>({aggregatedStatus.count})</span>}
             </Box>
           );
         } else {
@@ -222,14 +241,21 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
           const planned = value?.planned || false;
           const actual = value?.actual || false;
           
-          let symbol = '';
-          if (planned && actual) symbol = '◎';
-          else if (planned) symbol = '○';
-          else if (actual) symbol = '●';
+          let IconComponent = null;
+          let iconColor = 'inherit';
+          
+          if (planned && actual) {
+            IconComponent = RadioButtonCheckedIcon;
+          } else if (planned) {
+            IconComponent = RadioButtonUncheckedIcon;
+          } else if (actual) {
+            IconComponent = CircleIcon;
+            iconColor = 'secondary.main';
+          }
           
           return (
-            <Box className="cell-content" sx={{ textAlign: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
-              {symbol}
+            <Box className="cell-content" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+              {IconComponent && <IconComponent sx={{ fontSize: '1.2rem', color: iconColor }} />}
             </Box>
           );
         }

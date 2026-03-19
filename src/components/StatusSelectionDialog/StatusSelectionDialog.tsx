@@ -1,4 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import CircleIcon from '@mui/icons-material/Circle';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import {
   List,
   ListItem,
@@ -139,6 +142,13 @@ export const StatusSelectionDialog: React.FC<StatusSelectionDialogProps> = ({
     const isSelected = selectedOption?.value.planned === option.value.planned && 
                      selectedOption?.value.actual === option.value.actual;
 
+    const getStatusIcon = (planned: boolean, actual: boolean, color: string) => {
+      if (planned && actual) return <RadioButtonCheckedIcon sx={{ color }} />;
+      if (planned && !actual) return <RadioButtonUncheckedIcon sx={{ color }} />;
+      if (!planned && actual) return <CircleIcon sx={{ color }} />;
+      return <Box sx={{ width: 24, height: 24, border: `1px dashed ${color}`, borderRadius: '50%' }} />;
+    };
+
     return (
       <ListItem key={index} disablePadding>
         <ListItemButton
@@ -149,28 +159,27 @@ export const StatusSelectionDialog: React.FC<StatusSelectionDialogProps> = ({
             borderRadius: 1,
             mb: 0.5,
             '&.Mui-selected': {
-              backgroundColor: alpha(option.color, 0.1),
+              backgroundColor: alpha(option.color || '#fff', 0.1),
               '&:hover': {
-                backgroundColor: alpha(option.color, 0.2),
+                backgroundColor: alpha(option.color || '#fff', 0.2),
               },
             },
             '&:hover': {
-              backgroundColor: alpha(option.color, 0.05),
+              backgroundColor: alpha(option.color || '#fff', 0.05),
             },
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
-            <Typography
-              variant="h6"
+            <Box
               sx={{
-                color: option.color,
-                fontWeight: 'bold',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
                 minWidth: '2rem',
-                textAlign: 'center',
               }}
             >
-              {option.symbol || '　'}
-            </Typography>
+              {getStatusIcon(option.value.planned, option.value.actual, option.color || 'inherit')}
+            </Box>
             
             <Box sx={{ flex: 1 }}>
               <ListItemText

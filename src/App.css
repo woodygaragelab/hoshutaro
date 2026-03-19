@@ -64,15 +64,7 @@ h1 {
     background-color: #000000;
 }
 
-.legend-container {
-    padding: 0.375rem 0.75rem;
-    border: 1px solid #333333;
-    border-radius: 0.25rem;
-    background-color: #1e1e1e;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-}
+
 
 .table {
     table-layout: auto;

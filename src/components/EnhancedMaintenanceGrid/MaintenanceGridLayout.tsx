@@ -33,17 +33,8 @@ interface MaintenanceGridLayoutProps {
   virtualScrolling: boolean;
   readOnly: boolean;
   onCopy?: () => Promise<void>;
-  onPaste?: () => Promise<void>;
-  enableHorizontalVirtualScrolling?: boolean;
   isEquipmentBasedMode?: boolean;
   isTaskBasedMode?: boolean;
-  // Asset selection props
-  selectedAssets?: string[];
-  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent) => void;
-  showSelectionCheckbox?: boolean;
-  allAssetsSelected?: boolean;
-  someAssetsSelected?: boolean;
-  onSelectAllAssets?: () => void;
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -71,13 +62,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   enableHorizontalVirtualScrolling = false,
   isEquipmentBasedMode = false,
   isTaskBasedMode = false,
-  // Asset selection props
-  selectedAssets = [],
-  onAssetSelectionToggle,
-  showSelectionCheckbox = false,
-  allAssetsSelected = false,
-  someAssetsSelected = false,
-  onSelectAllAssets,
 }) => {
   console.log('[MaintenanceGridLayout] Component rendered with data:', {
     dataLength: data.length,
@@ -123,6 +107,21 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   const specHeaderRef = useRef<HTMLDivElement>(null);
   const maintenanceHeaderRef = useRef<HTMLDivElement>(null);
   const isScrollingSyncRef = useRef(false);
+
+  // Reset horizontal scroll when columns change significantly (like changing time scale)
+  useEffect(() => {
+    // Reset scroll state
+    setHorizontalScrollLeft(0);
+    scrollPositionBeforeModeChangeRef.current = 0;
+    
+    // Reset actual DOM scroll position
+    if (maintenanceAreaRef.current) {
+      maintenanceAreaRef.current.scrollLeft = 0;
+    }
+    if (maintenanceHeaderRef.current) {
+      maintenanceHeaderRef.current.scrollLeft = 0;
+    }
+  }, [columns.length, isTaskBasedMode]);
 
   // Enhanced editing state
   const [editDialogState, setEditDialogState] = useState<{
@@ -200,11 +199,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     return displayAreaConfig.scrollableAreas.specifications?.width || 400;
   }, [displayAreaConfig.scrollableAreas.specifications?.width]);
 
-  // Initialize area widths based on columns and config - with stable dependencies
+  // Initialize area widths based on columns and config, and view modes, to ensure alignment upon mode switch
+  // Do NOT include fixedColumnsWidth to prevent resetting user-adjusted widths during regular renders
   useEffect(() => {
     setFixedAreaWidth(fixedColumnsWidth);
     setSpecAreaWidth(specAreaConfigWidth);
-  }, [fixedColumnsWidth, specAreaConfigWidth]);
+  }, [isEquipmentBasedMode, isTaskBasedMode, viewMode]);
 
   // Basic scroll synchronization state (currently unused)
   // const [scrollPosition, setScrollPosition] = useState({ top: 0, left: 0 });
@@ -449,7 +449,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     // Determine edit type and current value based on column
     if (columnId === 'bomCode') {
       editType = 'tagNo';
-      currentValue = item.bomCode || '';
+      currentValue = item.bomCode;
+    } else if (columnId === 'task') {
+      if (isEquipmentBasedMode) {
+        editType = 'specification';
+        currentValue = item.specifications || [];
+      }
     } else if (columnId.startsWith('time_')) {
       const timeHeader = columnId.replace('time_', '');
 
@@ -580,27 +585,27 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     // First, call external handler if provided (for special mode handling)
     if (onCellDoubleClick) {
       onCellDoubleClick(rowId, columnId, event);
-      console.log('[MaintenanceGridLayout] After external handler, defaultPrevented:', event.defaultPrevented);
+      console.log('[MaintenanceGridLayout] After external handler, isPropagationStopped:', event.isPropagationStopped());
     }
 
-    // For time columns, use defaultPrevented to determine if external handler succeeded
-    // External handler calls preventDefault() on success, so we skip internal handler only then
+    // For time columns, check if the external handler explicitly stopped propagation
+    // External handler calls stopPropagation() on success, so we skip internal handler only then
     if (columnId.startsWith('time_')) {
-      if (!event.defaultPrevented) {
+      if (!event.isPropagationStopped()) {
         // External handler did not handle it (or no external handler), use internal handler as fallback
-        console.log('[MaintenanceGridLayout] Time column not handled externally, using internal handler');
+        console.log('[MaintenanceGridLayout] Time column not fully handled externally, using internal handler');
         handleCellDoubleClickInternal(rowId, columnId, event);
       } else {
-        // External handler successfully processed the event (called preventDefault)
-        console.log('[MaintenanceGridLayout] ✅ External handler handled time column (defaultPrevented), skipping internal handler');
+        // External handler successfully processed the event
+        console.log('[MaintenanceGridLayout] ✅ External handler handled time column, skipping internal handler');
       }
     } else {
-      // Non-time columns: use normal preventDefault logic
-      if (!event.defaultPrevented) {
+      // Non-time columns: only skip if propagation was stopped
+      if (!event.isPropagationStopped()) {
         console.log('[MaintenanceGridLayout] Calling internal handler for non-time column');
         handleCellDoubleClickInternal(rowId, columnId, event);
       } else {
-        console.log('[MaintenanceGridLayout] ❌ Internal handler blocked by defaultPrevented');
+        console.log('[MaintenanceGridLayout] ❌ Internal handler blocked by propagation stop');
       }
     }
   }, [onCellDoubleClick, handleCellDoubleClickInternal]);
@@ -881,6 +886,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
             boxShadow: '2px 0 4px rgba(0,0,0,0.08)'
           }}
         >
+          {/* Resizer for fixed area */}
+          <Resizer
+            direction="horizontal"
+            onResize={handleFixedAreaResize}
+            className="fixed-area-resizer"
+          />
           <Box
             sx={{
               width: '100%',
@@ -899,10 +910,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               onDragStateChange={handleColumnDragStateChange}
               enableVirtualScrolling={false}
               containerWidth={containerWidth}
-              showSelectionCheckbox={showSelectionCheckbox}
-              allAssetsSelected={allAssetsSelected}
-              someAssetsSelected={someAssetsSelected}
-              onSelectAllAssets={onSelectAllAssets}
             />
           </Box>
           <Box
@@ -1473,3 +1480,4 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (prop
 };
 
 export default MaintenanceGridLayout;
+// force HMR reload

@@ -55,8 +55,6 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onAssetSelectionChange?: (assetIds: string[]) => void;
   onHierarchyEdit?: (hierarchy: HierarchyDefinition) => void;
   onOpenAssetReassignDialog?: () => void;
-
-  // Task edit dialog handler - Requirements 4.2, 4.3
   onOpenTaskEditDialog?: (assetId: string, dateKey: string) => void;
 
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
@@ -135,7 +133,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onAssetSelectionChange,
   onHierarchyEdit,
   onOpenAssetReassignDialog,
-  // Task edit dialog handler - Requirements 4.2, 4.3
   onOpenTaskEditDialog,
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
   canUndo,
@@ -402,8 +399,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   })();
 
   // Generate columns based on current configuration
-  // Use immediate function to avoid memoization issues
-  const columns = ((): GridColumn[] => {
+  // Memoized to prevent heavy array reconstruction on every render
+  const columns = useMemo((): GridColumn[] => {
     const cols: GridColumn[] = [];
     // Use data directly instead of convertedData to avoid circular dependency
     const effectiveData = data;
@@ -510,7 +507,16 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     return cols;
-  })();
+  }, [
+    timeScale, 
+    displayMode, 
+    showBomCode, 
+    memoizedTimeHeaders, 
+    viewMode, 
+    data, 
+    isTaskBasedMode, 
+    isEquipmentBasedMode
+  ]);
 
   // Generate display area configuration
   // Use immediate function to avoid memoization issues
@@ -550,9 +556,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   } = useMaintenanceGridState(columns, data);
 
   // Auto-enable virtual scrolling for large column counts (week/day views)
+  // DISABLED: User explicitly requested to review/disable the caching & rendering optimization design
+  // as it was causing severe rendering glitches (blank screens) upon time scale changes.
   const autoVirtualScrolling = useMemo(() => {
-    const timeColumns = columns.filter(col => col.id.startsWith('time_')).length;
-    return timeColumns > 50 || virtualScrolling;
+    return false; // Force disable virtual scrolling to guarantee rendering stability
   }, [columns, virtualScrolling]);
 
   // Performance optimization hooks - use appropriate data based on mode
@@ -575,10 +582,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     columns,
     gridState,
     {
-      enableMemoization: true,
-      enableDebouncing: true,
-      debounceDelay: 16,
-      enableBatching: true,
+      // DISABLED Performance optimizations based on user feedback regarding caching bugs
+      // causing display breaks when changing parameters like time scales.
+      enableMemoization: false,
+      enableDebouncing: false,
+      debounceDelay: 0,
+      enableBatching: false,
       batchSize: 50
     }
   );
@@ -1245,35 +1254,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
   }, [selectedAssets, onAssetSelectionChange, processedData]);
 
-  // Select all assets handler
-  const handleSelectAllAssets = useCallback(() => {
-    if (!onAssetSelectionChange) return;
 
-    const allAssetIds = convertedData
-      .filter((row: any) => !row.isGroupHeader)
-      .map((row: any) => row.id);
-
-    const allSelected = allAssetIds.length > 0 && allAssetIds.every((id: string) => selectedAssets.includes(id));
-
-    if (allSelected) {
-      // Deselect all
-      onAssetSelectionChange([]);
-    } else {
-      // Select all
-      onAssetSelectionChange(allAssetIds);
-    }
-  }, [processedData, selectedAssets, onAssetSelectionChange]);
-
-  // Calculate selection states
-  const allAssetsSelected = useMemo(() => {
-    const assetIds = processedData.filter((row: any) => !row.isGroupHeader).map((row: any) => row.id);
-    return assetIds.length > 0 && assetIds.every((id: string) => selectedAssets.includes(id));
-  }, [processedData, selectedAssets]);
-
-  const someAssetsSelected = useMemo(() => {
-    const assetIds = processedData.filter((row: any) => !row.isGroupHeader).map((row: any) => row.id);
-    return assetIds.some((id: string) => selectedAssets.includes(id)) && !allAssetsSelected;
-  }, [processedData, selectedAssets, allAssetsSelected]);
 
   // Desktop-only view
   const renderGridView = useMemo(() => {
@@ -1312,10 +1293,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         // Asset selection props - Requirements 3.2, 3.6
         selectedAssets={selectedAssets}
         onAssetSelectionToggle={handleAssetSelectionToggle}
-        showSelectionCheckbox={isEquipmentBasedMode} // Only show in equipment-based mode
-        allAssetsSelected={allAssetsSelected}
-        someAssetsSelected={someAssetsSelected}
-        onSelectAllAssets={handleSelectAllAssets}
       />
     );
   }, [
@@ -1323,7 +1300,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
     onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
     setSelectedRange, onUpdateItem, virtualScrolling, shouldUseVirtualScrolling, readOnly,
-    handleCopy, handlePaste, selectedAssets, handleAssetSelectionToggle, allAssetsSelected, someAssetsSelected, handleSelectAllAssets
+    handleCopy, handlePaste, selectedAssets, handleAssetSelectionToggle
   ]);
 
   // Stable callback handlers to prevent infinite re-renders

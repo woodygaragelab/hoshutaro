@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import CircleIcon from '@mui/icons-material/Circle';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import {
   Dialog,
   DialogTitle,
@@ -64,13 +67,13 @@ export const SimpleStatusDialog: React.FC<SimpleStatusDialogProps> = ({
     onClose();
   };
 
-  const getSymbol = (status: string) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'planned': return '○';
-      case 'actual': return '●';
-      case 'both': return '◎';
-      case 'none': return '';
-      default: return '';
+      case 'planned': return <RadioButtonUncheckedIcon sx={{ color: 'primary.main', fontSize: '1.5rem' }} />;
+      case 'actual': return <CircleIcon sx={{ color: 'secondary.main', fontSize: '1.5rem' }} />;
+      case 'both': return <RadioButtonCheckedIcon sx={{ color: 'success.main', fontSize: '1.5rem' }} />;
+      case 'none': return <Typography variant="body2" color="grey.400">(記号なし)</Typography>;
+      default: return null;
     }
   };
 
@@ -116,7 +119,7 @@ export const SimpleStatusDialog: React.FC<SimpleStatusDialogProps> = ({
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography>未計画</Typography>
-                  <Typography variant="body2" color="grey.400">(記号なし)</Typography>
+                  {getStatusIcon('none')}
                 </Box>
               }
               sx={{ color: 'white' }}
@@ -128,7 +131,7 @@ export const SimpleStatusDialog: React.FC<SimpleStatusDialogProps> = ({
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography>計画のみ</Typography>
-                  <Typography variant="h6" color="primary.main">○</Typography>
+                  {getStatusIcon('planned')}
                 </Box>
               }
               sx={{ color: 'white' }}
@@ -140,7 +143,7 @@ export const SimpleStatusDialog: React.FC<SimpleStatusDialogProps> = ({
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography>実績のみ</Typography>
-                  <Typography variant="h6" color="secondary.main">●</Typography>
+                  {getStatusIcon('actual')}
                 </Box>
               }
               sx={{ color: 'white' }}
@@ -152,7 +155,7 @@ export const SimpleStatusDialog: React.FC<SimpleStatusDialogProps> = ({
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography>計画・実績両方</Typography>
-                  <Typography variant="h6" color="success.main">◎</Typography>
+                  {getStatusIcon('both')}
                 </Box>
               }
               sx={{ color: 'white' }}
@@ -161,11 +164,11 @@ export const SimpleStatusDialog: React.FC<SimpleStatusDialogProps> = ({
         </FormControl>
 
         <Box sx={{ mt: 3, p: 2, backgroundColor: '#3a3a3a', borderRadius: 1 }}>
-          <Typography variant="body2" color="grey.300">
+          <Typography variant="body2" color="grey.300" sx={{ display: 'flex', alignItems: 'center' }}>
             プレビュー: 
-            <Typography component="span" variant="h6" sx={{ ml: 1, color: 'white' }}>
-              {getSymbol(selectedStatus) || '(記号なし)'}
-            </Typography>
+            <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
+              {getStatusIcon(selectedStatus)}
+            </Box>
           </Typography>
         </Box>
       </DialogContent>

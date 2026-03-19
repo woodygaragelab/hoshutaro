@@ -184,7 +184,6 @@ const App: React.FC = () => {
     itemName: string;
     timeHeader: string;
     currentValue: any;
-    currentSymbol: string;
     assetId?: string;
     taskId?: string;
   } | null>(null);
@@ -283,7 +282,6 @@ const App: React.FC = () => {
       itemName: item.task,
       timeHeader: header,
       currentValue: result,
-      currentSymbol: result?.planned && result?.actual ? '◎' : result?.planned ? '○' : result?.actual ? '●' : '',
       assetId: item.assetId || item.bomCode,
       taskId: item.taskId
     });
@@ -516,8 +514,7 @@ const App: React.FC = () => {
             const versionInfo = dataVersion ? `バージョン ${dataVersion}` : 'バージョン情報なし';
             announce(`レガシーデータが読み込まれました (${versionInfo})。${flatData.length}件の設備データが表示されています。`);
 
-            // Requirements 9.1: Show migration dialog to user
-            setLegacyDataDetected(true);
+            // setLegacyDataDetected(true);
             setMigrationDialogOpen(true);
           }
         } catch (error) {
@@ -586,389 +583,9 @@ const App: React.FC = () => {
     if (!isServicesInitialized) return;
 
     const loadData = async () => {
-      // If using new data model, refresh view
-      if (viewModeManagerRef.current && assetManagerRef.current) {
-        const assets = assetManagerRef.current.getAllAssets();
-
-        // If we have assets in the new model, use ViewModeManager
-        if (assets.length > 0) {
-          try {
-            // Build data indexes for O(1) lookups - Requirements 10.1, 10.2, 10.3
-            // Rebuild indexes whenever data is loaded to ensure they're up-to-date
-            if (taskManagerRef.current) {
-              const tasks = taskManagerRef.current.getAllTasks();
-
-              // Use ViewModeManager's workOrderLines as primary source (confirmed correct)
-              // Fallback to workOrderLineManagerRef if empty
-              let workOrderLines = viewModeManagerRef.current.getWorkOrderLines();
-              if (workOrderLines.length === 0 && workOrderLineManagerRef.current) {
-                workOrderLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
-              }
-
-              console.log('[App] Building data indexes on data load...', {
-                assetCount: assets.length,
-                taskCount: tasks.length,
-                workOrderLinesToIndex: workOrderLines.length,
-                source: viewModeManagerRef.current.getWorkOrderLines().length > 0 ? 'ViewModeManager' : 'WorkOrderLineManager'
-              });
-              dataIndexManagerRef.current.buildAll({
-                assets,
-                tasks,
-                associations: workOrderLines
-              });
-
-              const indexStats = dataIndexManagerRef.current.getStats();
-              console.log('[App] Data indexes built:', indexStats);
-            }
-
-            // Get data based on current view mode
-            const currentMode = viewModeManagerRef.current.getCurrentMode();
-
-            if (currentMode === 'equipment-based') {
-              const equipmentData = viewModeManagerRef.current.getEquipmentBasedData();
-
-              // Transform to legacy format for grid compatibility
-              const transformedData = equipmentData.map(row => {
-                if (row.type === 'hierarchy') {
-                  // グループ行: フラットパス（例: 第一製油所 > Aエリア > 原油蒸留ユニット）
-                  return {
-                    id: `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`,
-                    task: row.hierarchyValue || '',
-                    bomCode: '',
-                    specifications: [],
-                    results: {},
-                    rolledUpResults: {},
-                    isGroupHeader: true,
-                    level: row.level || 0,
-                    children: []
-                  };
-                }
-
-                // データ行: アセット（機器名のみ）
-                const results: any = {};
-
-                // Aggregate schedule data by time scale
-                if (row.tasks) {
-                  row.tasks.forEach(task => {
-                    const aggregated = viewModeManagerRef.current!.aggregateScheduleByTimeScale(
-                      task.schedule,
-                      timeScale
-                    );
-
-                    Object.entries(aggregated).forEach(([timeKey, status]) => {
-                      if (!results[timeKey]) {
-                        results[timeKey] = {
-                          planned: false,
-                          actual: false,
-                          planCost: 0,
-                          actualCost: 0
-                        };
-                      }
-
-                      // Merge status (OR operation for flags)
-                      results[timeKey].planned = results[timeKey].planned || status.planned;
-                      results[timeKey].actual = results[timeKey].actual || status.actual;
-                      results[timeKey].planCost += status.totalPlanCost;
-                      results[timeKey].actualCost += status.totalActualCost;
-                    });
-                  });
-                }
-
-                return {
-                  id: row.assetId || '',
-                  task: row.assetName || '',
-                  hierarchyPath: row.hierarchyPath ?
-                    Object.values(row.hierarchyPath).join(' > ') : '',
-                  specifications: row.specifications || [],
-                  results,
-                  level: row.level || 0,
-                  bomCode: row.assetId || '',
-                  assetId: row.assetId,
-                  children: [],
-                  rolledUpResults: {}
-                };
-              });
-
-              setMaintenanceData(transformedData);
-
-              // Generate time headers with full range
-              setTimeHeaders(generateTimeHeadersFromData(transformedData));
-
-              // Build hierarchy filter tree
-              const filterTree = buildHierarchyFilterTree(transformedData);
-              setHierarchyFilterTree(filterTree);
-
-              announce(`データが読み込まれました。${transformedData.length}件の設備データが表示されています。`);
-            } else {
-              // Task-based mode - use hook's task data
-              // Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
-              console.log('[App] Task-based mode data loading:', {
-                hookTaskDataLength: hookTaskData.length,
-                hasViewModeManager: !!viewModeManagerRef.current
-              });
-
-              // Note: ViewModeManager is already correctly initialized during initializeServices
-              // with the full workOrderLines data. Do NOT re-initialize it here, as
-              // workOrderLineManagerRef.current.getAllWorkOrderLines() returns 0 items
-              // due to React ref lifecycle issues.
-
-              let taskBasedData = hookTaskData.length > 0
-                ? hookTaskData
-                : viewModeManagerRef.current.getTaskBasedData(timeScale);
-
-              // 作業ベースデータが空の場合、強制的にサンプルデータを生成
-              if (taskBasedData.length === 0) {
-                console.log('[App] Task-based data is empty, generating sample data...');
-
-                const tasks = taskManagerRef.current?.getAllTasks() || [];
-                const assets = assetManagerRef.current?.getAllAssets() || [];
-                const associations = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
-
-                console.log('[App] Available data for sample generation:', {
-                  tasksCount: tasks.length,
-                  assetsCount: assets.length,
-                  associationsCount: associations.length
-                });
-
-                // 階層定義が不足している場合、デフォルト階層を設定（日本語キーを使用）
-                const currentHierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
-                if (!currentHierarchy || currentHierarchy.levels.length === 0) {
-                  console.log('[App] Setting default hierarchy definition with Japanese keys...');
-                  const defaultHierarchy = {
-                    levels: [
-                      { key: '製油所', name: '製油所', order: 1, values: ['第一製油所', '第二製油所'] },
-                      { key: 'エリア', name: 'エリア', order: 2, values: ['Aエリア', 'Bエリア', 'Cエリア'] },
-                      { key: 'ユニット', name: 'ユニット', order: 3, values: ['原油蒸留ユニット', '接触改質ユニット'] }
-                    ]
-                  };
-                  hierarchyManagerRef.current?.setHierarchyDefinition(defaultHierarchy);
-
-                  // アセットに階層パスを設定（日本語キーを使用）
-                  assets.forEach(asset => {
-                    if (!asset.hierarchyPath || Object.keys(asset.hierarchyPath).length === 0) {
-                      asset.hierarchyPath = {
-                        '製油所': '第一製油所',
-                        'エリア': 'Aエリア',
-                        'ユニット': '原油蒸留ユニット'
-                      };
-                      assetManagerRef.current?.updateAsset(asset.id, asset);
-                    }
-                  });
-
-                  // ViewModeManagerを再初期化
-                  viewModeManagerRef.current = new ViewModeManager(
-                    tasks,
-                    assets,
-                    viewModeManagerRef.current?.getWorkOrderLines() || [],
-                    defaultHierarchy
-                  );
-
-                  // 再度タスクベースデータを取得
-                  taskBasedData = viewModeManagerRef.current.getTaskBasedData(timeScale);
-                  console.log('[App] Task-based data after hierarchy setup:', {
-                    taskBasedDataLength: taskBasedData.length,
-                    sampleItems: taskBasedData.slice(0, 5)
-                  });
-                }
-
-                // まだデータが空の場合、簡単なサンプルデータを生成
-                if (taskBasedData.length === 0 && tasks.length > 0 && assets.length > 0) {
-                  taskBasedData = [];
-
-                  // 階層ヘッダーを追加（日本語キーを使用）
-                  taskBasedData.push({
-                    type: 'hierarchy',
-                    hierarchyKey: '製油所',
-                    hierarchyValue: '第一製油所',
-                    level: 0
-                  });
-
-                  // 各アセットに対してタスクを展開
-                  assets.slice(0, 5).forEach((asset, assetIndex) => {
-                    // アセット行を追加
-                    taskBasedData.push({
-                      type: 'asset',
-                      assetId: asset.id,
-                      assetName: asset.name,
-                      level: 1,
-                      hierarchyPath: { '製油所': '第一製油所' }
-                    });
-
-                    // 各タスクを追加
-                    tasks.slice(0, 3).forEach((task, taskIndex) => {
-                      const association = associations.find(a => a.taskId === task.id && a.assetId === asset.id);
-
-                      taskBasedData.push({
-                        type: 'workOrderLine',
-                        taskId: task.id,
-                        taskName: task.name,
-                        classification: task.classification,
-                        assetId: asset.id,
-                        level: 2,
-                        hierarchyPath: { '製油所': '第一製油所' },
-                        schedule: association?.schedule || {
-                          '2024': { planned: true, actual: false, totalPlanCost: 50000, totalActualCost: 0, count: 1 },
-                          '2025': { planned: false, actual: false, totalPlanCost: 0, totalActualCost: 0, count: 0 }
-                        }
-                      });
-                    });
-                  });
-
-                  console.log('[App] Generated sample task-based data:', {
-                    generatedDataLength: taskBasedData.length,
-                    sampleItems: taskBasedData.slice(0, 5)
-                  });
-                }
-              }
-
-              console.log('[App] Task-based data retrieved:', {
-                taskBasedDataLength: taskBasedData.length,
-                firstFewItems: taskBasedData.slice(0, 3),
-                viewModeManagerCurrentMode: viewModeManagerRef.current?.getCurrentMode(),
-                assetsCount: assetManagerRef.current?.getAllAssets().length || 0,
-                tasksCount: taskManagerRef.current?.getAllTasks().length || 0,
-                workOrderLinesCount: workOrderLineManagerRef.current?.getAllWorkOrderLines().length || 0,
-                // 詳細なデバッグ情報
-                allTasks: taskManagerRef.current?.getAllTasks().map(t => ({ id: t.id, name: t.name })) || [],
-                allAssets: assetManagerRef.current?.getAllAssets().map(a => ({ id: a.id, name: a.name })) || [],
-                allWorkOrderLines: workOrderLineManagerRef.current?.getAllWorkOrderLines().map(wol => ({
-                  id: wol.id,
-                  taskId: wol.taskId,
-                  assetId: wol.assetId
-                })) || []
-              });
-
-              // Transform task-based data to legacy format for grid compatibility
-              const transformedData = taskBasedData.map(row => {
-                if (row.type === 'hierarchy') {
-                  // Hierarchy header row (帯部分)
-                  return {
-                    id: `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`,
-                    task: row.hierarchyValue!,
-                    bomCode: '',
-                    specifications: [],
-                    results: {},
-                    rolledUpResults: {},
-                    isGroupHeader: true,
-                    level: row.level,
-                    children: []
-                  };
-                } else if (row.type === 'asset') {
-                  // Asset row (機器)
-                  return {
-                    id: `asset_${row.assetId}`,
-                    task: row.assetName!,
-                    bomCode: row.assetId!,
-                    specifications: [],
-                    results: {},
-                    rolledUpResults: {},
-                    isGroupHeader: false,
-                    level: row.level,
-                    assetId: row.assetId,
-                    hierarchyPath: row.hierarchyPath ?
-                      Object.values(row.hierarchyPath).join(' > ') : '',
-                    children: []
-                  };
-                } else {
-                  // Task row under asset with schedule information (作業)
-                  // Note: getTaskBasedData() already returns aggregated schedule via
-                  // aggregateScheduleByTimeScale - do NOT re-aggregate here
-                  const results: any = row.schedule || {};
-                  const rolledUpResults: any = row.schedule || {};
-
-                  return {
-                    id: `task_${row.taskId}_asset_${row.assetId}`,
-                    task: row.taskName || '',
-                    bomCode: row.assetId!,
-                    specifications: [],
-                    results,
-                    rolledUpResults,
-                    hierarchyPath: row.hierarchyPath ?
-                      Object.values(row.hierarchyPath).join(' > ') : '',
-                    level: row.level,
-                    assetId: row.assetId,
-                    taskId: row.taskId,
-                    schedule: row.schedule,
-                    children: []
-                  };
-                }
-              });
-
-              setMaintenanceData(transformedData);
-
-              // Generate time headers with full range
-              // Generate time headers with full range
-              const generatedHeaders = generateTimeHeadersFromData(transformedData);
-
-              // Stabilize headers: Merge with existing headers to prevent layout breakage
-              // Requirement: Grid layout should not shrink/shift when data is updated
-              setTimeHeaders(prevHeaders => {
-                if (generatedHeaders.length === 0) return prevHeaders;
-                if (prevHeaders.length === 0) return generatedHeaders;
-
-                // Merge and sort unique headers
-                const mergedSet = new Set([...prevHeaders, ...generatedHeaders]);
-                const sorted = Array.from(mergedSet).sort();
-
-                // Ensure continuity across the full range
-                if (sorted.length > 0) {
-                  return generateFullTimeRange(sorted[0], sorted[sorted.length - 1], timeScale);
-                }
-                return sorted;
-              });
-
-              // Build hierarchy filter tree
-              const filterTree = buildHierarchyFilterTree(transformedData);
-              setHierarchyFilterTree(filterTree);
-
-              announce(`作業ベースモードでデータが読み込まれました。${transformedData.length}件の項目が表示されています。`);
-            }
-          } catch (error) {
-            console.error('Failed to load data from ViewModeManager:', error);
-
-            // Use ErrorHandler for proper error handling
-            if (errorHandlerRef.current) {
-              if (error instanceof Error) {
-                errorHandlerRef.current.handleValidationError({
-                  type: 'VALIDATION_ERROR',
-                  field: 'viewModeData',
-                  message: `表示モードデータの読み込みに失敗しました: ${error.message}`,
-                  value: error
-                });
-              } else {
-                errorHandlerRef.current.handleValidationError({
-                  type: 'VALIDATION_ERROR',
-                  field: 'viewModeData',
-                  message: '表示モードデータの読み込みに失敗しました',
-                  value: error
-                });
-              }
-            }
-
-            // Fallback to legacy
-            const [flatData, headers, filterTree] = transformData(rawData as unknown as { [id: string]: RawEquipment }, timeScale);
-            setMaintenanceData(flatData);
-            setTimeHeaders(headers);
-            setHierarchyFilterTree(filterTree);
-          }
-        } else {
-          // No assets in new model, use legacy data
-          const [flatData, headers, filterTree] = transformData(rawData as unknown as { [id: string]: RawEquipment }, timeScale);
-          setMaintenanceData(flatData);
-          setTimeHeaders(headers);
-          setHierarchyFilterTree(filterTree);
-          announce(`データが読み込まれました。${flatData.length}件の設備データが表示されています。`);
-        }
-      } else {
-        // Fallback to legacy transformation
-        const [flatData, headers, filterTree] = transformData(rawData as unknown as { [id: string]: RawEquipment }, timeScale);
-        setMaintenanceData(flatData);
-        setTimeHeaders(headers);
-        setHierarchyFilterTree(filterTree);
-        announce(`データが読み込まれました。${flatData.length}件の設備データが表示されています。`);
-      }
+      // Delegate completely to the unified loader which respects dataViewMode state.
+      loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
     };
-
     measureAsync('data-transformation', 'render', loadData);
   }, [timeScale, isServicesInitialized]); // Remove measureAsync and announce from dependencies
 
@@ -1088,96 +705,6 @@ const App: React.FC = () => {
           };
         }
       });
-    });
-  }, [timeScale]);
-
-  const transformTaskData = useMemo(() => {
-    return createMemoizedSelector((taskBasedData: any[]) => {
-      console.log('[App] transformTaskData called with', taskBasedData.length, 'rows');
-      console.log('[App] Sample input rows:', taskBasedData.slice(0, 3));
-
-      const transformedRows = taskBasedData.map(row => {
-        if (row.type === 'hierarchy') {
-          // Hierarchy header row (帯部分)
-          const hierarchyRow = {
-            id: `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`,
-            task: row.hierarchyValue || 'Unknown Hierarchy',
-            bomCode: '',
-            specifications: [],
-            results: {},
-            rolledUpResults: {},
-            isGroupHeader: true,
-            level: row.level || 0,
-            children: []
-          };
-          console.log('[App] Created hierarchy row:', hierarchyRow);
-          return hierarchyRow;
-        } else if (row.type === 'asset') {
-          // Asset row (機器)
-          const assetRow = {
-            id: `asset_${row.assetId}`,
-            task: row.assetName || `Asset ${row.assetId}`,
-            bomCode: row.assetId || '',
-            specifications: [],
-            results: {},
-            rolledUpResults: {},
-            isGroupHeader: false,
-            level: row.level || 0,
-            assetId: row.assetId,
-            hierarchyPath: row.hierarchyPath ?
-              Object.values(row.hierarchyPath).join(' > ') : '',
-            children: []
-          };
-          console.log('[App] Created asset row:', assetRow);
-          return assetRow;
-        } else if (row.type === 'workOrderLine') {
-          // Task row under asset with schedule information (作業)
-          const results: any = {};
-          const rolledUpResults: any = {};
-
-          // Schedule data is already aggregated by ViewModeManager
-          if (row.schedule) {
-            Object.entries(row.schedule).forEach(([timeKey, status]: [string, any]) => {
-              results[timeKey] = status;
-              rolledUpResults[timeKey] = status;
-            });
-          }
-
-          return {
-            id: `task_${row.taskId}_asset_${row.assetId}`,
-            task: `${row.taskName}${row.classification ? ` [${row.classification}]` : ''}`,
-            bomCode: row.assetId!,
-            specifications: [],
-            results,
-            rolledUpResults,
-            hierarchyPath: row.hierarchyPath ?
-              Object.values(row.hierarchyPath).join(' > ') : '',
-            level: row.level,
-            assetId: row.assetId,
-            taskId: row.taskId,
-            schedule: row.schedule,
-            children: []
-          };
-        } else {
-          // Fallback for unknown row types
-          console.warn('[App] Unknown row type in transformTaskData:', row.type, row);
-          return {
-            id: `unknown_${row.id || 'no-id'}`,
-            task: row.taskName || row.assetName || 'Unknown',
-            bomCode: '',
-            specifications: [],
-            results: {},
-            rolledUpResults: {},
-            level: row.level || 0,
-            children: []
-          };
-        }
-      });
-
-      console.log('[App] transformTaskData output:', transformedRows.length, 'rows');
-      console.log('[App] Sample output rows:', transformedRows.slice(0, 3));
-
-      return transformedRows;
     });
   }, [timeScale]);
 
@@ -1303,10 +830,53 @@ const App: React.FC = () => {
             sampleRows: taskBasedData.slice(0, 5)
           });
 
-          // Transform task-based data to legacy format for grid compatibility using memoized function
-          // Requirements 10.1, 10.2, 10.3: Memoized transformation for performance
-          const transformedData = transformTaskData(taskBasedData);
-
+          // Transform task-based data to legacy format for grid compatibility
+          const transformedData = taskBasedData.map(row => {
+            if (row.type === 'hierarchy') {
+              return {
+                id: `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`,
+                task: row.hierarchyValue!,
+                bomCode: '',
+                specifications: [],
+                results: {},
+                rolledUpResults: {},
+                isGroupHeader: true,
+                level: row.level,
+                children: []
+              };
+            } else if (row.type === 'asset') {
+              return {
+                id: `asset_${row.assetId}`,
+                task: row.assetName!,
+                bomCode: row.assetId!,
+                specifications: [],
+                results: {},
+                rolledUpResults: {},
+                isGroupHeader: false,
+                level: row.level,
+                assetId: row.assetId,
+                hierarchyPath: row.hierarchyPath ? Object.values(row.hierarchyPath).join(' > ') : '',
+                children: []
+              };
+            } else {
+              const results: any = row.schedule || {};
+              const rolledUpResults: any = row.schedule || {};
+              return {
+                id: row.id,
+                task: row.taskName || '',
+                bomCode: row.assetId!,
+                specifications: [],
+                results,
+                rolledUpResults,
+                hierarchyPath: row.hierarchyPath ? Object.values(row.hierarchyPath).join(' > ') : '',
+                level: row.level,
+                assetId: row.assetId,
+                taskId: row.taskId,
+                schedule: row.schedule,
+                children: []
+              };
+            }
+          });
           console.log('[App] Task-based mode - transformed data:', {
             transformedDataLength: transformedData.length,
             hierarchyRows: transformedData.filter(r => (r as any).isGroupHeader).length,
@@ -1324,22 +894,21 @@ const App: React.FC = () => {
 
           setMaintenanceData(transformedData);
 
-          // Requirements 6.4: Auto-scale time range based on data
-          // Use the new centralized logic in ViewModeManager
-          if (viewModeManagerRef.current) {
-            const newHeaders = viewModeManagerRef.current.getTimeHeaders(effectiveTimeScale);
-            console.log('[App] New time headers from ViewModeManager:', newHeaders);
-            setTimeHeaders(newHeaders);
-
-            // Data is already loaded, just update headers
-            // loadDataFromViewModeManager(); // Removed to prevent infinite loop
+          // Generate time headers dynamically based on the transformed data
+          const generatedHeaders = generateTimeHeadersFromData(transformedData);
+          
+          // Use standard unique filtering before pushing to state
+          const uniqueHeaders = Array.from(new Set(generatedHeaders)).sort();
+          
+          if (uniqueHeaders.length > 0) {
+            setTimeHeaders(generateFullTimeRange(uniqueHeaders[0], uniqueHeaders[uniqueHeaders.length - 1], effectiveTimeScale));
           } else {
-            // Fallback for initialization race conditions
-            const [flatData, headers, filterTree] = transformData(rawData as unknown as { [id: string]: RawEquipment }, timeScale);
-            setMaintenanceData(flatData);
-            setTimeHeaders(headers);
-            setHierarchyFilterTree(filterTree);
+            setTimeHeaders([]);
           }
+
+          // Build hierarchy filter tree using memoized function
+          const filterTree = buildHierarchyFilterTree(transformedData);
+          setHierarchyFilterTree(filterTree);
         }
       }
     } catch (error) {
@@ -1350,11 +919,9 @@ const App: React.FC = () => {
         handleGenericError(error, 'dataLoadTimeScale', errorHandlerRef.current);
       }
 
-      // Fallback to legacy
-      const [flatData, headers, filterTree] = transformData(rawData as unknown as { [id: string]: RawEquipment }, timeScale);
-      setMaintenanceData(flatData);
-      setTimeHeaders(headers);
-      setHierarchyFilterTree(filterTree);
+      // Deliberately NOT falling back to legacy flatData here.
+      // Doing so would wipe out the task hierarchies (causing the ghost UI bug).
+      // We rely strictly on ViewModeManager, and if it fails, we show the ErrorHandler UI.
     }
   }, [isServicesInitialized, timeScale]);
 
@@ -1366,9 +933,26 @@ const App: React.FC = () => {
 
 
   const handleUpdateItem = (updatedItem: HierarchicalData) => {
+    // 画面の表示を更新
     setMaintenanceData(prevData =>
       prevData.map(item => item.id === updatedItem.id ? updatedItem : item)
     );
+
+    // AssetManager(マスターデータ)に変更を保存する（タブ切り替えなどで失われないようにするため）
+    if (assetManagerRef.current && updatedItem.specifications) {
+      // idが 'asset_123' のような書式の場合はプレフィックスを外す
+      const cleanAssetId = updatedItem.id.startsWith('asset_') 
+        ? updatedItem.id.substring(6) 
+        : updatedItem.id;
+        
+      if (assetManagerRef.current.hasAsset(cleanAssetId)) {
+        try {
+          assetManagerRef.current.updateSpecifications(cleanAssetId, updatedItem.specifications);
+        } catch (e) {
+          console.error('[App] Failed to persist specifications on update:', cleanAssetId, e);
+        }
+      }
+    }
   };
 
   // --- Filtering Logic ---
@@ -1769,19 +1353,29 @@ const App: React.FC = () => {
   const handleSpecificationColumnReorder = (fromIndex: number, toIndex: number) => {
     console.log('[App] handleSpecificationColumnReorder called', { fromIndex, toIndex });
 
-    // 全機器の仕様キーを収集
-    const allSpecKeys = new Set<string>();
+    // 仕様を現在の順序（orderプロパティ）に基づいて収集
+    const specKeysMap = new Map<string, number>();
     maintenanceData.forEach(item => {
       if (item.specifications) {
         item.specifications.forEach(spec => {
           if (spec.key && spec.key.trim()) {
-            allSpecKeys.add(spec.key);
+            const currentOrder = specKeysMap.get(spec.key);
+            if (currentOrder === undefined || spec.order < currentOrder) {
+              specKeysMap.set(spec.key, spec.order);
+            }
           }
         });
       }
     });
 
-    const sortedKeys = Array.from(allSpecKeys).sort();
+    const sortedKeys = Array.from(specKeysMap.entries())
+      .sort((a, b) => {
+        const orderDiff = a[1] - b[1];
+        if (orderDiff !== 0) return orderDiff;
+        return a[0].localeCompare(b[0]);
+      })
+      .map(entry => entry[0]);
+
     console.log('[App] Sorted spec keys:', sortedKeys);
 
     if (fromIndex < 0 || fromIndex >= sortedKeys.length || toIndex < 0 || toIndex >= sortedKeys.length) {
@@ -1798,21 +1392,18 @@ const App: React.FC = () => {
     console.log('[App] Moved key:', movedKey, 'from', fromIndex, 'to', toIndex);
 
     // 全機器の仕様を新しい順序で並び替え
+    // 1. Local state (maintenanceData)
     setMaintenanceData(prevData =>
       prevData.map(item => {
         if (!item.specifications || item.specifications.length === 0) {
           return item;
         }
 
-        // 仕様をキーでマップ化
         const specMap = new Map<string, { key: string; value: string; order: number }>();
         item.specifications.forEach(spec => {
-          if (spec.key) {
-            specMap.set(spec.key, spec);
-          }
+          if (spec.key) specMap.set(spec.key, spec);
         });
 
-        // 新しい順序で仕様を再構築
         const reorderedSpecs = reorderedKeys
           .map((key, index) => {
             const spec = specMap.get(key);
@@ -1823,9 +1414,51 @@ const App: React.FC = () => {
           })
           .filter(spec => spec !== null) as { key: string; value: string; order: number }[];
 
+        // Add back any specifications that weren't in reorderedKeys
+        item.specifications.forEach(spec => {
+          if (!reorderedKeys.includes(spec.key)) {
+            reorderedSpecs.push({ ...spec, order: reorderedSpecs.length + 1 });
+          }
+        });
+
         return { ...item, specifications: reorderedSpecs };
       })
     );
+
+    // 2. Global state (AssetManager) - To persist across tab/mode switches
+    if (assetManagerRef.current) {
+      const allAssets = assetManagerRef.current.getAllAssets();
+      allAssets.forEach(asset => {
+        if (!asset.specifications || asset.specifications.length === 0) return;
+        
+        const specMap = new Map<string, { key: string; value: string; order: number }>();
+        asset.specifications.forEach(spec => {
+          if (spec.key) specMap.set(spec.key, spec);
+        });
+
+        const reorderedSpecs = reorderedKeys
+          .map((key, index) => {
+            const spec = specMap.get(key);
+            if (spec) {
+              return { ...spec, order: index + 1 };
+            }
+            return null;
+          })
+          .filter(spec => spec !== null) as { key: string; value: string; order: number }[];
+
+        asset.specifications.forEach(spec => {
+          if (!reorderedKeys.includes(spec.key)) {
+            reorderedSpecs.push({ ...spec, order: reorderedSpecs.length + 1 });
+          }
+        });
+
+        try {
+          assetManagerRef.current?.updateSpecifications(asset.id, reorderedSpecs);
+        } catch (e) {
+          console.warn('[App] Failed to persist specification order to asset:', asset.id, e);
+        }
+      });
+    }
 
     showSnackbar('機器仕様の列順序を変更しました', 'success');
   };
@@ -1993,7 +1626,12 @@ const App: React.FC = () => {
     // Generate a full range of time headers (not just those with data)
     const sortedHeaders = Array.from(timeHeadersSet).sort();
     if (sortedHeaders.length > 0) {
-      return generateFullTimeRange(sortedHeaders[0], sortedHeaders[sortedHeaders.length - 1], timeScale);
+      try {
+        return generateFullTimeRange(sortedHeaders[0], sortedHeaders[sortedHeaders.length - 1], timeScale);
+      } catch (error) {
+        console.warn('[App] Error in generateFullTimeRange, returning exact headers:', error);
+        return sortedHeaders;
+      }
     } else {
       // If no data, generate headers for current year and next few years
       const currentYear = new Date().getFullYear();
@@ -2843,78 +2481,6 @@ const App: React.FC = () => {
     }
   }, [setupGridKeyboardNavigation]);
 
-  // Refresh UI from managers
-  const refreshUIFromManagers = () => {
-    if (!isServicesInitialized || !viewModeManagerRef.current || !assetManagerRef.current) {
-      return;
-    }
-
-    try {
-      const assets = assetManagerRef.current.getAllAssets();
-
-      if (assets.length > 0) {
-        const currentMode = viewModeManagerRef.current.getCurrentMode();
-
-        if (currentMode === 'equipment-based') {
-          const equipmentData = viewModeManagerRef.current.getEquipmentBasedData();
-
-          const transformedData = equipmentData
-            .filter(row => row.type === 'asset')
-            .map(row => {
-              const results: any = {};
-
-              if (row.tasks) {
-                row.tasks.forEach(task => {
-                  const aggregated = viewModeManagerRef.current!.aggregateScheduleByTimeScale(
-                    task.schedule,
-                    timeScale
-                  );
-
-                  Object.entries(aggregated).forEach(([timeKey, status]) => {
-                    if (!results[timeKey]) {
-                      results[timeKey] = {
-                        planned: false,
-                        actual: false,
-                        planCost: 0,
-                        actualCost: 0
-                      };
-                    }
-
-                    results[timeKey].planned = results[timeKey].planned || status.planned;
-                    results[timeKey].actual = results[timeKey].actual || status.actual;
-                    results[timeKey].planCost += status.totalPlanCost;
-                    results[timeKey].actualCost += status.totalActualCost;
-                  });
-                });
-              }
-
-              return {
-                id: row.assetId || '',
-                task: row.assetName || '',
-                hierarchyPath: row.hierarchyPath ?
-                  Object.values(row.hierarchyPath).join(' > ') : '',
-                specifications: row.specifications || [],
-                results,
-                level: 0,
-                bomCode: row.assetId || '',
-                children: [],
-                rolledUpResults: {}
-              };
-            });
-
-          setMaintenanceData(transformedData);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to refresh UI from managers:', error);
-
-      // Use ErrorHandler with proper error type detection
-      if (errorHandlerRef.current) {
-        handleGenericError(error, 'uiRefresh', errorHandlerRef.current);
-      }
-    }
-  };
-
   // Set up keyboard shortcuts for save and undo/redo
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -2929,7 +2495,7 @@ const App: React.FC = () => {
         event.preventDefault();
         if (undoRedoManagerRef.current?.canUndo()) {
           undoRedoManagerRef.current.undo();
-          refreshUIFromManagers();
+          loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
           showSnackbar('操作を元に戻しました', 'info');
           announce('操作を元に戻しました');
         }
@@ -2941,7 +2507,7 @@ const App: React.FC = () => {
         event.preventDefault();
         if (undoRedoManagerRef.current?.canRedo()) {
           undoRedoManagerRef.current.redo();
-          refreshUIFromManagers();
+          loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
           showSnackbar('操作をやり直しました', 'info');
           announce('操作をやり直しました');
         }
