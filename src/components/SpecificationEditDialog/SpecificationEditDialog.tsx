@@ -36,6 +36,8 @@ export interface SpecificationEditDialogProps {
   maxItems?: number;
   onValidationError?: (errors: string[]) => void;
   readOnly?: boolean;
+  variant?: 'popover' | 'embedded';
+  onChange?: (specifications: SpecificationValue[], isValid: boolean) => void;
 }
 
 // 機器仕様編集の状態管理
@@ -72,6 +74,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
   maxItems = 20,
   onValidationError,
   readOnly = false,
+  variant = 'popover',
+  onChange,
 }) => {
   const theme = useTheme();
   
@@ -105,8 +109,10 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
       }));
   }, []);
 
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    if (open) {
+    if (open && !isInitialized) {
       const editItems = convertToEditItems(specifications);
       setEditState({
         items: editItems,
@@ -114,8 +120,15 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         validationErrors: {},
         editingIndex: null,
       });
+      setIsInitialized(true);
+    } else if (!open) {
+      // Reset initialization flag when dialog closes
+      setIsInitialized(false);
     }
-  }, [specifications, open, convertToEditItems]);
+    // Only re-run if open status changes. We don't want to re-initialize if the parent
+    // passing down the specifications prop causes a re-render from our own onChange
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isInitialized, convertToEditItems]);
 
   // バリデーション
   const validateItem = useCallback((item: SpecificationEditItem): { keyError?: string; valueError?: string } => {
@@ -239,7 +252,18 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
     });
   }, [editState]);
 
-
+  // Call onChange implicitly when in embedded mode
+  useEffect(() => {
+    if (variant === 'embedded' && onChange) {
+      const activeItems = editState.items.filter(item => !item.isDeleted);
+      const validationErrors = validateAllItems(editState.items);
+      const hasErrors = Object.keys(validationErrors).length > 0 || 
+                       activeItems.some(item => item.keyError || item.valueError);
+      
+      const newSpecs = convertToSpecifications(editState.items);
+      onChange(newSpecs, !hasErrors);
+    }
+  }, [editState.items, variant, onChange, validateAllItems, convertToSpecifications]);
 
   // 保存処理
   const handleSave = useCallback(() => {
@@ -422,6 +446,85 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
   const hasErrors = Object.keys(editState.validationErrors).length > 0 || 
                    editState.items.some(item => item.keyError || item.valueError);
 
+  const renderContent = () => (
+    <>
+      {variant === 'popover' && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <SettingsIcon sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography variant="subtitle1" fontWeight="bold">
+              機器仕様編集
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {activeItemsCount}/{maxItems}項目
+          </Typography>
+        </Box>
+      )}
+      
+      {variant === 'embedded' && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+            仕様項目一覧
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {activeItemsCount}/{maxItems}項目
+          </Typography>
+        </Box>
+      )}
+      
+      <Box sx={{ flexGrow: 1, overflow: 'auto', minHeight: variant === 'embedded' ? '200px' : 'auto', maxHeight: variant === 'popover' ? '50vh' : 'none' }}>
+        <List dense>
+          {editState.items.map((item, index) => renderEditItem(item, index))}
+        </List>
+      </Box>
+      
+      <Divider sx={{ my: 2 }} />
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Button
+          startIcon={<AddIcon />}
+          onClick={handleAddItem}
+          disabled={activeItemsCount >= maxItems || readOnly}
+          size="small"
+        >
+          項目追加
+        </Button>
+        
+        {variant === 'popover' && (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={onClose} size="small">
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleSave}
+              variant="contained"
+              size="small"
+              disabled={hasErrors || !editState.hasChanges || readOnly}
+            >
+              保存
+            </Button>
+          </Box>
+        )}
+      </Box>
+      
+      {variant === 'popover' && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          Ctrl+Enter: 保存, Esc: キャンセル
+        </Typography>
+      )}
+    </>
+  );
+
+  // Embedded mode
+  if (variant === 'embedded') {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {renderContent()}
+      </Box>
+    );
+  }
+
   // Desktop-only popover
   if (anchorEl) {
     return (
@@ -448,55 +551,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         }}
         onKeyDown={handleKeyDown}
       >
-        <Paper sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <SettingsIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="subtitle1" fontWeight="bold">
-                機器仕様編集
-              </Typography>
-            </Box>
-            <Typography variant="caption" color="text.secondary">
-              {activeItemsCount}/{maxItems}項目
-            </Typography>
-          </Box>
-          
-          <Box sx={{ maxHeight: '50vh', overflow: 'auto' }}>
-            <List dense>
-              {editState.items.map((item, index) => renderEditItem(item, index))}
-            </List>
-          </Box>
-          
-          <Divider sx={{ my: 2 }} />
-          
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Button
-              startIcon={<AddIcon />}
-              onClick={handleAddItem}
-              disabled={activeItemsCount >= maxItems || readOnly}
-              size="small"
-            >
-              項目追加
-            </Button>
-            
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button onClick={onClose} size="small">
-                キャンセル
-              </Button>
-              <Button
-                onClick={handleSave}
-                variant="contained"
-                size="small"
-                disabled={hasErrors || !editState.hasChanges || readOnly}
-              >
-                保存
-              </Button>
-            </Box>
-          </Box>
-          
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            Ctrl+Enter: 保存, Esc: キャンセル
-          </Typography>
+        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+          {renderContent()}
         </Paper>
       </Popover>
     );

@@ -6,9 +6,9 @@ import Resizer from './Resizer';
 // CommonEditLogic removed - not used as JSX component
 import StatusSelectionDialog from '../StatusSelectionDialog/StatusSelectionDialog';
 import CostInputDialog from '../CostInputDialog/CostInputDialog';
-import SpecificationEditDialog from '../SpecificationEditDialog/SpecificationEditDialog';
+import AssetDetailsDialog from '../AssetDetailsDialog/AssetDetailsDialog';
 import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
-import { StatusValue, CostValue, SpecificationValue } from '../CommonEdit/types';
+import { StatusValue, CostValue } from '../CommonEdit/types';
 import { useKeyboardNavigation } from './keyboardNavigation';
 import './MaintenanceGridLayout.css';
 // import { useScrollManager } from './scrollManager';
@@ -30,6 +30,8 @@ interface MaintenanceGridLayoutProps {
   onUpdateItem: (updatedItem: HierarchicalData) => void;
   onSpecificationEdit?: (rowId: string, index: number, field: 'key' | 'value', value: string) => void;
   onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
+  onAssetEdit?: (assetId: string, updates: any) => void;
+  hierarchy?: any;
   virtualScrolling: boolean;
   readOnly: boolean;
   onCopy?: () => Promise<void>;
@@ -55,6 +57,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   onUpdateItem,
   onSpecificationEdit,
   onSpecificationColumnReorder,
+  onAssetEdit,
+  hierarchy,
   virtualScrolling,
   readOnly,
   onCopy,
@@ -125,7 +129,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
   // Enhanced editing state
   const [editDialogState, setEditDialogState] = useState<{
-    type: 'status' | 'cost' | 'specification' | 'tagNo' | null;
+    type: 'status' | 'cost' | 'assetDetails' | 'tagNo' | null;
     open: boolean;
     rowId: string | null;
     columnId: string | null;
@@ -443,18 +447,18 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       taskId: (item as any).taskId
     });
 
-    let editType: 'status' | 'cost' | 'specification' | 'tagNo' | null = null;
+    let editType: 'status' | 'cost' | 'assetDetails' | 'tagNo' | null = null;
     let currentValue: any = null;
 
     // Determine edit type and current value based on column
-    if (columnId === 'bomCode') {
+    if (isEquipmentBasedMode && (columnId === 'task' || columnId === 'bomCode' || columnId.startsWith('spec_'))) {
+      editType = 'assetDetails';
+      currentValue = item;
+    } else if (columnId === 'bomCode') {
       editType = 'tagNo';
       currentValue = item.bomCode;
     } else if (columnId === 'task') {
-      if (isEquipmentBasedMode) {
-        editType = 'specification';
-        currentValue = item.specifications || [];
-      }
+      // In task-based mode, no edit for task currently (needs complex logic)
     } else if (columnId.startsWith('time_')) {
       const timeHeader = columnId.replace('time_', '');
 
@@ -527,10 +531,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
           } as CostValue;
         }
       }
-    } else if (columnId.startsWith('spec_')) {
-      editType = 'specification';
-      currentValue = item.specifications || [];
-    }
+    } 
 
     if (editType) {
       console.log('[MaintenanceGridLayout] Opening dialog:', {
@@ -650,15 +651,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
           planned,
           actual
         });
-      } else if (type === 'specification') {
-        const specifications = value as SpecificationValue[];
-        // Update the item's specifications
-        const item = data.find(d => d.id === rowId);
-        if (item) {
-          onUpdateItem({
-            ...item,
-            specifications: specifications,
-          });
+      } else if (type === 'assetDetails') {
+        if (onAssetEdit) {
+          // assetId is usually the rowId for assets in equipment-based mode (stripped of "asset_" if present)
+          const actualAssetId = rowId.startsWith('asset_') ? rowId.replace('asset_', '') : rowId;
+          onAssetEdit(actualAssetId, value);
         }
       }
     };
@@ -1428,14 +1425,15 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         />
       )}
 
-      {/* Specification Edit Dialog */}
-      {editDialogState.type === 'specification' && (
-        <SpecificationEditDialog
+      {/* Asset Details Dialog */}
+      {editDialogState.type === 'assetDetails' && (
+        <AssetDetailsDialog
           open={editDialogState.open}
-          specifications={editDialogState.currentValue}
+          item={editDialogState.currentValue}
+          hierarchy={hierarchy}
           onSave={handleDialogSave}
           onClose={handleDialogClose}
-          anchorEl={editDialogState.anchorEl}
+          readOnly={readOnly}
         />
       )}
     </Box>

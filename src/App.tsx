@@ -2402,56 +2402,48 @@ const App: React.FC = () => {
     }
   };
 
-  // AssetReassignDialog handlers - Requirements 3.2, 3.6
-  const handleOpenAssetReassignDialog = () => {
-    if (!isServicesInitialized) {
-      showSnackbar('サービスが初期化されていません', 'error');
-      return;
-    }
+  // Handle full asset edits from AssetDetailsDialog
+  const handleAssetEdit = useCallback((assetId: string, updates: any) => {
+    console.log('[App] handleAssetEdit called:', { assetId, updates });
 
-    if (selectedAssets.length === 0) {
-      showSnackbar('機器を選択してください', 'warning');
-      return;
-    }
-
-    setAssetReassignDialogOpen(true);
-  };
-
-  const handleCloseAssetReassignDialog = () => {
-    setAssetReassignDialogOpen(false);
-  };
-
-  const handleAssetReassign = (assetIds: string[], newHierarchyPath: any) => {
-    if (!hierarchyManagerRef.current || !assetManagerRef.current || !isServicesInitialized) {
+    if (!isServicesInitialized || !assetManagerRef.current) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
     }
 
     try {
-      // Reassign each asset to the new hierarchy path
-      assetIds.forEach(assetId => {
-        hierarchyManagerRef.current?.reassignAssetHierarchy(assetId, newHierarchyPath);
-      });
-
-      showSnackbar(`${assetIds.length}件の機器を付け替えました`, 'success');
-
-      // Close dialog and clear selection
-      handleCloseAssetReassignDialog();
-      setSelectedAssets([]);
-
-      // Reload data to reflect changes
-      loadDataFromViewModeManager();
-    } catch (error) {
-      console.error('[App] Error reassigning assets:', error);
-
-      // Use ErrorHandler with proper error type detection
-      if (errorHandlerRef.current) {
-        handleGenericError(error, 'assetReassign', errorHandlerRef.current);
+      const asset = assetManagerRef.current.getAsset(assetId);
+      if (!asset) {
+        showSnackbar(`機器 ${assetId} が見つかりません`, 'error');
+        return;
       }
 
-      showSnackbar('機器の付け替えに失敗しました', 'error');
+      // Prepare updates
+      const assetUpdates: Partial<typeof asset> = {};
+      if (updates.assetName !== undefined) assetUpdates.name = updates.assetName;
+      if (updates.hierarchyPath !== undefined) assetUpdates.hierarchyPath = updates.hierarchyPath;
+      if (updates.specifications !== undefined) assetUpdates.specifications = updates.specifications;
+
+      if (updates.bomCode !== undefined && updates.bomCode !== assetId) {
+        console.warn('[App] Cannot update TAG No. (Asset ID) through this dialog yet.');
+      }
+
+      // Update asset via manager
+      assetManagerRef.current.updateAsset(assetId, assetUpdates);
+      console.log('[App] Asset updated successfully');
+
+      // Reload data to reflect changes
+      loadDataFromViewModeManagerWithMode(dataViewMode);
+      showSnackbar('機器情報を更新しました', 'success');
+      
+    } catch (error) {
+      console.error('Failed to update asset:', error);
+      if (errorHandlerRef.current) {
+        handleGenericError(error, 'assetEdit', errorHandlerRef.current);
+      }
+      showSnackbar(`機器情報の更新に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
-  };
+  }, [isServicesInitialized, dataViewMode]);
 
   // Asset selection handlers
   const handleAssetSelectionChange = (assetIds: string[]) => {
@@ -2584,6 +2576,9 @@ const App: React.FC = () => {
               assets={assetManagerRef.current?.getAllAssets() || []}
               associations={workOrderLineManagerRef.current?.getAllWorkOrderLines() || []}
               hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition()}
+              onHierarchyEdit={handleHierarchyEdit}
+              selectedAssets={selectedAssets}
+              onAssetEdit={handleAssetEdit}
               // Header props - restored to original structure
               onSearchChange={setSearchTerm}
               onViewModeChange={(mode) => setViewMode(mode)}
@@ -2770,21 +2765,6 @@ const App: React.FC = () => {
             readOnly={false}
             editScope={dataViewMode === 'task-based' ? 'single-asset' : 'single-asset'}
             dataViewMode={dataViewMode}
-          />
-        )}
-
-        {/* AssetReassignDialog - Requirements 3.2, 3.6 */}
-        {assetReassignDialogOpen && (
-          <AssetReassignDialog
-            open={assetReassignDialogOpen}
-            assets={
-              selectedAssets
-                .map(assetId => assetManagerRef.current?.getAsset(assetId))
-                .filter((asset): asset is Asset => asset !== null)
-            }
-            hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition() || { levels: [] }}
-            onReassign={handleAssetReassign}
-            onClose={handleCloseAssetReassignDialog}
           />
         )}
 

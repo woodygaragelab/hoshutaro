@@ -157,7 +157,6 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   selectedAssets = [],
   onAssetSelectionChange,
   onHierarchyEdit,
-  onOpenAssetReassignDialog,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -240,13 +239,6 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   const handleSaveHierarchy = (newHierarchy: HierarchyDefinition) => {
     if (onHierarchyEdit) {
       onHierarchyEdit(newHierarchy);
-    }
-  };
-
-  const handleOpenAssetReassign = () => {
-    setDrawerOpen(false);
-    if (onOpenAssetReassignDialog) {
-      setTimeout(() => onOpenAssetReassignDialog(), 100);
     }
   };
 
@@ -721,7 +713,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
             <Divider sx={{ my: 2 }} />
             
             {/* Hierarchy Management - Requirements 3.1, 3.2 */}
-            {(onHierarchyEdit || onOpenAssetReassignDialog) && hierarchy && (
+            {onHierarchyEdit && hierarchy && (
               <>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
@@ -736,17 +728,6 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                         startIcon={<HierarchyIcon />}
                       >
                         階層構造の編集
-                      </Button>
-                    )}
-                    {onOpenAssetReassignDialog && (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={handleOpenAssetReassign}
-                        startIcon={<ReassignIcon />}
-                        disabled={selectedAssets.length === 0}
-                      >
-                        機器の付け替え {selectedAssets.length > 0 && `(${selectedAssets.length}件)`}
                       </Button>
                     )}
                   </Box>

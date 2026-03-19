@@ -56,6 +56,7 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onHierarchyEdit?: (hierarchy: HierarchyDefinition) => void;
   onOpenAssetReassignDialog?: () => void;
   onOpenTaskEditDialog?: (assetId: string, dateKey: string) => void;
+  onAssetEdit?: (assetId: string, updates: any) => void;
 
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
   canUndo?: boolean;
@@ -134,6 +135,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onHierarchyEdit,
   onOpenAssetReassignDialog,
   onOpenTaskEditDialog,
+  onAssetEdit,
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
   canUndo,
   canRedo,
@@ -1275,8 +1277,11 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         groupedData={groupedData}
         onCellEdit={handleCellEdit}
         onCellDoubleClick={handleCellDoubleClick}
+        onCellDoubleClick={handleCellDoubleClick}
         onSpecificationEdit={onSpecificationEdit}
         onSpecificationColumnReorder={onSpecificationColumnReorder}
+        onAssetEdit={onAssetEdit}
+        hierarchy={hierarchy}
         onColumnResize={handleColumnResize}
         onRowResize={handleRowResize}
         onSelectedCellChange={setSelectedCell}
@@ -1300,7 +1305,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
     onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
     setSelectedRange, onUpdateItem, virtualScrolling, shouldUseVirtualScrolling, readOnly,
-    handleCopy, handlePaste, selectedAssets, handleAssetSelectionToggle
+    handleCopy, handlePaste, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit
   ]);
 
   // Stable callback handlers to prevent infinite re-renders
