@@ -8,7 +8,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.services.session_manager import session_manager
 from app.llm.factory import get_llm_adapter
-from app.engine.graph import execute_engine
+from app.engine.orchestrator import route_and_execute
+from app.engine.agents.excel_import import excel_import_engine
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -33,22 +34,59 @@ async def chat_completions(body: ChatRequest, request: Request):
 
         async def event_generator():
             try:
+                # Excelインポート待機中の場合
+                if hasattr(session, "import_state") and session.import_state and session.import_state.get("status") == "waiting_user":
+                    # ユーザーからの承認とみなす
+                    yield {"data": json.dumps({"type": "text_delta", "delta": "Excelインポートを開始します...\n"})}
+                    session.import_state["status"] = "process_chunks"
+                    
+                    from app.services.excel_converter import chunk_process_excel
+                    result = chunk_process_excel(
+                        session.import_state["file_bytes"],
+                        {
+                            "header_row_index": session.import_state["header_row_index"],
+                            "mappings": session.import_state["mappings"],
+                            "symbol_mapping": session.import_state.get("symbol_mapping", {})
+                        },
+                        chunk_size=10000,
+                        start_row=session.import_state.get("processed_rows", 0)
+                    )
+                    
+                    session.import_state = None # リセット
+                    
+                    extracted = result.get("extracted_data", [])
+                    if extracted:
+                        lines = session.data_model.setdefault("workOrderLines", [])
+                        for row in extracted:
+                            if "id" not in row:
+                                row["id"] = f"WOL-IMP-{len(lines)}"
+                            lines.append(row)
+                        
+                        yield {"data": json.dumps({"type": "text_delta", "delta": f"インポート完了: {len(extracted)}件のデータを取り込みました。\n"})}
+                        yield {"data": json.dumps({"type": "data_model_update", "data": session.data_model})}
+                    
+                    yield {"data": "[DONE]"}
+                    return
+
                 yield {"data": json.dumps({"type": "status", "message": "AIが思考中..."})}
                 
                 messages_for_llm = [{"role": m.role, "content": m.content} for m in body.messages]
                 
-                # LangGraphエンジン実行
-                state = await execute_engine(session_id, messages_for_llm, dict(session.data_model))
+                # オーケストレーター実行 (入力から適切なAgentへ分岐)
+                user_msg = messages_for_llm[-1]["content"] if messages_for_llm else ""
+                result = await route_and_execute(session_id, user_msg, dict(session.data_model))
+                
+                ops = result.get("operations", [])
+                final_res = result.get("result", "")
                 
                 # DataModelが更新された場合は結果を通知
-                if state.get("operations") and len(state["operations"]) > 0:
-                    yield {"data": json.dumps({"type": "op_summary", "summary": state.get("final_response", "")})}
-                    # TODO: 本来は `data_model_update` 等としてフロントに送信する
-                    # yield {"data": json.dumps({"type": "data_model_update", "data": session.data_model})}
+                if ops and len(ops) > 0:
+                    yield {"data": json.dumps({"type": "op_summary", "summary": final_res})}
+                    yield {"data": json.dumps({"type": "data_model_update", "data": session.data_model})}
                 
                 try:
                     # アダプターの chat_stream を用いて、アクション完了報告などを親切にストリームする
-                    stream = adapter.chat_stream(messages_for_llm, state.get("final_response", "思考を完了しました。"))
+                    stream = adapter.chat_stream(messages_for_llm, final_res or "思考を完了しました。")
                     async for chunk in stream:
                         payload = {
                             "type": "text_delta",

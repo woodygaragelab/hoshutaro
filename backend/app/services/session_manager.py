@@ -16,6 +16,7 @@ class Session:
         }
         self.chat_history: list = []
         self.snapshots: list = []
+        self.import_state = None  # Excelインポートの途中状態を保持
         self.metadata: Dict[str, Any] = {
             "skill_thinking_depth": {},
             "planning_stats_cache": {}

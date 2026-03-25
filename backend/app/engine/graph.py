@@ -32,9 +32,17 @@ async def tool_execution_node(state: AgentState) -> dict:
     return {"final_response": summary}
 
 def should_execute_tools(state: AgentState) -> str:
-    """操作リスト（JSONコマンド）が存在する場合はToolノードへ、なければ終了"""
+    """エラーがあれば再推論、操作リストが存在すればToolノードへ、なければ終了"""
+    err = state.get("error_message")
+    iters = state.get("thinking_iterations", 1)
+    
+    # エラーがあり、かつ最大思考回数(例:3)に達していないならループバック
+    if err and iters <= 3:
+        return "retry"
+        
     if state.get("operations") and len(state["operations"]) > 0:
         return "tools"
+        
     return END
 
 def create_maintenance_graph():
@@ -55,6 +63,7 @@ def create_maintenance_graph():
         should_execute_tools,
         {
             "tools": "tools",
+            "retry": "reasoning",
             END: END
         }
     )

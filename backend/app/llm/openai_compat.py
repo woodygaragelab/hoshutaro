@@ -64,6 +64,15 @@ class OpenAICompatAdapter(LLMAdapter):
                 )
         return MaintenanceOperation(type="explain_only", targets=[], action_summary="予期しないエラー")
 
+    async def chat(self, messages: list[dict]) -> str:
+        completion = await self._client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=0.3,
+            max_tokens=1024,
+        )
+        return completion.choices[0].message.content or ""
+
     async def chat_stream(
         self, messages: list[dict], operation_summary: str
     ) -> AsyncGenerator[str, None]:

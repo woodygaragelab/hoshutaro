@@ -22,6 +22,7 @@ import {
 import type { ChatMessage, MaintenanceSuggestion, AIAssistantPanelProps } from './types';
 import { LLMSettingsDialog } from './components/LLMSettingsDialog';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
+import { uploadExcelFile } from '../../services/ExcelProcessingService';
 import './AIAssistantPanel.css';
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
@@ -121,7 +122,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     );
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       onExcelImport(file);
@@ -139,27 +140,91 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       };
 
       setMessages(prev => [...prev, fileMessage]);
-      
-      // AI応答を生成
-      const aiResponse: ChatMessage = {
-        id: Date.now().toString(),
-        type: 'assistant',
-        content: `ファイル "${file.name}" を解析しました。設備情報のマッピングと保全計画の提案を行います。`,
-        timestamp: new Date(),
-        suggestions: [
-          {
-            equipmentId: 'IMPORT_001',
-            timeHeader: '2024-06',
-            suggestedAction: 'plan',
-            reason: 'インポートデータから新規設備の保全計画を提案',
-            confidence: 0.88,
-            cost: 65000
-          }
-        ]
-      };
-      
-      setMessages(prev => [...prev, aiResponse]);
+      setIsLoading(true);
+
+      try {
+        const result = await uploadExcelFile(file, sessionId);
+        
+        const aiResponse: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: result.summary,
+          timestamp: new Date(),
+          suggestions: result.suggestions
+        };
+        
+        setMessages(prev => [...prev, aiResponse]);
+      } catch (error: any) {
+        const errorResponse: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: `[システムエラー]: ${error.message}`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorResponse]);
+      } finally {
+        setIsLoading(false);
+      }
     }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleHiddenSendMessage = (text: string) => {
+    setIsLoading(true);
+    const assistantMsgId = (Date.now() + 2).toString();
+    const assistantMessage: ChatMessage = {
+      id: assistantMsgId,
+      type: 'assistant',
+      content: '',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+
+    const messageHistory = messages
+      .filter(m => m.type !== 'system')
+      .map(m => ({
+        role: m.type === 'assistant' ? 'assistant' : 'user',
+        content: m.content
+      }))
+      .concat([{ role: 'user', content: text }]);
+
+    startChatStream(
+      sessionId,
+      messageHistory,
+      (event: SSEEvent) => {
+        if (event.type === 'text_delta' && event.delta) {
+          setMessages(prev => prev.map(m => {
+            if (m.id === assistantMsgId) {
+              return { ...m, content: m.content + event.delta! };
+            }
+            return m;
+          }));
+        } else if (event.type === 'suggestion' && event.suggestion) {
+          setMessages(prev => prev.map(m => {
+            if (m.id === assistantMsgId) {
+              const suggestions = m.suggestions ? [...m.suggestions] : [];
+              suggestions.push(event.suggestion);
+              return { ...m, suggestions };
+            }
+            return m;
+          }));
+        }
+      },
+      () => {
+        setIsLoading(false);
+      },
+      (err: string) => {
+        setMessages(prev => prev.map(m => {
+          if (m.id === assistantMsgId) {
+            return { ...m, content: m.content + `\n\n[システムエラー: ${err}]` };
+          }
+          return m;
+        }));
+        setIsLoading(false);
+      }
+    );
   };
 
   const handleApplySuggestion = (suggestion: MaintenanceSuggestion) => {
@@ -173,6 +238,11 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     };
     
     setMessages(prev => [...prev, confirmMessage]);
+
+    // インポート等でバックエンドへの進行トリガーが必要な場合
+    if (suggestion.equipmentId === "IMPORT-ALL" || suggestion.suggestedAction === "plan") {
+      handleHiddenSendMessage(`提案（${suggestion.equipmentId}）を承認します。処理を続行してください。`);
+    }
   };
 
   const renderMessage = (message: ChatMessage) => {

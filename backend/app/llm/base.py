@@ -29,6 +29,12 @@ class LLMAdapter(ABC):
         """
 
     @abstractmethod
+    async def chat(self, messages: list[dict]) -> str:
+        """
+        非ストリーミングのチャット補完。テキスト文字列を返す。
+        """
+
+    @abstractmethod
     async def ping(self) -> dict:
         """
         接続確認 + レイテンシ計測。

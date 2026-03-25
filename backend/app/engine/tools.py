@@ -19,14 +19,20 @@ def execute_maintenance_operation(session_id: str, op: MaintenanceOperation) -> 
             if "workOrderLines" not in session.data_model:
                 session.data_model["workOrderLines"] = []
             
-            # idの補完
-            new_id = target.entity_id or f"WOL-{len(session.data_model['workOrderLines'])}"
+            lines = session.data_model["workOrderLines"]
+            existing = None
+            if target.entity_id:
+                existing = next((item for item in lines if item.get("id") == target.entity_id), None)
             
-            # TODO: upsertロジック（実際には既存IDの検索などが必要）
-            session.data_model["workOrderLines"].append({
-                "id": new_id,
-                **target.changes
-            })
+            if existing:
+                existing.update(target.changes)
+            else:
+                new_id = target.entity_id or f"WOL-{len(lines)}"
+                lines.append({
+                    "id": new_id,
+                    **target.changes
+                })
+            
             applied_count += 1
             
     return {"status": "success", "applied_count": applied_count, "summary": op.action_summary}
