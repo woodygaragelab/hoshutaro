@@ -4,7 +4,7 @@ import { HierarchicalData } from '../../types';
 import { GridColumn, GridState } from '../ExcelLikeGrid/types';
 import MaintenanceTableRow from './MaintenanceTableRow';
 import GroupHeaderRow from './GroupHeaderRow';
-import { TaskBasedRow } from './TaskBasedRow';
+import { WorkOrderBasedRow } from './WorkOrderBasedRow';
 import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
 
 interface MaintenanceTableBodyProps {
@@ -31,7 +31,8 @@ interface MaintenanceTableBodyProps {
   scrollLeft?: number;
   isEquipmentBasedMode?: boolean;
   isTaskBasedMode?: boolean;
-
+  expandedWorkOrders?: Set<string>;
+  onToggleWorkOrderExpanded?: (workOrderId: string) => void;
 }
 
 const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
@@ -58,15 +59,9 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   scrollLeft = 0,
   isEquipmentBasedMode = false,
   isTaskBasedMode = false,
+  expandedWorkOrders,
+  onToggleWorkOrderExpanded,
 }) => {
-  console.log('[MaintenanceTableBody] Component rendered with data:', {
-    dataLength: data.length,
-    isTaskBasedMode,
-    isEquipmentBasedMode,
-    sampleData: data.slice(0, 3),
-    columnsLength: columns.length
-  });
-
   // Horizontal virtual scrolling
   // DISABLED based on user feedback: The caching mechanism was causing severe display breakage
   // (blank grids/out of bounds) when switching time scales or resizing.
@@ -96,36 +91,50 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
     return [['', data]];
   }, [data, groupedData]);
 
-  // Memoize TaskBasedRow data conversion to prevent infinite re-renders
+  // Memoize WorkOrderBasedRow data conversion to prevent infinite re-renders
   const taskBasedRows = useMemo(() => {
     if (!isTaskBasedMode) return [];
 
     return data.map((item: any) => {
-      // Convert HierarchicalData to TaskBasedRow format
+      // Use predefined type from ViewModeManager if available
+      const rowType = item.type || (item.isGroupHeader ? 'hierarchy' : (item.taskId ? 'workOrderLine' : 'asset'));
+      
       return {
         id: item.id,
-        type: (item.isGroupHeader ? 'hierarchy' : (item.taskId ? 'workOrderLine' : 'asset')) as 'hierarchy' | 'workOrderLine' | 'asset',
+        type: rowType,
         hierarchyKey: item.isGroupHeader ? 'hierarchy' : undefined,
         hierarchyValue: item.isGroupHeader ? item.task : undefined,
         assetId: item.assetId,
-        assetName: !item.isGroupHeader && !item.taskId ? item.task : undefined,
+        assetName: item.assetName || (!item.isGroupHeader && !item.taskId ? item.task : undefined),
         hierarchyPath: item.hierarchyPath,
-        taskId: item.taskId,
-        taskName: item.taskId ? item.task : undefined,
-        classification: item.classification,
+        taskId: item.taskId || item.workOrderId,
+        workOrderId: item.workOrderId || item.taskId,
+        workOrderName: item.workOrderName || (item.taskId ? item.task : undefined),
+        ClassificationId: (item as any).ClassificationId,
         schedule: item.schedule,
+        aggregatedSchedule: item.aggregatedSchedule || item.results,
         results: item.results,
-        level: item.level || 0
+        level: item.level || 0,
+        bomCode: item.bomCode
       };
     });
   }, [data, isTaskBasedMode]);
 
   const renderRows = () => {
-    // In task-based mode, use TaskBasedRow component
+    // In task-based mode, use WorkOrderBasedRow component
     if (isTaskBasedMode) {
-      return taskBasedRows.map((taskBasedRow) => {
+      const visibleRows = taskBasedRows.filter(row => {
+        if (row.type === 'workOrder') return true; // Always show parent
+        if (row.type === 'assetChild' && row.workOrderId) {
+          return expandedWorkOrders?.has(row.workOrderId);
+        }
+        return true; 
+      });
+
+      
+      return visibleRows.map((taskBasedRow) => {
         return (
-          <TaskBasedRow
+          <WorkOrderBasedRow
             key={taskBasedRow.id}
             row={taskBasedRow}
             columns={displayColumns}
@@ -142,6 +151,8 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
             virtualOffset={virtualOffset}
             displayColumns={displayColumns}
             isFixedArea={isFixedArea}
+            isExpanded={expandedWorkOrders?.has(taskBasedRow.workOrderId || '')}
+            onToggleExpand={() => onToggleWorkOrderExpanded?.(taskBasedRow.workOrderId || '')}
           />
         );
       });
@@ -190,8 +201,7 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   if (virtualScrolling && data.length > 100) {
     // TODO: Implement virtual scrolling for large datasets
     // For now, fall back to regular rendering
-    console.warn('Virtual scrolling not yet implemented for MaintenanceTableBody');
-  }
+      }
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (onScrollSync && isScrollableArea) {

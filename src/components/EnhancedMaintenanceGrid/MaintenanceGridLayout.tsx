@@ -4,9 +4,6 @@ import { HierarchicalData } from '../../types';
 import { GridColumn, GridState, DisplayAreaConfig } from '../ExcelLikeGrid/types';
 import Resizer from './Resizer';
 // CommonEditLogic removed - not used as JSX component
-import StatusSelectionDialog from '../StatusSelectionDialog/StatusSelectionDialog';
-import CostInputDialog from '../CostInputDialog/CostInputDialog';
-import AssetDetailsDialog from '../AssetDetailsDialog/AssetDetailsDialog';
 import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
 import { StatusValue, CostValue } from '../CommonEdit/types';
 import { useKeyboardNavigation } from './keyboardNavigation';
@@ -37,6 +34,12 @@ interface MaintenanceGridLayoutProps {
   onCopy?: () => Promise<void>;
   isEquipmentBasedMode?: boolean;
   isTaskBasedMode?: boolean;
+  expandedWorkOrders?: Set<string>;
+  onToggleWorkOrderExpanded?: (workOrderId: string) => void;
+  selectedAssets?: string[];
+  onPaste?: () => void;
+  enableHorizontalVirtualScrolling?: boolean;
+  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent<any>) => void;
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -66,15 +69,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   enableHorizontalVirtualScrolling = false,
   isEquipmentBasedMode = false,
   isTaskBasedMode = false,
+  expandedWorkOrders = new Set(),
+  onToggleWorkOrderExpanded,
 }) => {
-  console.log('[MaintenanceGridLayout] Component rendered with data:', {
-    dataLength: data.length,
-    isTaskBasedMode,
-    isEquipmentBasedMode,
-    sampleData: data.slice(0, 3),
-    columnsLength: columns.length
-  });
-  // Container width for horizontal virtual scrolling
+    // Container width for horizontal virtual scrolling
   const [containerWidth, setContainerWidth] = useState(1920);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -356,24 +354,15 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     columnId: string,
     event: React.MouseEvent<HTMLElement>
   ) => {
-    console.log('[MaintenanceGridLayout] handleCellDoubleClickInternal called:', {
-      rowId,
-      columnId,
-      isTaskBasedMode,
-      isEquipmentBasedMode,
-      readOnly
-    });
-
+    
     // Check if any dropdown/menu is open - if so, don't handle the double click
     const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
     if (hasOpenMenu) {
-      console.log('[MaintenanceGridLayout] Menu is open, skipping double click');
-      return;
+            return;
     }
 
     if (readOnly) {
-      console.log('[MaintenanceGridLayout] Read-only mode, skipping double click');
-      return;
+            return;
     }
 
     const column = columns.find(col => col.id === columnId);
@@ -399,13 +388,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         });
 
         if (item) {
-          console.log('[MaintenanceGridLayout] ✅ Found item using taskId/assetId matching:', {
-            searchingRowId: rowId,
-            foundItemId: item.id,
-            taskId: taskPart,
-            assetId: assetPart
-          });
-        }
+                  }
       }
 
       // Strategy 2: Match asset rows
@@ -417,37 +400,16 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         });
 
         if (item) {
-          console.log('[MaintenanceGridLayout] ✅ Found asset item:', {
-            searchingRowId: rowId,
-            foundItemId: item.id,
-            assetId
-          });
-        }
+                  }
       }
     }
 
     if (!item) {
-      console.log('[MaintenanceGridLayout] ❌ Item not found for rowId:', {
-        searchingRowId: rowId,
-        dataLength: data.length,
-        availableIds: data.slice(0, 10).map(d => ({ id: d.id, type: (d as any).type || 'unknown' })),
-        taskBasedItems: data.filter(d => (d as any).taskId).map(d => ({
-          id: d.id,
-          taskId: (d as any).taskId,
-          assetId: (d as any).assetId
-        }))
-      });
-      return;
+            return;
     }
 
-    console.log('[MaintenanceGridLayout] Found item:', {
-      id: item.id,
-      task: item.task,
-      assetId: (item as any).assetId,
-      taskId: (item as any).taskId
-    });
-
-    let editType: 'status' | 'cost' | 'assetDetails' | 'tagNo' | null = null;
+    
+    let editType: 'assetDetails' | 'tagNo' | null = null;
     let currentValue: any = null;
 
     // Determine edit type and current value based on column
@@ -459,90 +421,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       currentValue = item.bomCode;
     } else if (columnId === 'task') {
       // In task-based mode, no edit for task currently (needs complex logic)
-    } else if (columnId.startsWith('time_')) {
-      const timeHeader = columnId.replace('time_', '');
-
-      // Get result data - handle both equipment-based and task-based modes
-      let result: any = null;
-
-      if (isTaskBasedMode) {
-        // In task-based mode, check if this is a task row with schedule data
-        const taskItem = item as any;
-        // First check results (aggregated schedule), then fallback to raw schedule
-        if (taskItem.results && taskItem.results[timeHeader]) {
-          result = taskItem.results[timeHeader];
-        } else if (taskItem.schedule && taskItem.schedule[timeHeader]) {
-          result = taskItem.schedule[timeHeader];
-        }
-
-        console.log('[MaintenanceGridLayout] Task-based mode result:', {
-          timeHeader,
-          hasResults: !!(taskItem.results && taskItem.results[timeHeader]),
-          hasSchedule: !!(taskItem.schedule && taskItem.schedule[timeHeader]),
-          result,
-          taskItem: {
-            id: taskItem.id,
-            assetId: taskItem.assetId,
-            taskId: taskItem.taskId,
-            resultsKeys: taskItem.results ? Object.keys(taskItem.results) : [],
-            scheduleKeys: taskItem.schedule ? Object.keys(taskItem.schedule) : []
-          }
-        });
-      } else {
-        // In equipment-based mode, use results as usual
-        result = item.results?.[timeHeader];
-      }
-
-      if (viewMode === 'status') {
-        editType = 'status';
-        currentValue = {
-          planned: result?.planned || false,
-          actual: result?.actual || false,
-          displaySymbol: result?.planned && result?.actual ? '◎' :
-            result?.planned ? '○' :
-              result?.actual ? '●' : '',
-          label: result?.planned && result?.actual ? '両方' :
-            result?.planned ? '計画' :
-              result?.actual ? '実績' : '未計画'
-        } as StatusValue;
-      } else {
-        editType = 'cost';
-        currentValue = {
-          planCost: result?.planCost || result?.totalPlanCost || 0,
-          actualCost: result?.actualCost || result?.totalActualCost || 0,
-        } as CostValue;
-      }
-
-      // In task-based mode, even if no result data exists, allow dialog to open with default values
-      // This is especially important for asset rows (帯部分) that may not have direct schedule data
-      if (isTaskBasedMode && !result) {
-        console.log('[MaintenanceGridLayout] Task-based mode: Opening dialog with default values for asset row');
-        if (viewMode === 'status') {
-          currentValue = {
-            planned: false,
-            actual: false,
-            displaySymbol: '',
-            label: '未計画'
-          } as StatusValue;
-        } else {
-          currentValue = {
-            planCost: 0,
-            actualCost: 0,
-          } as CostValue;
-        }
-      }
-    } 
+    }
 
     if (editType) {
-      console.log('[MaintenanceGridLayout] Opening dialog:', {
-        editType,
-        rowId,
-        columnId,
-        currentValue,
-        isTaskBasedMode,
-        itemType: (item as any).isGroupHeader ? 'group' : 'normal'
-      });
-
+      
       setEditDialogState({
         type: editType,
         open: true,
@@ -555,18 +437,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       // Update editing cell state
       onEditingCellChange(rowId, columnId);
     } else {
-      console.log('[MaintenanceGridLayout] No edit type determined, dialog will not open:', {
-        columnId,
-        isTimeColumn: columnId.startsWith('time_'),
-        isTaskBasedMode,
-        itemId: item.id,
-        itemType: (item as any).isGroupHeader ? 'group' : 'normal',
-        hasResults: !!(item as any).results,
-        hasSchedule: !!(item as any).schedule,
-        resultKeys: (item as any).results ? Object.keys((item as any).results) : [],
-        scheduleKeys: (item as any).schedule ? Object.keys((item as any).schedule) : []
-      });
-    }
+          }
   }, [readOnly, columns, data, viewMode, deviceType, onEditingCellChange]);
 
   // Wrapper that calls both external and internal handlers
@@ -575,39 +446,27 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     columnId: string,
     event: React.MouseEvent<HTMLElement>
   ) => {
-    console.log('[MaintenanceGridLayout] handleCellDoubleClick wrapper called:', {
-      rowId,
-      columnId,
-      hasExternalHandler: !!onCellDoubleClick,
-      defaultPrevented: event.defaultPrevented,
-      isTimeColumn: columnId.startsWith('time_')
-    });
-
+    
     // First, call external handler if provided (for special mode handling)
     if (onCellDoubleClick) {
       onCellDoubleClick(rowId, columnId, event);
-      console.log('[MaintenanceGridLayout] After external handler, isPropagationStopped:', event.isPropagationStopped());
-    }
+          }
 
     // For time columns, check if the external handler explicitly stopped propagation
     // External handler calls stopPropagation() on success, so we skip internal handler only then
     if (columnId.startsWith('time_')) {
       if (!event.isPropagationStopped()) {
         // External handler did not handle it (or no external handler), use internal handler as fallback
-        console.log('[MaintenanceGridLayout] Time column not fully handled externally, using internal handler');
-        handleCellDoubleClickInternal(rowId, columnId, event);
+                handleCellDoubleClickInternal(rowId, columnId, event);
       } else {
         // External handler successfully processed the event
-        console.log('[MaintenanceGridLayout] ✅ External handler handled time column, skipping internal handler');
-      }
+              }
     } else {
       // Non-time columns: only skip if propagation was stopped
       if (!event.isPropagationStopped()) {
-        console.log('[MaintenanceGridLayout] Calling internal handler for non-time column');
-        handleCellDoubleClickInternal(rowId, columnId, event);
+                handleCellDoubleClickInternal(rowId, columnId, event);
       } else {
-        console.log('[MaintenanceGridLayout] ❌ Internal handler blocked by propagation stop');
-      }
+              }
     }
   }, [onCellDoubleClick, handleCellDoubleClickInternal]);
 
@@ -617,13 +476,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
     const { rowId, columnId, type } = editDialogState;
 
-    console.log('[MaintenanceGridLayout] handleDialogSave called:', {
-      rowId,
-      columnId,
-      type,
-      value
-    });
-
+    
     // Prevent layout shifts by batching all updates
     const performUpdate = () => {
       if (type === 'tagNo') {
@@ -697,13 +550,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       onEditingCellChange(null, null);
     }
 
-    console.log('[MaintenanceGridLayout] handleDialogSave completed');
-  }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange]);
+      }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange]);
 
   // Handle dialog close with minimal layout impact
   const handleDialogClose = useCallback(() => {
-    console.log('[MaintenanceGridLayout] handleDialogClose called');
-
+    
     // Use batched updates to prevent layout shifts
     if (typeof (React as any).unstable_batchedUpdates === 'function') {
       (React as any).unstable_batchedUpdates(() => {
@@ -733,8 +584,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       onEditingCellChange(null, null);
     }
 
-    console.log('[MaintenanceGridLayout] handleDialogClose completed');
-  }, [onEditingCellChange]);
+      }, [onEditingCellChange]);
 
   // Enhanced column resize with improved performance
   const handleEnhancedColumnResize = useCallback((columnId: string, width: number) => {
@@ -950,6 +800,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               dragOverColumnIndex={columnDragState.dragOverColumnIndex}
               isEquipmentBasedMode={isEquipmentBasedMode}
               isTaskBasedMode={isTaskBasedMode}
+              expandedWorkOrders={expandedWorkOrders}
+              onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
             />
           </Box>
         </Box>
@@ -1048,6 +900,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 scrollLeft={horizontalScrollLeft}
                 isEquipmentBasedMode={isEquipmentBasedMode}
                 isTaskBasedMode={isTaskBasedMode}
+                expandedWorkOrders={expandedWorkOrders}
+                onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
               />
             </Box>
           </Box>
@@ -1140,6 +994,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               dragOverColumnIndex={columnDragState.dragOverColumnIndex}
               isEquipmentBasedMode={isEquipmentBasedMode}
               isTaskBasedMode={isTaskBasedMode}
+              expandedWorkOrders={expandedWorkOrders}
+              onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
             />
           </Box>
         </Box>
@@ -1259,6 +1115,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   scrollLeft={horizontalScrollLeft}
                   isEquipmentBasedMode={isEquipmentBasedMode}
                   isTaskBasedMode={isTaskBasedMode}
+                  expandedWorkOrders={expandedWorkOrders}
+                  onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
                 />
               </Box>
             </Box>
@@ -1358,6 +1216,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                   scrollLeft={horizontalScrollLeft}
                   isEquipmentBasedMode={isEquipmentBasedMode}
                   isTaskBasedMode={isTaskBasedMode}
+                  expandedWorkOrders={expandedWorkOrders}
+                  onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
                 />
               </Box>
             </Box>
@@ -1392,45 +1252,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     >
       {displayAreaConfig.mode === 'both' ? renderSplitAreas() : renderSingleArea()}
 
-      {/* Status Selection Dialog */}
-      {editDialogState.type === 'status' && (
-        <StatusSelectionDialog
-          open={editDialogState.open}
-          currentStatus={editDialogState.currentValue}
-          onSelect={handleDialogSave}
-          onClose={handleDialogClose}
-          anchorEl={editDialogState.anchorEl}
-        />
-      )}
-
-      {/* Cost Input Dialog */}
-      {editDialogState.type === 'cost' && (
-        <CostInputDialog
-          open={editDialogState.open}
-          currentCost={editDialogState.currentValue}
-          onSave={handleDialogSave}
-          onClose={handleDialogClose}
-          anchorEl={editDialogState.anchorEl}
-        />
-      )}
-
-      {/* TAG NO. Edit Dialog */}
       {editDialogState.type === 'tagNo' && (
         <TagNoEditDialog
           open={editDialogState.open}
           tagNo={editDialogState.currentValue}
-          onSave={handleDialogSave}
-          onClose={handleDialogClose}
-          readOnly={readOnly}
-        />
-      )}
-
-      {/* Asset Details Dialog */}
-      {editDialogState.type === 'assetDetails' && (
-        <AssetDetailsDialog
-          open={editDialogState.open}
-          item={editDialogState.currentValue}
-          hierarchy={hierarchy}
           onSave={handleDialogSave}
           onClose={handleDialogClose}
           readOnly={readOnly}

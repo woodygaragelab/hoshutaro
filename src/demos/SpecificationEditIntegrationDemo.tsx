@@ -61,12 +61,10 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
     setData(prevData => 
       prevData.map(item => item.id === updatedItem.id ? updatedItem : item)
     );
-    console.log('Item updated:', updatedItem);
-  };
+      };
 
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-    console.log('Cell edit:', { rowId, columnId, value });
-    
+        
     // Update the maintenance data
     const item = data.find(d => d.id === rowId);
     if (item) {
@@ -82,18 +80,13 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
   };
 
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
-    console.log('Specification edit:', { rowId, specIndex, key, value });
-    
+        
     // This is handled by the SpecificationEditManager, but we can add additional logging here
     if (key === 'add') {
-      console.log(`Added new specification to ${rowId}`);
-    } else if (key === 'delete') {
-      console.log(`Deleted specification ${specIndex} from ${rowId}`);
-    } else if (key === 'reorder') {
-      console.log(`Reordered specification in ${rowId}: ${value}`);
-    } else {
-      console.log(`Updated specification ${specIndex} ${key} to "${value}" for ${rowId}`);
-    }
+          } else if (key === 'delete') {
+          } else if (key === 'reorder') {
+          } else {
+          }
   };
 
   return (

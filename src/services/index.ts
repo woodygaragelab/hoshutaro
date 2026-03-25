@@ -1,4 +1,3 @@
-export { TaskManager } from './TaskManager';
 export { AssetManager } from './AssetManager';
 export { WorkOrderManager } from './WorkOrderManager';
 export { WorkOrderLineManager } from './WorkOrderLineManager';
@@ -15,7 +14,7 @@ export {
   createMigrationError,
   createPerformanceError
 } from './ErrorHandler';
-export type { HistoryAction, HistoryState } from './UndoRedoManager';
+export type { HistoryAction, HistoryState } from '../types/maintenanceTask';
 export type {
   ValidationError as ErrorHandlerValidationError,
   ReferenceError as ErrorHandlerReferenceError,

@@ -5,19 +5,16 @@ import { getTimeKey, getISOWeek } from './dateUtils';
 export const transformData = (data: { [id: string]: RawEquipment } | any, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], any] => {
   // Validate input data
   if (!data || typeof data !== 'object') {
-    console.warn('[dataTransformer] Invalid data provided, returning empty result');
-    return [[], [], { name: 'root', children: {} }];
+        return [[], [], { name: 'root', children: {} }];
   }
 
   // Check if this is v2.0.0 data structure
   if (data.version === '2.0.0' && data.assets) {
-    console.log('[dataTransformer] Processing v2.0.0 data structure');
-    return transformV2Data(data, timeScale);
+        return transformV2Data(data, timeScale);
   }
 
   // Legacy data processing
-  console.log('[dataTransformer] Processing legacy data structure');
-  const flatEquipmentList: HierarchicalData[] = [];
+    const flatEquipmentList: HierarchicalData[] = [];
   const hierarchyFilterTree = { name: 'root', children: {} };
 
   let minDate = new Date();
@@ -40,8 +37,7 @@ export const transformData = (data: { [id: string]: RawEquipment } | any, timeSc
     const equipment = item as RawEquipment;
     // Skip items without hierarchy or with null/undefined hierarchy
     if (!equipment || !equipment.hierarchy || typeof equipment.hierarchy !== 'object') {
-      console.warn('[dataTransformer] Skipping item with invalid hierarchy:', equipment);
-      return;
+            return;
     }
 
     // a. Build hierarchy path and populate filter tree
@@ -146,12 +142,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
   const associations = data.associations || {};
   const tasks = data.tasks || {};
 
-  console.log('[dataTransformer] V2 data counts:', {
-    assets: Object.keys(assets).length,
-    associations: Object.keys(associations).length,
-    tasks: Object.keys(tasks).length
-  });
-
+  
   let minDate = new Date();
   let maxDate = new Date(1970, 0, 1);
   let hasDateData = false;
@@ -180,8 +171,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
   // 2. Process each asset
   Object.values(assets).forEach((asset: any) => {
     if (!asset || !asset.hierarchyPath || typeof asset.hierarchyPath !== 'object') {
-      console.warn('[dataTransformer] Skipping asset with invalid hierarchy:', asset);
-      return;
+            return;
     }
 
     // Build hierarchy path and populate filter tree
@@ -277,11 +267,6 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
   // Sort the final list by task name for consistent ordering
   flatEquipmentList.sort((a, b) => a.task.localeCompare(b.task));
 
-  console.log('[dataTransformer] V2 transformation complete:', {
-    equipmentCount: flatEquipmentList.length,
-    timeHeaderCount: timeHeaders.length,
-    sampleEquipment: flatEquipmentList[0]
-  });
-
+  
   return [flatEquipmentList, timeHeaders, hierarchyFilterTree];
 };

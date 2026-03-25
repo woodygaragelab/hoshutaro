@@ -181,17 +181,14 @@ setTimeout(() => {
 // Register service worker for caching and offline support
 registerSW({
   onSuccess: (registration) => {
-    console.log('Service Worker registered successfully:', registration);
-  },
+      },
   onUpdate: (registration) => {
-    console.log('Service Worker update available:', registration);
-    // Show update notification to user
+        // Show update notification to user
     if (confirm('新しいバージョンが利用可能です。更新しますか？')) {
       window.location.reload();
     }
   },
   onOfflineReady: () => {
-    console.log('App is ready for offline use');
-    accessibilityManager.announce('アプリケーションがオフラインで利用可能になりました');
+        accessibilityManager.announce('アプリケーションがオフラインで利用可能になりました');
   },
 });

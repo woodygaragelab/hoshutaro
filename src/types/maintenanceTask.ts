@@ -18,9 +18,9 @@
 // ============================================================================
 
 /**
- * TaskClassification — flat master for maintenance work categories (20 types max)
+ * WorkOrderClassification — flat master for maintenance work categories (20 types max)
  */
-export interface TaskClassification {
+export interface WorkOrderClassification {
   id: string;      // "01"–"20"
   name: string;    // e.g. "年次点検", "オーバーホール", "SDM"
   order: number;   // display order
@@ -53,18 +53,6 @@ export interface AssetClassificationPath {
 // Core Entity Types
 // ============================================================================
 
-/**
- * Task — a concrete maintenance work item (part + activity name)
- * e.g. "ボイラードラム分解清掃", "電動機ベアリング交換"
- */
-export interface Task {
-  id: string;
-  name: string;           // 機器部位＋作業名
-  description: string;    // work description (required)
-  classification?: string; // e.g. task category identifier
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 /**
  * HierarchyPath — dynamic hierarchy for asset location
@@ -96,44 +84,37 @@ export interface Asset {
 }
 
 /**
- * WorkOrder — ordering / management unit, groups multiple Task × Asset
+ * WorkOrder — ordering / management unit, groups multiple Event × Asset
  * Name represents the order name (e.g. "ボイラー設備年次点検整備")
  */
 export interface WorkOrder {
   id: string;                    // WONUM
   name: string;                  // order / package name
-  taskClassificationId: string;  // → TaskClassification.id
-  defaultSchedulePattern?: {
-    frequency: 'yearly' | 'monthly' | 'quarterly' | 'custom';
-  };
-  createdAt: Date;
-  updatedAt: Date;
+  ClassificationId: string;      // → WorkOrderClassification.id
+  CreatedAt: Date;
+  UpdatedAt: Date;
 }
 
 /**
- * WorkOrderSchedule — per-date planned/actual/cost data
- */
-export interface WorkOrderSchedule {
-  [dateKey: string]: {           // YYYY-MM-DD, YYYY-MM, or YYYY
-    planned: boolean;
-    actual: boolean;
-    planCost: number;            // >= 0, default 0
-    actualCost: number;          // >= 0, default 0
-  };
-}
-
-/**
- * WorkOrderLine — star-chart cell: 1 Task × 1 Asset × Schedule
+ * WorkOrderLine — star-chart cell event: 1 Event × 1 Asset
  */
 export interface WorkOrderLine {
   id: string;
-  workOrderId: string;           // → WorkOrder.id
-  taskId: string;                // → Task.id
-  assetId: string;               // → Asset.id
-  schedule: WorkOrderSchedule;
-  manhours?: number;             // hours (optional, >= 0)
-  createdAt: Date;
-  updatedAt: Date;
+  name: string;                  // e.g. "ボイラードラム分解清掃"
+  WorkOrderId: string;           // → WorkOrder.id
+  AssetId: string;               // → Asset.id
+  PlanScheduleStart: Date;       // ISO 8601 Date
+  PlanScheduleEnd: Date;         // ISO 8601 Date
+  ActualScheduleStart: Date;     // ISO 8601 Date
+  ActualScheduleEnd: Date;       // ISO 8601 Date
+  Planned: boolean;
+  Actual: boolean;
+  PlanCost: number;              // >= 0, default 0
+  ActualCost: number;            // >= 0, default 0
+  PlannedManhours?: number;      // hours (optional, >= 0)
+  ActualManhours?: number;       // hours (optional, >= 0)
+  CreatedAt: Date;
+  UpdatedAt: Date;
 }
 
 // ============================================================================
@@ -163,7 +144,7 @@ export interface HierarchyDefinition {
 /**
  * ViewMode — display mode for the maintenance grid
  */
-export type ViewMode = 'equipment-based' | 'task-based';
+export type ViewMode = 'asset-based' | 'workorder-based';
 
 /**
  * AggregatedStatus — rolled-up status over a time period
@@ -193,9 +174,9 @@ export interface ViewModeState {
 }
 
 /**
- * EquipmentBasedRow — row data for equipment-based view
+ * AssetBasedRow — row data for asset-based view (formerly equipment-based)
  */
-export interface EquipmentBasedRow {
+export interface AssetBasedRow {
   type: 'hierarchy' | 'asset';
   level?: number;
   hierarchyKey?: string;
@@ -209,42 +190,48 @@ export interface EquipmentBasedRow {
     workOrderLineId: string;
     workOrderId: string;
     workOrderName: string;
-    taskId: string;
-    taskName: string;
-    taskClassificationId: string;
-    schedule: WorkOrderSchedule;
+    name: string;
+    ClassificationId: string;
+    PlanScheduleStart: Date;
+    PlanScheduleEnd: Date;
+    ActualScheduleStart: Date;
+    ActualScheduleEnd: Date;
+    Planned: boolean;
+    Actual: boolean;
+    PlanCost: number;
+    ActualCost: number;
     manhours?: number;
   }[];
 }
 
 /**
- * TaskBasedRow — row data for task-based view
- * Structure: Hierarchy → Asset → WorkOrderLine (3 layers)
- *
- * Note: specifications are not included because task-based mode focuses on tasks,
- * and specifications belong to assets. Specification editing is only
- * available in equipment-based mode.
+ * WorkOrderBasedRow — row data for workorder-based view
+ * Structure: WorkOrder (level 0) → AssetChild (level 1)
  */
-export interface TaskBasedRow {
+export interface WorkOrderBasedRow {
   id: string;
-  type: 'hierarchy' | 'asset' | 'workOrderLine';
+  type: 'workOrder' | 'assetChild';
   level: number;
-  // Hierarchy fields
-  hierarchyKey?: string;
-  hierarchyValue?: string;
-  // Asset fields
+  isExpanded?: boolean;
+  
+  // Basic display fields used by the grid 
+  task?: string; // e.g. rowName or workOrderName
+  bomCode?: string; // used for rendering the id/tag
+  
+  // WorkOrder fields (for parent rows)
+  workOrderId?: string;
+  workOrderName?: string;
+  ClassificationId?: string;
+  
+  // Asset fields (for child rows)
   assetId?: string;
   assetName?: string;
   hierarchyPath?: HierarchyPath;
-  // WorkOrderLine fields
-  workOrderLineId?: string;
-  workOrderId?: string;
-  workOrderName?: string;
-  taskId?: string;
-  taskName?: string;
-  taskClassificationId?: string;
-  schedule?: WorkOrderSchedule | { [timeKey: string]: AggregatedStatus };
-  manhours?: number;
+  
+  // Aggregated schedules for the row
+  aggregatedSchedule?: { [timeKey: string]: AggregatedStatus };
+  results?: { [timeKey: string]: AggregatedStatus };
+  rolledUpResults?: { [timeKey: string]: AggregatedStatus };
 }
 
 // ============================================================================
@@ -256,12 +243,11 @@ export interface TaskBasedRow {
  */
 export interface DataModel {
   version: string;               // "3.0.0"
-  tasks: { [id: string]: Task };
   assets: { [id: string]: Asset };
   workOrders: { [id: string]: WorkOrder };
   workOrderLines: { [id: string]: WorkOrderLine };
   hierarchy: HierarchyDefinition;
-  taskClassifications: TaskClassification[];
+  workOrderClassifications: WorkOrderClassification[];
   assetClassification: AssetClassificationDefinition;
   metadata: {
     lastModified: Date;
@@ -273,9 +259,6 @@ export interface DataModel {
 // ============================================================================
 
 export type HistoryAction =
-  | 'CREATE_TASK'
-  | 'UPDATE_TASK'
-  | 'DELETE_TASK'
   | 'CREATE_WORK_ORDER'
   | 'UPDATE_WORK_ORDER'
   | 'DELETE_WORK_ORDER'
@@ -304,7 +287,6 @@ export interface WorkOrderLineUpdate {
   lineId: string;
   action: 'update' | 'delete' | 'create';
   data?: Partial<WorkOrderLine>;
-  newTaskDef?: Partial<Task>;
 }
 
 // ============================================================================
@@ -320,7 +302,7 @@ export interface ValidationError {
 
 export interface ReferenceError {
   type: 'REFERENCE_ERROR';
-  entityType: 'task' | 'asset' | 'workOrder' | 'workOrderLine';
+  entityType: 'asset' | 'workOrder' | 'workOrderLine';
   entityId: string;
   referencedId: string;
   message: string;
@@ -358,11 +340,11 @@ export interface EditContext {
 }
 
 /**
- * ScheduleEditRequest — request to edit schedule information
+ * WorkOrderLineEditRequest — request to edit a target event cell
  */
-export interface ScheduleEditRequest {
+export interface WorkOrderLineEditRequest {
   workOrderLineId: string;
-  dateKey: string;
-  scheduleEntry: WorkOrderSchedule[string];
+  dateKey: string;  // The column representing the aggregated view (e.g., '2024-01')
+  data: Partial<WorkOrderLine>;
   context: EditContext;
 }

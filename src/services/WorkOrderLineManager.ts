@@ -7,7 +7,7 @@
  * Requirements: WOL CRUD, schedule updates, bulk operations, queries
  */
 
-import { WorkOrderLine, WorkOrderSchedule } from '../types/maintenanceTask';
+import { WorkOrderLine } from '../types/maintenanceTask';
 import { UndoRedoManager } from './UndoRedoManager';
 
 export class WorkOrderLineManager {
@@ -49,48 +49,19 @@ export class WorkOrderLineManager {
      * バリデーション
      */
     private validateLineData(data: {
-        workOrderId: string;
-        taskId: string;
-        assetId: string;
-        schedule?: WorkOrderSchedule;
+        WorkOrderId?: string;
+        name?: string;
+        AssetId?: string;
+        PlanScheduleStart?: Date;
     }): void {
-        if (!data.workOrderId || data.workOrderId.trim() === '') {
+        if (data.WorkOrderId !== undefined && data.WorkOrderId.trim() === '') {
             throw new Error('WorkOrder IDは必須です。');
         }
-        if (!data.taskId || data.taskId.trim() === '') {
-            throw new Error('作業IDは必須です。');
+        if (data.name !== undefined && data.name.trim() === '') {
+            throw new Error('作業名(name)は必須です。');
         }
-        if (!data.assetId || data.assetId.trim() === '') {
+        if (data.AssetId !== undefined && data.AssetId.trim() === '') {
             throw new Error('機器IDは必須です。');
-        }
-        if (data.schedule) {
-            this.validateSchedule(data.schedule);
-        }
-    }
-
-    /**
-     * スケジュールのバリデーション
-     */
-    private validateSchedule(schedule: WorkOrderSchedule): void {
-        for (const [dateKey, entry] of Object.entries(schedule)) {
-            if (!dateKey || dateKey.trim() === '') {
-                throw new Error('日付キーは空にできません。');
-            }
-            if (!entry || typeof entry !== 'object') {
-                throw new Error(`スケジュールエントリ ${dateKey} が無効です。`);
-            }
-            if (typeof entry.planned !== 'boolean') {
-                throw new Error(`スケジュールエントリ ${dateKey} のplannedはbooleanである必要があります。`);
-            }
-            if (typeof entry.actual !== 'boolean') {
-                throw new Error(`スケジュールエントリ ${dateKey} のactualはbooleanである必要があります。`);
-            }
-            if (typeof entry.planCost !== 'number' || entry.planCost < 0) {
-                throw new Error(`スケジュールエントリ ${dateKey} のplanCostが無効です。`);
-            }
-            if (typeof entry.actualCost !== 'number' || entry.actualCost < 0) {
-                throw new Error(`スケジュールエントリ ${dateKey} のactualCostが無効です。`);
-            }
         }
     }
 
@@ -98,7 +69,7 @@ export class WorkOrderLineManager {
      * WorkOrderLineを作成
      */
     createLine(
-        data: Omit<WorkOrderLine, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+        data: Omit<WorkOrderLine, 'id' | 'CreatedAt' | 'UpdatedAt'> & { id?: string }
     ): WorkOrderLine {
         this.validateLineData(data);
 
@@ -118,14 +89,10 @@ export class WorkOrderLineManager {
         }
 
         const line: WorkOrderLine = {
+            ...data,
             id,
-            workOrderId: data.workOrderId,
-            taskId: data.taskId,
-            assetId: data.assetId,
-            schedule: data.schedule || {},
-            manhours: data.manhours,
-            createdAt: now,
-            updatedAt: now,
+            CreatedAt: now,
+            UpdatedAt: now,
         };
 
         this.lines.set(id, line);
@@ -144,7 +111,7 @@ export class WorkOrderLineManager {
      */
     updateLine(
         id: string,
-        updates: Partial<Omit<WorkOrderLine, 'id' | 'createdAt'>>
+        updates: Partial<Omit<WorkOrderLine, 'id' | 'CreatedAt'>>
     ): WorkOrderLine {
         const existing = this.lines.get(id);
         if (!existing) {
@@ -153,28 +120,24 @@ export class WorkOrderLineManager {
 
         // Validate updated data if critical fields change
         if (
-            updates.workOrderId !== undefined ||
-            updates.taskId !== undefined ||
-            updates.assetId !== undefined
+            updates.WorkOrderId !== undefined ||
+            updates.name !== undefined ||
+            updates.AssetId !== undefined
         ) {
             const toValidate = {
-                workOrderId: updates.workOrderId ?? existing.workOrderId,
-                taskId: updates.taskId ?? existing.taskId,
-                assetId: updates.assetId ?? existing.assetId,
+                WorkOrderId: updates.WorkOrderId ?? existing.WorkOrderId,
+                name: updates.name ?? existing.name,
+                AssetId: updates.AssetId ?? existing.AssetId,
             };
             this.validateLineData(toValidate);
-        }
-
-        if (updates.schedule) {
-            this.validateSchedule(updates.schedule);
         }
 
         const updated: WorkOrderLine = {
             ...existing,
             ...updates,
             id: existing.id,
-            createdAt: existing.createdAt,
-            updatedAt: new Date(),
+            CreatedAt: existing.CreatedAt,
+            UpdatedAt: new Date(),
         };
 
         this.lines.set(id, updated);
@@ -219,16 +182,16 @@ export class WorkOrderLineManager {
      */
     getLinesByAsset(assetId: string): WorkOrderLine[] {
         return Array.from(this.lines.values()).filter(
-            (line) => line.assetId === assetId
+            (line) => line.AssetId === assetId
         );
     }
 
     /**
-     * 作業IDで検索
+     * 作業名で検索
      */
-    getLinesByTask(taskId: string): WorkOrderLine[] {
+    getLinesByName(name: string): WorkOrderLine[] {
         return Array.from(this.lines.values()).filter(
-            (line) => line.taskId === taskId
+            (line) => line.name === name
         );
     }
 
@@ -237,16 +200,16 @@ export class WorkOrderLineManager {
      */
     getLinesByWorkOrder(workOrderId: string): WorkOrderLine[] {
         return Array.from(this.lines.values()).filter(
-            (line) => line.workOrderId === workOrderId
+            (line) => line.WorkOrderId === workOrderId
         );
     }
 
     /**
-     * 機器ID + 作業IDで検索
+     * 機器ID + 作業名で検索
      */
-    getLineByAssetAndTask(assetId: string, taskId: string): WorkOrderLine | null {
+    getLineByAssetAndName(assetId: string, name: string): WorkOrderLine | null {
         for (const line of this.lines.values()) {
-            if (line.assetId === assetId && line.taskId === taskId) {
+            if (line.AssetId === assetId && line.name === name) {
                 return line;
             }
         }
@@ -261,114 +224,24 @@ export class WorkOrderLineManager {
         workOrderId: string
     ): WorkOrderLine[] {
         return Array.from(this.lines.values()).filter(
-            (line) => line.assetId === assetId && line.workOrderId === workOrderId
+            (line) => line.AssetId === assetId && line.WorkOrderId === workOrderId
         );
     }
 
     /**
-     * 特定日付のスケジュールを更新
+     * 計画工数・実績工数を一括更新
      */
-    updateSchedule(
-        id: string,
-        dateKey: string,
-        scheduleEntry: WorkOrderSchedule[string]
-    ): void {
+    updateManhours(id: string, plannedManhours?: number, actualManhours?: number): void {
         const line = this.lines.get(id);
         if (!line) {
             throw new Error(`WorkOrderLineが見つかりません: ${id}`);
         }
 
-        // Validate schedule entry
-        if (typeof scheduleEntry.planned !== 'boolean') {
-            throw new Error('plannedフラグはbooleanである必要があります。');
-        }
-        if (typeof scheduleEntry.actual !== 'boolean') {
-            throw new Error('actualフラグはbooleanである必要があります。');
-        }
-        if (typeof scheduleEntry.planCost !== 'number' || scheduleEntry.planCost < 0) {
-            throw new Error('planCostは0以上の数値である必要があります。');
-        }
-        if (typeof scheduleEntry.actualCost !== 'number' || scheduleEntry.actualCost < 0) {
-            throw new Error('actualCostは0以上の数値である必要があります。');
-        }
+        const updates: Partial<WorkOrderLine> = {};
+        if (plannedManhours !== undefined) updates.PlannedManhours = plannedManhours;
+        if (actualManhours !== undefined) updates.ActualManhours = actualManhours;
 
-        // Save previous state for undo
-        if (this.undoRedoManager) {
-            this.undoRedoManager.pushState('UPDATE_WORK_ORDER_LINE', {
-                previousLine: { ...line, schedule: { ...line.schedule } },
-                updatedLine: null, // will be set after update
-            });
-        }
-
-        // Update schedule
-        line.schedule = {
-            ...line.schedule,
-            [dateKey]: { ...scheduleEntry },
-        };
-        line.updatedAt = new Date();
-    }
-
-    /**
-     * 同じ作業を持つすべてのWorkOrderLineのスケジュールを更新
-     * （作業ベースモード用 — linked updates）
-     */
-    updateScheduleForAllLines(
-        taskId: string,
-        dateKey: string,
-        scheduleEntry: WorkOrderSchedule[string]
-    ): number {
-        const lines = this.getLinesByTask(taskId);
-        let updatedCount = 0;
-
-        for (const line of lines) {
-            this.updateSchedule(line.id, dateKey, scheduleEntry);
-            updatedCount++;
-        }
-
-        return updatedCount;
-    }
-
-    /**
-     * 一括スケジュール更新
-     */
-    bulkUpdateSchedule(
-        lineIds: string[],
-        dateKey: string,
-        scheduleEntry: WorkOrderSchedule[string]
-    ): number {
-        let updated = 0;
-        for (const id of lineIds) {
-            try {
-                this.updateSchedule(id, dateKey, scheduleEntry);
-                updated++;
-            } catch {
-                console.warn(`WorkOrderLine ${id} のスケジュール更新に失敗しました。`);
-            }
-        }
-        return updated;
-    }
-
-    /**
-     * 工数を更新
-     */
-    updateManhours(id: string, manhours: number): void {
-        const line = this.lines.get(id);
-        if (!line) {
-            throw new Error(`WorkOrderLineが見つかりません: ${id}`);
-        }
-        if (manhours < 0) {
-            throw new Error('工数は0以上である必要があります。');
-        }
-
-        if (this.undoRedoManager) {
-            this.undoRedoManager.pushState('UPDATE_WORK_ORDER_LINE', {
-                previousLine: { ...line },
-                updatedLine: { ...line, manhours },
-            });
-        }
-
-        line.manhours = manhours;
-        line.updatedAt = new Date();
+        this.updateLine(id, updates);
     }
 
     /**
@@ -396,7 +269,7 @@ export class WorkOrderLineManager {
      * WorkOrderLineを作成（エイリアス — App.tsx互換）
      */
     createWorkOrderLine(
-        data: Omit<WorkOrderLine, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+        data: Omit<WorkOrderLine, 'id' | 'CreatedAt' | 'UpdatedAt'> & { id?: string }
     ): WorkOrderLine {
         return this.createLine(data);
     }
@@ -406,7 +279,7 @@ export class WorkOrderLineManager {
      */
     updateWorkOrderLine(
         id: string,
-        updates: Partial<Omit<WorkOrderLine, 'id' | 'createdAt'>>
+        updates: Partial<Omit<WorkOrderLine, 'id' | 'CreatedAt'>>
     ): WorkOrderLine {
         return this.updateLine(id, updates);
     }
@@ -433,11 +306,11 @@ export class WorkOrderLineManager {
     }
 
     /**
-     * 機器と作業の組合せが存在するかチェック
+     * 機器と作業名の組合せが存在するかチェック
      */
-    hasLineForAssetAndTask(assetId: string, taskId: string): boolean {
+    hasLineForAssetAndName(assetId: string, name: string): boolean {
         for (const line of this.lines.values()) {
-            if (line.assetId === assetId && line.taskId === taskId) {
+            if (line.AssetId === assetId && line.name === name) {
                 return true;
             }
         }
@@ -485,10 +358,10 @@ export class WorkOrderLineManager {
     }
 
     /**
-     * 作業に関連する全WorkOrderLineを削除
+     * 作業名に関連する全WorkOrderLineを削除
      */
-    deleteByTask(taskId: string): number {
-        const toDelete = this.getLinesByTask(taskId);
+    deleteByName(name: string): number {
+        const toDelete = this.getLinesByName(name);
         for (const line of toDelete) {
             this.deleteLine(line.id);
         }

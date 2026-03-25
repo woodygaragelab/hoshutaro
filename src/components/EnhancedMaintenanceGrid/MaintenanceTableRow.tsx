@@ -46,33 +46,6 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
 }) => {
   // Use displayColumns if provided (for virtual scrolling), otherwise use all columns
   const columnsToRender = displayColumns || columns;
-  const [isEditingTask, setIsEditingTask] = useState(false);
-  const [taskInputValue, setTaskInputValue] = useState(item.task);
-
-  // Handle task editing (similar to existing TableRow logic)
-  const handleTaskClick = useCallback((e: React.MouseEvent) => {
-    if (readOnly) return;
-    setIsEditingTask(true);
-    e.stopPropagation();
-  }, [readOnly]);
-
-  const handleTaskBlur = useCallback(() => {
-    if (taskInputValue.trim() !== item.task) {
-      onUpdateItem({ ...item, task: taskInputValue.trim() });
-    }
-    setIsEditingTask(false);
-  }, [taskInputValue, item, onUpdateItem]);
-
-  const handleTaskKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
-    } else if (e.key === 'Escape') {
-      setTaskInputValue(item.task);
-      setIsEditingTask(false);
-    }
-  }, [item.task]);
-
-
 
   // Handle bomCode click (no inline editing, use dialog instead)
   const handleBomCodeClick = useCallback((e: React.MouseEvent) => {
@@ -212,25 +185,12 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
                 borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')
               }}
               onClick={() => handleCellClick(column.id)}
+              onDoubleClick={(e) => handleCellDoubleClick(column.id, e)}
             >
-              <Box sx={{ width: '100%' }} onClick={handleTaskClick}>
-                {isEditingTask ? (
-                  <TextField
-                    value={taskInputValue}
-                    onChange={(e) => setTaskInputValue(e.target.value)}
-                    onBlur={handleTaskBlur}
-                    onKeyDown={handleTaskKeyDown}
-                    autoFocus
-                    fullWidth
-                    variant="standard"
-                    size="small"
-                    sx={{ '& .MuiInput-root': { fontSize: '0.875rem' } }}
-                  />
-                ) : (
-                  <Box className="cell-content" sx={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {item.task}
-                  </Box>
-                )}
+              <Box sx={{ width: '100%', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <Box className="cell-content">
+                  {item.task || ''}
+                </Box>
               </Box>
             </Box>
           );

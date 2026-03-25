@@ -31,6 +31,14 @@ export class CopyPasteManager {
   }
 
   /**
+   * 参照データを更新（Reactの再レンダリング対応）
+   */
+  updateData(data: HierarchicalData[], columns: GridColumn[]) {
+    this.data = data;
+    this.columns = columns;
+  }
+
+  /**
    * セルの値を取得
    */
   private getCellValue(item: HierarchicalData, column: GridColumn, viewMode: 'status' | 'cost'): any {
@@ -157,8 +165,7 @@ export class CopyPasteManager {
       await navigator.clipboard.writeText(displayValue);
       return true;
     } catch (error) {
-      console.warn('Failed to write to system clipboard:', error);
-      return true; // 内部クリップボードは成功
+            return true; // 内部クリップボードは成功
     }
   }
 
@@ -207,8 +214,7 @@ export class CopyPasteManager {
       await navigator.clipboard.writeText(clipboardText);
       return true;
     } catch (error) {
-      console.warn('Failed to write to system clipboard:', error);
-      return true;
+            return true;
     }
   }
 
@@ -228,7 +234,10 @@ export class CopyPasteManager {
     const targetColumn = this.columns.find(c => c.id === targetColumnId);
 
     if (!targetItem || !targetColumn) {
-      return { success: false, error: '対象セルが見つかりません' };
+      return { 
+        success: false, 
+        error: `対象セルが見つかりません (Row: ${targetRowId} Found: ${!!targetItem}, Col: ${targetColumnId} Found: ${!!targetColumn}, DataLen: ${this.data.length})` 
+      };
     }
 
     const sourceCell = this.clipboardData.cells[0];
@@ -403,8 +412,7 @@ export class CopyPasteManager {
     try {
       return await navigator.clipboard.readText();
     } catch (error) {
-      console.warn('Failed to read from system clipboard:', error);
-      return null;
+            return null;
     }
   }
 }
@@ -412,8 +420,20 @@ export class CopyPasteManager {
 /**
  * コピー&ペースト機能用のカスタムフック
  */
+import { useRef, useEffect } from 'react';
+
 export const useCopyPaste = (data: HierarchicalData[], columns: GridColumn[]) => {
-  const manager = new CopyPasteManager(data, columns);
+  const managerRef = useRef<CopyPasteManager | null>(null);
+
+  if (!managerRef.current) {
+    managerRef.current = new CopyPasteManager(data, columns);
+  }
+
+  const manager = managerRef.current;
+
+  useEffect(() => {
+    manager.updateData(data, columns);
+  }, [data, columns, manager]);
 
   return {
     copySingleCell: manager.copySingleCell.bind(manager),

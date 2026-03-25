@@ -43,15 +43,13 @@ const AIAssistantIntegrationDemo: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
 
   const handleSuggestionApply = (suggestion: MaintenanceSuggestion) => {
-    console.log('Applying suggestion:', suggestion);
-    setNotification(
+        setNotification(
       `提案を適用しました: ${suggestion.equipmentId} - ${suggestion.timeHeader} (${suggestion.suggestedAction})`
     );
   };
 
   const handleExcelImport = (file: File) => {
-    console.log('Excel file imported:', file.name);
-    setNotification(`Excelファイル "${file.name}" をアップロードしました`);
+        setNotification(`Excelファイル "${file.name}" をアップロードしました`);
   };
 
   const handleCloseNotification = () => {

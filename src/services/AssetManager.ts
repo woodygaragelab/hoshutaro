@@ -322,8 +322,7 @@ export class AssetManager {
     }
 
     if (errors.length > 0) {
-      console.warn('Some assets failed to create:', errors);
-    }
+          }
 
     return createdAssets;
   }

@@ -5,23 +5,7 @@
  * 最大50回の操作履歴を保持し、スタックベースで管理します。
  */
 
-export type HistoryAction = 
-  | 'CREATE_TASK'
-  | 'UPDATE_TASK'
-  | 'DELETE_TASK'
-  | 'CREATE_ASSOCIATION'
-  | 'UPDATE_ASSOCIATION'
-  | 'DELETE_ASSOCIATION'
-  | 'UPDATE_HIERARCHY'
-  | 'REASSIGN_HIERARCHY'
-  | 'UPDATE_ASSET'
-  | 'UPDATE_SPECIFICATION';
-
-export interface HistoryState {
-  timestamp: Date;
-  action: HistoryAction;
-  data: any;
-}
+import { HistoryAction, HistoryState } from '../types/maintenanceTask';
 
 /**
  * UndoRedoManager

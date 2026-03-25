@@ -6,12 +6,11 @@
 
 import type {
   DataModel,
-  Task,
   Asset,
   WorkOrder,
   WorkOrderLine,
   HierarchyDefinition,
-  TaskClassification,
+  WorkOrderClassification,
   AssetClassificationDefinition,
 } from '../types/maintenanceTask';
 import { dataIntegrityChecker } from '../utils/dataIntegrityChecker';
@@ -54,10 +53,8 @@ export class DataStore {
       }
 
       if (integrityResult.warnings.length > 0) {
-        console.warn('データ整合性の警告:');
-        integrityResult.warnings.forEach(w => {
-          console.warn(`  [${w.type}] ${w.message}`);
-        });
+                integrityResult.warnings.forEach(w => {
+                  });
       }
 
       this.data = normalizedData;
@@ -85,10 +82,8 @@ export class DataStore {
       }
 
       if (integrityResult.warnings.length > 0) {
-        console.warn('データ整合性の警告:');
-        integrityResult.warnings.forEach(w => {
-          console.warn(`  [${w.type}] ${w.message}`);
-        });
+                integrityResult.warnings.forEach(w => {
+                  });
       }
 
       const dataToSave: DataModel = {
@@ -128,10 +123,6 @@ export class DataStore {
       throw new ValidationError(`サポートされていないバージョンです: ${data.version}。v3.0.0が必要です。`);
     }
 
-    if (!data.tasks || typeof data.tasks !== 'object') {
-      throw new ValidationError('tasksフィールドが必要です');
-    }
-
     if (!data.assets || typeof data.assets !== 'object') {
       throw new ValidationError('assetsフィールドが必要です');
     }
@@ -152,45 +143,19 @@ export class DataStore {
       throw new ValidationError('metadataフィールドが必要です');
     }
 
-    // taskClassifications is optional but validate if present
-    if (data.taskClassifications && !Array.isArray(data.taskClassifications)) {
-      throw new ValidationError('taskClassificationsは配列である必要があります');
+    // workOrderClassifications is optional but validate if present
+    if (data.workOrderClassifications && !Array.isArray(data.workOrderClassifications)) {
+      throw new ValidationError('workOrderClassificationsは配列である必要があります');
     }
 
     // Validate each entity type
-    this.validateTasks(data.tasks);
     this.validateAssets(data.assets);
     this.validateWorkOrders(data.workOrders);
-    this.validateWorkOrderLines(data.workOrderLines, data.workOrders, data.tasks, data.assets);
+    this.validateWorkOrderLines(data.workOrderLines, data.workOrders, data.assets);
     this.validateHierarchy(data.hierarchy);
 
-    if (data.taskClassifications) {
-      this.validateTaskClassifications(data.taskClassifications);
-    }
-  }
-
-  /**
-   * 作業のバリデーション
-   */
-  private validateTasks(tasks: any): asserts tasks is { [id: string]: Task } {
-    for (const [taskId, task] of Object.entries(tasks)) {
-      if (!task || typeof task !== 'object') {
-        throw new ValidationError(`作業 ${taskId} が無効です`);
-      }
-
-      const t = task as any;
-
-      if (!t.id || typeof t.id !== 'string') {
-        throw new ValidationError(`作業 ${taskId} のIDが無効です`);
-      }
-
-      if (t.id !== taskId) {
-        throw new ValidationError(`作業のIDがキーと一致しません: ${taskId} !== ${t.id}`);
-      }
-
-      if (!t.name || typeof t.name !== 'string') {
-        throw new ValidationError(`作業 ${taskId} の名前が必要です`);
-      }
+    if (data.workOrderClassifications) {
+      this.validateWorkOrderClassifications(data.workOrderClassifications);
     }
   }
 
@@ -250,7 +215,7 @@ export class DataStore {
         throw new ValidationError(`WorkOrder ${woId} の名前が必要です`);
       }
 
-      if (!w.taskClassificationId || typeof w.taskClassificationId !== 'string') {
+      if (!w.ClassificationId || typeof w.ClassificationId !== 'string') {
         throw new ValidationError(`WorkOrder ${woId} の作業分類IDが必要です`);
       }
     }
@@ -262,7 +227,6 @@ export class DataStore {
   private validateWorkOrderLines(
     lines: any,
     workOrders: { [id: string]: WorkOrder },
-    tasks: { [id: string]: Task },
     assets: { [id: string]: Asset }
   ): asserts lines is { [id: string]: WorkOrderLine } {
     for (const [lineId, line] of Object.entries(lines)) {
@@ -280,70 +244,35 @@ export class DataStore {
         throw new ValidationError(`WorkOrderLineのIDがキーと一致しません: ${lineId} !== ${l.id}`);
       }
 
-      if (!l.workOrderId || typeof l.workOrderId !== 'string') {
+      if (!l.WorkOrderId || typeof l.WorkOrderId !== 'string') {
         throw new ValidationError(`WorkOrderLine ${lineId} のWorkOrder IDが必要です`);
       }
 
-      if (!l.taskId || typeof l.taskId !== 'string') {
-        throw new ValidationError(`WorkOrderLine ${lineId} の作業IDが必要です`);
-      }
-
-      if (!l.assetId || typeof l.assetId !== 'string') {
+      if (!l.AssetId || typeof l.AssetId !== 'string') {
         throw new ValidationError(`WorkOrderLine ${lineId} の機器IDが必要です`);
       }
 
       // 参照整合性チェック
-      if (!workOrders[l.workOrderId]) {
-        throw new ValidationError(`WorkOrderLine ${lineId} が存在しないWorkOrderを参照しています: ${l.workOrderId}`);
+      if (!workOrders[l.WorkOrderId]) {
+        throw new ValidationError(`WorkOrderLine ${lineId} が存在しないWorkOrderを参照しています: ${l.WorkOrderId}`);
       }
 
-      if (!tasks[l.taskId]) {
-        throw new ValidationError(`WorkOrderLine ${lineId} が存在しない作業を参照しています: ${l.taskId}`);
+      if (!assets[l.AssetId]) {
+        throw new ValidationError(`WorkOrderLine ${lineId} が存在しない機器を参照しています: ${l.AssetId}`);
       }
 
-      if (!assets[l.assetId]) {
-        throw new ValidationError(`WorkOrderLine ${lineId} が存在しない機器を参照しています: ${l.assetId}`);
-      }
 
-      if (!l.schedule || typeof l.schedule !== 'object') {
-        throw new ValidationError(`WorkOrderLine ${lineId} のスケジュールが必要です`);
-      }
-
-      // スケジュールの各エントリをバリデーション
-      for (const [dateKey, scheduleEntry] of Object.entries(l.schedule)) {
-        if (!scheduleEntry || typeof scheduleEntry !== 'object') {
-          throw new ValidationError(`WorkOrderLine ${lineId} のスケジュールエントリ ${dateKey} が無効です`);
-        }
-
-        const s = scheduleEntry as any;
-
-        if (typeof s.planned !== 'boolean') {
-          throw new ValidationError(`WorkOrderLine ${lineId} のスケジュールエントリ ${dateKey} のplannedが無効です`);
-        }
-
-        if (typeof s.actual !== 'boolean') {
-          throw new ValidationError(`WorkOrderLine ${lineId} のスケジュールエントリ ${dateKey} のactualが無効です`);
-        }
-
-        if (typeof s.planCost !== 'number' || s.planCost < 0) {
-          throw new ValidationError(`WorkOrderLine ${lineId} のスケジュールエントリ ${dateKey} のplanCostが無効です`);
-        }
-
-        if (typeof s.actualCost !== 'number' || s.actualCost < 0) {
-          throw new ValidationError(`WorkOrderLine ${lineId} のスケジュールエントリ ${dateKey} のactualCostが無効です`);
-        }
-      }
     }
   }
 
   /**
    * 作業分類マスターのバリデーション
    */
-  private validateTaskClassifications(
+  private validateWorkOrderClassifications(
     classifications: any
-  ): asserts classifications is TaskClassification[] {
+  ): asserts classifications is WorkOrderClassification[] {
     if (!Array.isArray(classifications)) {
-      throw new ValidationError('taskClassificationsは配列である必要があります');
+      throw new ValidationError('workOrderClassificationsは配列である必要があります');
     }
 
     const seenIds = new Set<string>();
@@ -416,19 +345,6 @@ export class DataStore {
    */
   private normalizeDates(data: any): DataModel {
     const normalized = { ...data };
-
-    // 作業の日付を変換
-    if (normalized.tasks) {
-      for (const taskId in normalized.tasks) {
-        const task = normalized.tasks[taskId];
-        if (task.createdAt && typeof task.createdAt === 'string') {
-          task.createdAt = new Date(task.createdAt);
-        }
-        if (task.updatedAt && typeof task.updatedAt === 'string') {
-          task.updatedAt = new Date(task.updatedAt);
-        }
-      }
-    }
 
     // 機器の日付を変換
     if (normalized.assets) {

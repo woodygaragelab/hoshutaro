@@ -40,8 +40,7 @@ class PerformanceMonitor {
         navigationObserver.observe({ entryTypes: ['navigation'] });
         this.observers.push(navigationObserver);
       } catch (e) {
-        console.warn('Navigation timing not supported');
-      }
+              }
     }
 
     // Monitor resource loading
@@ -66,8 +65,7 @@ class PerformanceMonitor {
         resourceObserver.observe({ entryTypes: ['resource'] });
         this.observers.push(resourceObserver);
       } catch (e) {
-        console.warn('Resource timing not supported');
-      }
+              }
     }
   }
 
@@ -81,8 +79,7 @@ class PerformanceMonitor {
 
     // Log performance issues
     if (metric.duration > 1000) {
-      console.warn(`Performance warning: ${metric.name} took ${metric.duration}ms`);
-    }
+          }
   }
 
   measureAsync<T>(name: string, type: PerformanceMetrics['type'], fn: () => Promise<T>): Promise<T> {

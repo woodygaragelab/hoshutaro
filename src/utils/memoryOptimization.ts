@@ -12,8 +12,7 @@ export class MemoryMonitor {
 
   start() {
     if (!('memory' in performance)) {
-      console.warn('Memory API not supported');
-      return;
+            return;
     }
 
     this.checkInterval = window.setInterval(() => {
@@ -21,8 +20,7 @@ export class MemoryMonitor {
       const usage = memory.usedJSHeapSize;
       
       if (usage > this.memoryThreshold) {
-        console.warn(`High memory usage detected: ${Math.round(usage / 1024 / 1024)}MB`);
-        this.callbacks.forEach(callback => callback(usage));
+                this.callbacks.forEach(callback => callback(usage));
       }
     }, 5000);
   }
@@ -246,8 +244,7 @@ try {
   if (import.meta.env?.DEV) {
     memoryMonitor.start();
     memoryMonitor.onHighMemoryUsage((usage) => {
-      console.warn(`High memory usage: ${Math.round(usage / 1024 / 1024)}MB`);
-    });
+          });
   }
 } catch {
   // Ignore if environment variables are not available

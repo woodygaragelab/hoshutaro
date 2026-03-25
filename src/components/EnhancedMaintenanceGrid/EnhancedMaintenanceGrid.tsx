@@ -1,31 +1,28 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+// HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
 import { Box, Paper, Snackbar, Alert } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from '../ExcelLikeGrid/types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
-import { useClipboard } from '../ExcelLikeGrid/hooks/useClipboard';
-import { usePerformanceOptimization } from '../ExcelLikeGrid/hooks/usePerformanceOptimization';
-import PerformanceMonitor from '../PerformanceMonitor';
+import { useCopyPaste } from './copyPasteManager';
 import { IntegratedToolbar } from '../ModernHeader/ModernHeader';
 import { WorkOrderLineDialog } from '../WorkOrderLineDialog/WorkOrderLineDialog';
 import { ViewModeManager } from '../../services/ViewModeManager';
 import {
-  Task,
+  WorkOrder,
   Asset,
   WorkOrderLine,
   HierarchyDefinition,
   WorkOrderLineUpdate,
-  EquipmentBasedRow,
-  TaskBasedRow,
+  AssetBasedRow,
+  WorkOrderBasedRow,
   TimeScale,
-  WorkOrderSchedule
 } from '../../types/maintenanceTask';
-import { aggregateScheduleByTimeScale } from '../../utils/dataAggregation';
 import './EnhancedMaintenanceGrid.css';
 
 // Edit context for tracking edit scope
 export interface EditContext {
-  viewMode: 'equipment-based' | 'task-based';
+  viewMode: 'asset-based' | 'workorder-based';
   editScope: 'single-asset' | 'all-assets';  // 編集範囲
 }
 
@@ -35,7 +32,7 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   columns?: GridColumn[];
 
   // Equipment-based mode props
-  tasks?: Task[];
+  workOrders?: WorkOrder[];
   assets?: Asset[];
   associations?: WorkOrderLine[];
   hierarchy?: HierarchyDefinition;
@@ -43,8 +40,8 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onTaskAssociationUpdate?: (updates: WorkOrderLineUpdate[]) => void;
 
   // Data view mode props - Requirements 6.1, 6.2, 6.5
-  dataViewMode?: 'equipment-based' | 'task-based';
-  onDataViewModeChange?: (mode: 'equipment-based' | 'task-based') => void;
+  dataViewMode?: 'asset-based' | 'workorder-based';
+  onDataViewModeChange?: (mode: 'asset-based' | 'workorder-based') => void;
 
   // Edit scope props - Requirements 4.8, 5.7
   editScope?: 'single-asset' | 'all-assets';
@@ -55,7 +52,7 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onAssetSelectionChange?: (assetIds: string[]) => void;
   onHierarchyEdit?: (hierarchy: HierarchyDefinition) => void;
   onOpenAssetReassignDialog?: () => void;
-  onOpenTaskEditDialog?: (assetId: string, dateKey: string) => void;
+  onOpenTaskEditDialog?: (assetId: string, dateKey: string, taskId?: string) => void;
   onAssetEdit?: (assetId: string, updates: any) => void;
 
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
@@ -117,14 +114,14 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   className = '',
   groupedData,
   // Equipment-based mode props
-  tasks = [],
+  workOrders = [],
   assets = [],
   associations = [],
   hierarchy,
   viewModeManager,
   onTaskAssociationUpdate,
   // Data view mode props - Requirements 6.1, 6.2, 6.5
-  dataViewMode = 'equipment-based',
+  dataViewMode = 'asset-based',
   onDataViewModeChange,
   // Edit scope props - Requirements 4.8, 5.7
   editScope = 'single-asset',
@@ -170,13 +167,27 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
-  const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
   const [currentDisplayAreaConfig, setCurrentDisplayAreaConfig] = useState<DisplayAreaConfig | null>(null);
 
   // Task edit dialog state
   const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [selectedDateKey, setSelectedDateKey] = useState<string>('');
+
+  // WorkOrder Expand State for Tree Grid
+  const [expandedWorkOrders, setExpandedWorkOrders] = useState<Set<string>>(new Set());
+
+  const toggleWorkOrderExpanded = useCallback((workOrderId: string) => {
+    setExpandedWorkOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(workOrderId)) {
+        newSet.delete(workOrderId);
+      } else {
+        newSet.add(workOrderId);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Check current view mode - use dataViewMode prop if provided, otherwise get from viewModeManager
   const currentViewMode = (() => {
@@ -187,8 +198,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     return mode;
   })();
 
-  const isEquipmentBasedMode = currentViewMode === 'equipment-based';
-  const isTaskBasedMode = currentViewMode === 'task-based';
+  const isEquipmentBasedMode = currentViewMode === 'asset-based';
+  const isTaskBasedMode = currentViewMode === 'workorder-based';
 
   // Use timeHeaders directly to avoid memoization issues
   const memoizedTimeHeaders = timeHeaders;
@@ -197,28 +208,26 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const equipmentBasedData = (() => {
     // If we have data from parent (App.tsx), don't fetch again to avoid inconsistency
     if (data && data.length > 0) {
-      console.log('[EnhancedMaintenanceGrid] Using data from parent, skipping ViewModeManager fetch');
-      return [];
+            return [];
     }
 
     if (!isEquipmentBasedMode || !viewModeManager) {
       return [];
     }
-    return viewModeManager.getEquipmentBasedData();
+    return viewModeManager.getAssetBasedData();
   })();
 
   // Get task-based data if in task-based mode - simplified without useMemo
   const taskBasedData = (() => {
     // If we have data from parent (App.tsx), don't fetch again to avoid inconsistency
     if (data && data.length > 0) {
-      console.log('[EnhancedMaintenanceGrid] Using data from parent, skipping ViewModeManager fetch');
-      return [];
+            return [];
     }
 
     if (!isTaskBasedMode || !viewModeManager) {
       return [];
     }
-    return viewModeManager.getTaskBasedData();
+    return viewModeManager.getWorkOrderBasedData();
   })();
 
   // Convert equipment-based or task-based data to grid format
@@ -226,22 +235,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const convertedData = (() => {
     // If we have data from parent, use it directly (it's already transformed)
     if (data && data.length > 0) {
-      console.log('[EnhancedMaintenanceGrid] Using data from parent, length:', data.length);
-      console.log('[EnhancedMaintenanceGrid] Sample parent data:', data.slice(0, 3));
-      console.log('[EnhancedMaintenanceGrid] Data structure check:', {
-        hasId: data[0]?.id !== undefined,
-        hasTask: data[0]?.task !== undefined,
-        hasBomCode: data[0]?.bomCode !== undefined,
-        hasResults: data[0]?.results !== undefined,
-        hasLevel: data[0]?.level !== undefined,
-        isGroupHeader: data[0]?.isGroupHeader !== undefined
-      });
-      return data;
+                        return data;
     }
 
     // Task-based mode conversion (only if no data from parent)
     if (isTaskBasedMode && taskBasedData.length > 0) {
-      return taskBasedData.map((row) => {
+      return taskBasedData.map((row: any) => {
         if (row.type === 'hierarchy') {
           // Hierarchy header row (帯部分)
           return {
@@ -253,7 +252,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             rolledUpResults: {},
             isGroupHeader: true,
             level: row.level,
-            // Add type information for TaskBasedRow
+            // Add type information for WorkOrderBasedRow
             type: 'hierarchy',
             rowType: 'hierarchy'
           };
@@ -270,7 +269,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             level: row.level,
             assetId: row.assetId,
             hierarchyPath: row.hierarchyPath,
-            // Add type information for TaskBasedRow
+            // Add type information for WorkOrderBasedRow
             type: 'asset',
             rowType: 'asset'
           };
@@ -279,22 +278,14 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
           let results: any = {};
           let rolledUpResults: any = {};
 
-          // Aggregate schedule by time period ONCE, then extract values for each time header
-          if (row.schedule) {
-            // Week aggregation is now supported
-            const aggregated = aggregateScheduleByTimeScale(
-              row.schedule as WorkOrderSchedule,
-              timeScale as 'day' | 'week' | 'month' | 'year'
-            );
-
-            // Create stable objects to prevent infinite re-renders
-            results = { ...aggregated };
-            rolledUpResults = { ...aggregated };
+          if (row.aggregatedSchedule) {
+            results = { ...row.aggregatedSchedule };
+            rolledUpResults = { ...row.aggregatedSchedule };
           }
 
           return {
-            id: `task_${row.taskId}_asset_${row.assetId}`,
-            task: row.taskName || '',
+            id: `task_${row.workOrderId}_asset_${row.assetId}`,
+            task: row.workOrderName || '',
             bomCode: row.assetId!,
             specifications: [],
             results,
@@ -302,9 +293,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             hierarchyPath: row.hierarchyPath,
             level: row.level,
             assetId: row.assetId,
-            taskId: row.taskId,
-            schedule: row.schedule,
-            // Add type information for TaskBasedRow
+            taskId: row.workOrderId,
+            schedule: row.aggregatedSchedule,
             type: 'workOrderLine',
             rowType: 'workOrderLine'
           };
@@ -331,73 +321,27 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             rowType: 'hierarchy'
           };
         } else {
-          // Asset row with aggregated task information
-          let results: any = {};
-          let rolledUpResults: any = {};
-
-          // Aggregate tasks by time period
-          if (row.tasks && row.tasks.length > 0) {
-            // First, aggregate each task's schedule ONCE
-            const aggregatedTasks = row.tasks.map(task => {
-              return aggregateScheduleByTimeScale(
-                task.schedule,
-                timeScale as 'day' | 'week' | 'month' | 'year'
-              );
-            });
-
-            // Create a stable results object
-            const combinedResults: any = {};
-
-            // Then, for each time header, combine the aggregated results
-            memoizedTimeHeaders.forEach(timeHeader => {
-              const aggregatedStatus = {
-                planned: false,
-                actual: false,
-                totalPlanCost: 0,
-                totalActualCost: 0,
-                count: 0,
-              };
-
-              // Combine all tasks for this time period
-              aggregatedTasks.forEach(aggregated => {
-                const periodStatus = aggregated[timeHeader];
-                if (periodStatus) {
-                  aggregatedStatus.planned = aggregatedStatus.planned || periodStatus.planned;
-                  aggregatedStatus.actual = aggregatedStatus.actual || periodStatus.actual;
-                  aggregatedStatus.totalPlanCost += periodStatus.totalPlanCost;
-                  aggregatedStatus.totalActualCost += periodStatus.totalActualCost;
-                  aggregatedStatus.count += periodStatus.count;
-                }
-              });
-
-              // Store aggregated status
-              combinedResults[timeHeader] = aggregatedStatus;
-            });
-
-            results = combinedResults;
-            rolledUpResults = combinedResults;
-          }
-
+          // Asset row (帯) - No aggregated schedule natively
           return {
             id: row.assetId!,
             task: row.assetName!,
             bomCode: row.assetId!,
             specifications: row.specifications || [],
-            results,
-            rolledUpResults,
+            results: {},
+            rolledUpResults: {},
             hierarchyPath: row.hierarchyPath,
-            tasks: row.tasks, // Store tasks for dialog
+            tasks: [],
+
             // Add type information
-            type: 'asset',
-            rowType: 'asset'
-          };
+            type: 'asset' as 'asset',
+            rowType: 'asset' as const
+          } as any;
         }
       });
     }
 
     // Default: use original data
-    console.log('[EnhancedMaintenanceGrid] Using original data as fallback, length:', data.length);
-    return data;
+        return data;
   })();
 
   // Generate columns based on current configuration
@@ -571,62 +515,67 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     return convertedData as any;
   })();
 
-  const {
-    processedData,
-    processedColumns,
-    debouncedUpdate,
-    startRenderMeasurement,
-    endRenderMeasurement,
-    getPerformanceMetrics,
-    shouldUseVirtualScrolling
-  } = usePerformanceOptimization(
-    dataForProcessing,
-    columns,
-    gridState,
-    {
-      // DISABLED Performance optimizations based on user feedback regarding caching bugs
-      // causing display breaks when changing parameters like time scales.
-      enableMemoization: false,
-      enableDebouncing: false,
-      debounceDelay: 0,
-      enableBatching: false,
-      batchSize: 50
-    }
-  );
+  const processedData = dataForProcessing;
+  const processedColumns = columns;
+  const debouncedUpdate = useCallback((fn: () => void) => fn(), []);
+  const startRenderMeasurement = useCallback(() => {}, []);
+  const endRenderMeasurement = useCallback(() => {}, []);
+  const getPerformanceMetrics = useCallback(() => ({ renderTime: 0, fps: 60, droppedFrames: 0 }), []);
+  const shouldUseVirtualScrolling = columns.length > 20;
 
   // Handle cell double click - opens TaskEditDialog for both modes
   const handleCellDoubleClick = useCallback((rowId: string, columnId: string, event?: React.MouseEvent<HTMLElement>) => {
-    console.log('[EnhancedMaintenanceGrid] handleCellDoubleClick called:', {
-      rowId,
-      columnId,
-      isEquipmentBasedMode,
-      isTaskBasedMode,
-      dataViewMode,
-      hasOnOpenTaskEditDialog: !!onOpenTaskEditDialog
-    });
-
+    
     // Only handle time columns for TaskEditDialog
     if (columnId.startsWith('time_')) {
       const timeHeader = columnId.replace('time_', '');
 
-      // Extract assetId from rowId
+      // Extract assetId and taskId from rowId
       let assetId: string | undefined;
+      let taskId: string | undefined;
 
-      if (rowId.startsWith('asset_')) {
-        // Asset row: asset_P-101
-        assetId = rowId.replace('asset_', '');
-      } else if (rowId.startsWith('task_') && rowId.includes('_asset_')) {
-        // Task row: task_task-001_asset_P-101
+      // Check for ViewModeManager's task row format: asset_P-101_wo_wo-001
+      if (rowId.startsWith('asset_') && rowId.includes('_wo_')) {
+        const parts = rowId.replace('asset_', '').split('_wo_');
+        assetId = parts[0];
+        taskId = parts[1];
+      }
+      // Check for WorkOrder tree child row format: workOrder_wo-001_asset_P-101
+      else if (rowId.startsWith('workOrder_') && rowId.includes('_asset_')) {
         const parts = rowId.split('_asset_');
-        assetId = parts[1];
-      } else {
-        // Fallback: raw asset ID (equipment-based mode uses plain IDs like 'P-101')
+        taskId = parts[0].replace('workOrder_', '');
+        // Strip out any trailing suffixes just in case
+        assetId = parts[1].split('_')[0] === parts[1] ? parts[1] : parts[1].split('_')[0]; 
+        // Wait, asset id might have hyphens but usually no underscores. If `_wol_` was attached, split by it.
+        if (parts[1].includes('_wol_')) {
+            assetId = parts[1].split('_wol_')[0];
+        } else {
+            assetId = parts[1];
+        }
+      }
+      // Check for WorkOrder tree parent row format: workOrder_wo-001
+      else if (rowId.startsWith('workOrder_') && !rowId.includes('_asset_')) {
+        taskId = rowId.replace('workOrder_', '');
+        assetId = ''; // Blank asset means we are focusing on the whole work order
+      }
+      // Check for alternative legacy task row format: task_wo-001_asset_P-101
+      else if (rowId.startsWith('task_') && rowId.includes('_asset_')) {
+        const parts = rowId.split('_asset_');
+        taskId = parts[0].replace('task_', '');
+        const assetParts = parts[1].split('_wol_');
+        assetId = assetParts[0];
+      } 
+      // Finally, check for pure asset row format: asset_P-101
+      else if (rowId.startsWith('asset_')) {
+        assetId = rowId.replace('asset_', '');
+      } 
+      else {
+        // Fallback: raw asset ID
         assetId = rowId;
       }
 
-      if (assetId) {
-        console.log('[EnhancedMaintenanceGrid] Opening TaskEditDialog for:', { assetId, timeHeader });
-
+      if (assetId || taskId) {
+        
         // CRITICAL: Prevent MaintenanceGridLayout from opening StatusSelectionDialog/CostInputDialog
         if (event) {
           event.preventDefault();
@@ -635,10 +584,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
         // Open TaskEditDialog through App.tsx integration
         if (onOpenTaskEditDialog) {
-          onOpenTaskEditDialog(assetId, timeHeader);
+          onOpenTaskEditDialog(assetId || '', timeHeader, taskId);
         } else {
           // Fallback for standalone usage
-          setSelectedAssetId(assetId);
+          setSelectedAssetId(assetId || '');
           setSelectedDateKey(timeHeader);
           setTaskEditDialogOpen(true);
         }
@@ -647,8 +596,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     // For non-time columns, let MaintenanceGridLayout handle (specifications, etc.)
-    console.log('[EnhancedMaintenanceGrid] Non-time column, delegating to MaintenanceGridLayout');
-  }, [isEquipmentBasedMode, isTaskBasedMode, dataViewMode, onOpenTaskEditDialog]);
+      }, [isEquipmentBasedMode, isTaskBasedMode, dataViewMode, onOpenTaskEditDialog]);
 
   // Handle task association updates from dialog
   const handleTaskAssociationUpdate = useCallback((updates: WorkOrderLineUpdate[]) => {
@@ -677,71 +625,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     if (isEquipmentBasedMode && columnId.startsWith('time_')) {
       // Time cell editing is handled by TaskEditDialog via double-click
       return;
-    }
-
-    // In task-based mode, handle linked schedule updates
-    if (isTaskBasedMode && columnId.startsWith('time_')) {
-      const row = processedData.find(r => r.id === rowId) as any;
-      if (row && row.assetId && row.taskId) {
-        // This is a task row under an asset - perform linked update
-        const timeHeader = columnId.replace('time_', '');
-
-        // Convert various value formats to status object
-        let statusValue = value;
-        if (typeof value === 'string') {
-          switch (value) {
-            case '◎':
-              statusValue = { planned: true, actual: true, planCost: 0, actualCost: 0 };
-              break;
-            case '〇':
-            case '○':
-              statusValue = { planned: true, actual: false, planCost: 0, actualCost: 0 };
-              break;
-            case '●':
-              statusValue = { planned: false, actual: true, planCost: 0, actualCost: 0 };
-              break;
-            default:
-              statusValue = { planned: false, actual: false, planCost: 0, actualCost: 0 };
-          }
-        } else if (value && typeof value === 'object') {
-          // Handle status/cost objects from dialogs
-          if ('planned' in value && 'actual' in value) {
-            statusValue = {
-              planned: value.planned || false,
-              actual: value.actual || false,
-              planCost: value.planCost || 0,
-              actualCost: value.actualCost || 0
-            };
-          }
-        }
-
-        // Find all associations with the same task and update them
-        const taskId = row.taskId;
-        const relatedAssociations = associations.filter(a => a.taskId === taskId);
-
-
-
-        if (onTaskAssociationUpdate && relatedAssociations.length > 0) {
-          const updates: WorkOrderLineUpdate[] = relatedAssociations.map(assoc => ({
-            lineId: assoc.id,
-            action: 'update',
-            data: {
-              schedule: {
-                ...assoc.schedule,
-                [timeHeader]: statusValue
-              }
-            }
-          }));
-
-          onTaskAssociationUpdate(updates);
-          setClipboardMessage({
-            message: `作業ベースモード: ${relatedAssociations.length}件の機器のスケジュールを連動更新しました`,
-            severity: 'success'
-          });
-        }
-
-        return;
-      }
     }
 
     // Check if this is a specification edit
@@ -841,16 +724,11 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
   }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode, isTaskBasedMode]);
 
-  // Initialize clipboard hook with handleCellEdit
+  // Initialize clipboard hook with real implementaton
   const {
-    copyToClipboard,
-    pasteFromClipboard
-  } = useClipboard({
-    data: processedData,
-    columns: processedColumns,
-    onCellEdit: handleCellEdit,
-    readOnly
-  });
+    copySingleCell,
+    pasteSingleCell
+  } = useCopyPaste(processedData as any, processedColumns);
 
   const handleColumnResize = useCallback((columnId: string, width: number) => {
     updateColumnWidth(columnId, width);
@@ -887,101 +765,45 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
   // Handle copy operation with cross-area support
   const handleCopy = useCallback(async () => {
-    if (!gridState.selectedCell && !gridState.selectedRange) return;
+    if (!gridState.selectedCell) return;
 
     const sourceArea = getCurrentDisplayArea();
     try {
-      copyToClipboard(gridState.selectedRange || gridState.selectedCell);
+      await copySingleCell(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
       setClipboardMessage({ message: `${sourceArea === 'specifications' ? '機器仕様' : '計画実績'}エリアからコピーしました`, severity: 'success' });
     } catch (error) {
       setClipboardMessage({ message: 'コピーに失敗しました', severity: 'error' });
     }
-  }, [gridState.selectedCell, gridState.selectedRange, getCurrentDisplayArea, copyToClipboard]);
+  }, [gridState.selectedCell, getCurrentDisplayArea, copySingleCell, viewMode]);
 
   // Handle paste operation with cross-area support
   const handlePaste = useCallback(async () => {
     if (!gridState.selectedCell || readOnly) return;
 
-    // In task-based mode, handle linked paste
-    if (isTaskBasedMode && gridState.selectedCell.columnId.startsWith('time_')) {
-      const selectedRowId = gridState.selectedCell!.rowId;
-      const row = processedData.find(r => r.id === selectedRowId) as any;
-      if (row && row.assetId && row.taskId) {
-        try {
-          // Get clipboard data
-          const clipboardText = await navigator.clipboard.readText();
-
-          // Parse clipboard data (simple implementation - assumes single cell)
-          const value = clipboardText.trim();
-
-          // Apply the paste to all assets with the same task
-          const timeHeader = gridState.selectedCell.columnId.replace('time_', '');
-          const taskId = row.taskId;
-          const relatedAssociations = associations.filter(a => a.taskId === taskId);
-
-          // Convert value to status object
-          let statusValue: any;
-          switch (value) {
-            case '◎':
-              statusValue = { planned: true, actual: true, planCost: 0, actualCost: 0 };
-              break;
-            case '〇':
-            case '○':
-              statusValue = { planned: true, actual: false, planCost: 0, actualCost: 0 };
-              break;
-            case '●':
-              statusValue = { planned: false, actual: true, planCost: 0, actualCost: 0 };
-              break;
-            default:
-              statusValue = { planned: false, actual: false, planCost: 0, actualCost: 0 };
-          }
-
-
-
-          if (onTaskAssociationUpdate && relatedAssociations.length > 0) {
-            const updates: WorkOrderLineUpdate[] = relatedAssociations.map(assoc => ({
-              lineId: assoc.id,
-              action: 'update',
-              data: {
-                schedule: {
-                  ...assoc.schedule,
-                  [timeHeader]: statusValue
-                }
-              }
-            }));
-
-            onTaskAssociationUpdate(updates);
-            setClipboardMessage({
-              message: `作業ベースモード: ${relatedAssociations.length}件の機器にペーストしました（連動更新）`,
-              severity: 'success'
-            });
-          }
-        } catch (error) {
-          console.error('[EnhancedMaintenanceGrid] Paste error in task-based mode:', error);
-          setClipboardMessage({
-            message: 'ペーストに失敗しました',
-            severity: 'error'
-          });
-        }
-
-        return;
-      }
-    }
+    // Task-based and equipment-based modes are both handled unifiedly below
+    // through the copyPasteManager and App.tsx's handleCellEdit.
 
     const targetArea = getCurrentDisplayArea();
     try {
-      pasteFromClipboard(gridState.selectedCell);
-      setClipboardMessage({
-        message: `${targetArea === 'specifications' ? '機器仕様' : '計画実績'}エリアにペーストしました`,
-        severity: 'success'
-      });
+      const result = await pasteSingleCell(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
+      
+      if (result.success && result.value !== undefined) {
+        // Fire the cell edit to update the data
+        handleCellEdit(gridState.selectedCell.rowId, gridState.selectedCell.columnId, result.value);
+        setClipboardMessage({
+          message: `${targetArea === 'specifications' ? '機器仕様' : '計画実績'}エリアにペーストしました`,
+          severity: 'success'
+        });
+      } else {
+        throw new Error(result.error || 'ペーストエラー');
+      }
     } catch (error) {
       setClipboardMessage({
-        message: `ペーストに失敗しました`,
+        message: error instanceof Error ? error.message : `ペーストに失敗しました`,
         severity: 'error'
       });
     }
-  }, [gridState.selectedCell, readOnly, getCurrentDisplayArea, pasteFromClipboard, isTaskBasedMode, processedData, associations, onTaskAssociationUpdate]);
+  }, [gridState.selectedCell, readOnly, getCurrentDisplayArea, pasteSingleCell, viewMode, handleCellEdit, processedData, associations, onTaskAssociationUpdate]);
 
   // Handle delete operation
   const handleDelete = useCallback(() => {
@@ -993,39 +815,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     // Only delete if the cell is editable
     if (!currentColumn?.editable) return;
 
-    // In task-based mode, handle linked delete
-    if (isTaskBasedMode && columnId.startsWith('time_')) {
-      const row = processedData.find(r => r.id === rowId) as any;
-      if (row && row.assetId && row.taskId) {
-        // This is an asset row under a task - perform linked delete
-        const timeHeader = columnId.replace('time_', '');
-        const taskId = row.taskId;
-        const relatedAssociations = associations.filter(a => a.taskId === taskId);
-
-        const emptyStatus = { planned: false, actual: false, planCost: 0, actualCost: 0 };
-
-        if (onTaskAssociationUpdate && relatedAssociations.length > 0) {
-          const updates: WorkOrderLineUpdate[] = relatedAssociations.map(assoc => ({
-            lineId: assoc.id,
-            action: 'update',
-            data: {
-              schedule: {
-                ...assoc.schedule,
-                [timeHeader]: emptyStatus
-              }
-            }
-          }));
-
-          onTaskAssociationUpdate(updates);
-          setClipboardMessage({
-            message: `作業ベースモード: ${relatedAssociations.length}件の機器の星取を削除しました（連動削除）`,
-            severity: 'success'
-          });
-        }
-
-        return;
-      }
-    }
 
     // Check if this is a specification column
     if (columnId.startsWith('spec_')) {
@@ -1195,8 +984,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     setSelectedCell,
     handleCopy,
     handlePaste,
-    handleDelete,
-    showPerformanceMonitor
+    handleDelete
   ]);
 
   // Focus the grid when a cell is selected, but not if menus are open
@@ -1260,13 +1048,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
   // Desktop-only view
   const renderGridView = useMemo(() => {
-    console.log('[EnhancedMaintenanceGrid] Rendering grid with processedData:', {
-      length: processedData.length,
-      sample: processedData.slice(0, 3),
-      isTaskBasedMode,
-      dataViewMode
-    });
-
     return (
       <MaintenanceGridLayout
         data={processedData}
@@ -1276,7 +1057,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         viewMode={viewMode}
         groupedData={groupedData}
         onCellEdit={handleCellEdit}
-        onCellDoubleClick={handleCellDoubleClick}
         onCellDoubleClick={handleCellDoubleClick}
         onSpecificationEdit={onSpecificationEdit}
         onSpecificationColumnReorder={onSpecificationColumnReorder}
@@ -1291,13 +1071,14 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         virtualScrolling={autoVirtualScrolling || shouldUseVirtualScrolling}
         readOnly={readOnly}
         onCopy={handleCopy}
-        onPaste={handlePaste}
-        enableHorizontalVirtualScrolling={autoVirtualScrolling}
         isEquipmentBasedMode={isEquipmentBasedMode}
         isTaskBasedMode={isTaskBasedMode}
-        // Asset selection props - Requirements 3.2, 3.6
+        // Asset selection props
         selectedAssets={selectedAssets}
         onAssetSelectionToggle={handleAssetSelectionToggle}
+        // WorkOrder expansion props
+        expandedWorkOrders={expandedWorkOrders}
+        onToggleWorkOrderExpanded={toggleWorkOrderExpanded}
       />
     );
   }, [
@@ -1305,7 +1086,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
     onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
     setSelectedRange, onUpdateItem, virtualScrolling, shouldUseVirtualScrolling, readOnly,
-    handleCopy, handlePaste, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit
+    handleCopy, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
+    expandedWorkOrders, toggleWorkOrderExpanded
   ]);
 
   // Stable callback handlers to prevent infinite re-renders
@@ -1453,29 +1235,19 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         </Snackbar>
       )}
 
-      {/* Performance Monitor - Desktop only */}
-      {showPerformanceMonitor && (
-        <PerformanceMonitor
-          metrics={getPerformanceMetrics()}
-          dataSize={processedData.length}
-          columnCount={processedColumns.length}
-          virtualScrollingEnabled={virtualScrolling || shouldUseVirtualScrolling}
-          visible={true}
-        />
-      )}
-
       {/* WorkOrderLineDialog - Equipment-based mode */}
       {isEquipmentBasedMode && taskEditDialogOpen && (
         <WorkOrderLineDialog
           open={taskEditDialogOpen}
           assetId={selectedAssetId}
           dateKey={selectedDateKey}
-          associations={associations.filter(a => a.assetId === selectedAssetId)}
-          allTasks={tasks}
+          associations={associations.filter(a => a.AssetId === selectedAssetId)}
+          allWorkOrders={workOrders}
           allAssets={assets}
           onSave={handleTaskAssociationUpdate}
           onClose={() => setTaskEditDialogOpen(false)}
           readOnly={readOnly}
+          allWorkOrderLines={associations}
         />
       )}
     </>

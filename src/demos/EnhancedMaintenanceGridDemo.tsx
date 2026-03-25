@@ -71,8 +71,7 @@ const EnhancedMaintenanceGridDemo: React.FC = () => {
   }, [data]);
 
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-    console.log('Cell edit:', { rowId, columnId, value });
-    
+        
     setData(prevData => 
       prevData.map(item => {
         if (item.id !== rowId) return item;
@@ -95,8 +94,7 @@ const EnhancedMaintenanceGridDemo: React.FC = () => {
   };
 
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
-    console.log('Specification edit:', { rowId, specIndex, key, value });
-    
+        
     setData(prevData => 
       prevData.map(item => {
         if (item.id !== rowId) return item;
@@ -120,8 +118,7 @@ const EnhancedMaintenanceGridDemo: React.FC = () => {
   };
 
   const handleUpdateItem = (updatedItem: HierarchicalData) => {
-    console.log('Update item:', updatedItem);
-    
+        
     setData(prevData => 
       prevData.map(item => item.id === updatedItem.id ? updatedItem : item)
     );

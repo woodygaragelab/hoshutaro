@@ -39,8 +39,7 @@ export class ScrollManager {
         }
       }
     } catch (error) {
-      console.warn('Failed to load scroll state:', error);
-    }
+          }
 
     return {
       fixed: { top: 0, left: 0, timestamp: Date.now() },
@@ -56,8 +55,7 @@ export class ScrollManager {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.scrollState));
     } catch (error) {
-      console.warn('Failed to save scroll state:', error);
-    }
+          }
   }
 
   /**
@@ -114,8 +112,7 @@ export class ScrollManager {
     try {
       localStorage.removeItem(this.storageKey);
     } catch (error) {
-      console.warn('Failed to clear scroll state:', error);
-    }
+          }
   }
 
   /**

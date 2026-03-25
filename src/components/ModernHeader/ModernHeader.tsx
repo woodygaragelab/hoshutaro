@@ -135,7 +135,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   onViewModeChange,
   timeScale,
   onTimeScaleChange,
-  dataViewMode = 'equipment-based',
+  dataViewMode = 'asset-based',
   onDataViewModeChange,
   editScope = 'single-asset',
   onEditScopeChange,
@@ -295,8 +295,8 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
             }}
           >
             <Button
-              variant={dataViewMode === 'equipment-based' ? 'contained' : 'outlined'}
-              onClick={() => onDataViewModeChange('equipment-based')}
+              variant={dataViewMode === 'asset-based' ? 'contained' : 'outlined'}
+              onClick={() => onDataViewModeChange('asset-based')}
               startIcon={<EquipmentIcon sx={{ fontSize: '0.875rem !important' }} />}
               sx={{ 
                 fontSize: '0.75rem', 
@@ -313,8 +313,8 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               機器ベース
             </Button>
             <Button
-              variant={dataViewMode === 'task-based' ? 'contained' : 'outlined'}
-              onClick={() => onDataViewModeChange('task-based')}
+              variant={dataViewMode === 'workorder-based' ? 'contained' : 'outlined'}
+              onClick={() => onDataViewModeChange('workorder-based')}
               startIcon={<TaskIcon sx={{ fontSize: '0.875rem !important' }} />}
               sx={{ 
                 fontSize: '0.75rem', 
@@ -336,7 +336,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
 
 
         {/* Display Mode Tabs - Only show in equipment-based mode */}
-        {dataViewMode === 'equipment-based' && (
+        {dataViewMode === 'asset-based' && (
           <ButtonGroup 
             size="small" 
             sx={{ 
@@ -619,7 +619,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                   現在の表示モード
                 </Typography>
                 <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                  {dataViewMode === 'equipment-based' 
+                  {dataViewMode === 'asset-based' 
                     ? '機器ベース: 機器を階層別にグループ化して表示しています。'
                     : '作業ベース: 作業を分類別にグループ化して表示しています。'}
                 </Typography>
@@ -646,11 +646,11 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
             {/* Hierarchy Filters - Requirements 6.5 */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-                {dataViewMode === 'task-based' ? '階層・作業分類フィルター' : '階層フィルター'}
+                {dataViewMode === 'workorder-based' ? '階層・作業分類フィルター' : '階層フィルター'}
               </Typography>
               
               {/* Show task classification filter in task-based mode */}
-              {dataViewMode === 'task-based' && (
+              {dataViewMode === 'workorder-based' && (
                 <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                   <InputLabel>作業分類</InputLabel>
                   <Select

@@ -40,8 +40,7 @@ class BundleAnalyzer {
       try {
         observer.observe({ entryTypes: ['resource'] });
       } catch (e) {
-        console.warn('Resource timing not supported for bundle analysis');
-      }
+              }
     }
   }
 
@@ -102,8 +101,7 @@ class BundleAnalyzer {
   }
 
   logReport() {
-    console.log(this.generateReport());
-  }
+      }
 }
 
 export const bundleAnalyzer = new BundleAnalyzer();

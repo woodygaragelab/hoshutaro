@@ -34,8 +34,7 @@ export class OfflineModeManager {
    */
   private async handleOnline(): Promise<void> {
     this.isOnline = true;
-    console.log('Online mode activated');
-    
+        
     // オフラインキューを同期
     await this.syncOfflineQueue();
     
@@ -48,8 +47,7 @@ export class OfflineModeManager {
    */
   private handleOffline(): void {
     this.isOnline = false;
-    console.log('Offline mode activated');
-    
+        
     // 同期タイマーを停止
     this.stopSyncTimer();
     
@@ -84,8 +82,7 @@ export class OfflineModeManager {
     // ストレージに保存
     this.saveOfflineData();
     
-    console.log(`Added to offline queue: ${offlineData.key}`);
-  }
+      }
 
   /**
    * セル編集をオフラインキューに追加
@@ -157,8 +154,7 @@ export class OfflineModeManager {
       return;
     }
 
-    console.log(`Syncing ${this.offlineQueue.size} offline operations`);
-
+    
     const syncPromises: Promise<void>[] = [];
 
     for (const [key, offlineData] of this.offlineQueue) {
@@ -180,8 +176,7 @@ export class OfflineModeManager {
       // ストレージを更新
       this.saveOfflineData();
       
-      console.log('Offline queue sync completed');
-    } catch (error) {
+          } catch (error) {
       console.error('Failed to sync offline queue:', error);
     }
   }
@@ -207,13 +202,11 @@ export class OfflineModeManager {
           await this.syncItemDeletion(data);
           break;
         default:
-          console.warn(`Unknown operation type: ${data.type}`);
-      }
+                }
       
       // 同期成功
       offlineData.syncStatus = 'synced';
-      console.log(`Synced operation: ${key}`);
-      
+            
     } catch (error) {
       // 同期失敗
       offlineData.syncStatus = 'error';
@@ -231,8 +224,7 @@ export class OfflineModeManager {
    */
   private async syncCellEdit(data: any): Promise<void> {
     // 実際の実装では、サーバーAPIを呼び出し
-    console.log('Syncing cell edit:', data);
-    
+        
     // シミュレーション
     await this.delay(100);
     
@@ -246,8 +238,7 @@ export class OfflineModeManager {
    * 機器仕様編集を同期
    */
   private async syncSpecificationEdit(data: any): Promise<void> {
-    console.log('Syncing specification edit:', data);
-    await this.delay(100);
+        await this.delay(100);
     
     if (Math.random() < 0.03) { // 3%の確率で競合
       throw new Error('Sync conflict: Specification was modified by another user');
@@ -258,8 +249,7 @@ export class OfflineModeManager {
    * アイテム作成を同期
    */
   private async syncItemCreation(data: any): Promise<void> {
-    console.log('Syncing item creation:', data);
-    await this.delay(200);
+        await this.delay(200);
     
     if (Math.random() < 0.02) { // 2%の確率で競合
       throw new Error('Sync conflict: Item with same ID already exists');
@@ -270,8 +260,7 @@ export class OfflineModeManager {
    * アイテム削除を同期
    */
   private async syncItemDeletion(data: any): Promise<void> {
-    console.log('Syncing item deletion:', data);
-    await this.delay(150);
+        await this.delay(150);
     
     if (Math.random() < 0.01) { // 1%の確率で競合
       throw new Error('Sync conflict: Item was already deleted');
@@ -286,8 +275,7 @@ export class OfflineModeManager {
     offlineData: OfflineData,
     error: Error
   ): Promise<void> {
-    console.log(`Handling sync conflict for: ${key}`);
-    
+        
     // 競合解決UI を表示する必要がある
     // ここでは簡単な自動解決を実装
     
@@ -305,8 +293,7 @@ export class OfflineModeManager {
       await this.syncSingleOperation(key, offlineData);
     } else {
       // マージ失敗 - 手動解決が必要
-      console.warn(`Manual conflict resolution required for: ${key}`);
-      // 実際の実装では、ユーザーに競合解決UIを表示
+            // 実際の実装では、ユーザーに競合解決UIを表示
     }
   }
 
@@ -315,8 +302,7 @@ export class OfflineModeManager {
    */
   private async fetchLatestData(itemId: string): Promise<any> {
     // 実際の実装では、サーバーから最新データを取得
-    console.log(`Fetching latest data for: ${itemId}`);
-    await this.delay(100);
+        await this.delay(100);
     
     return {
       id: itemId,
@@ -354,14 +340,12 @@ export class OfflineModeManager {
       
       // サイズチェック
       if (serialized.length > this.maxStorageSize) {
-        console.warn('Offline data exceeds maximum storage size');
-        this.cleanupOldData();
+                this.cleanupOldData();
         return;
       }
       
       localStorage.setItem(this.storageKey, serialized);
-      console.log(`Saved ${data.length} offline operations to storage`);
-      
+            
     } catch (error) {
       console.error('Failed to save offline data:', error);
     }
@@ -376,8 +360,7 @@ export class OfflineModeManager {
       if (serialized) {
         const data = JSON.parse(serialized);
         this.offlineQueue = new Map(data);
-        console.log(`Restored ${this.offlineQueue.size} offline operations from storage`);
-      }
+              }
     } catch (error) {
       console.error('Failed to restore offline data:', error);
     }
@@ -396,8 +379,7 @@ export class OfflineModeManager {
       }
     }
     
-    console.log(`Cleaned up old offline data. Remaining: ${this.offlineQueue.size}`);
-  }
+      }
 
   /**
    * 同期タイマーを開始
@@ -466,8 +448,7 @@ export class OfflineModeManager {
   clearOfflineQueue(): void {
     this.offlineQueue.clear();
     localStorage.removeItem(this.storageKey);
-    console.log('Offline queue cleared');
-  }
+      }
 
   /**
    * 遅延ユーティリティ

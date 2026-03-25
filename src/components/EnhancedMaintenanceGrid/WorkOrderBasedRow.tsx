@@ -1,12 +1,16 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-import { TaskBasedRow as TaskBasedRowData, AggregatedStatus } from '../../types/maintenanceTask';
+import { WorkOrderBasedRow as WorkOrderBasedRowData, AggregatedStatus } from '../../types/maintenanceTask';
 import { GridColumn, GridState } from '../ExcelLikeGrid/types';
 import { HierarchicalData } from '../../types';
 import MaintenanceCell from './MaintenanceCell';
 
-interface TaskBasedRowProps {
-  row: TaskBasedRowData;
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import IconButton from '@mui/material/IconButton';
+
+interface WorkOrderBasedRowProps {
+  row: WorkOrderBasedRowData;
   columns: GridColumn[];
   viewMode: 'status' | 'cost';
   gridState: GridState;
@@ -22,9 +26,11 @@ interface TaskBasedRowProps {
   virtualOffset?: number;
   displayColumns?: GridColumn[];
   isFixedArea?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: (workOrderId: string) => void;
 }
 
-const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
+const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
   row,
   columns,
   viewMode,
@@ -40,24 +46,15 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
   enableVirtualScrolling = false,
   virtualOffset = 0,
   displayColumns,
-  isFixedArea = false
+  isFixedArea = false,
+  isExpanded = false,
+  onToggleExpand
 }) => {
-  console.log('[TaskBasedRow] Rendering row:', {
-    rowId: row.id,
-    rowType: row.type,
-    taskName: row.taskName,
-    assetName: row.assetName,
-    hierarchyValue: row.hierarchyValue,
-    level: row.level
-  });
-
-  // In scrollable area, filter out the task name column for task rows
   // Use explicit ID matching ('task') instead of positional index (columns[0]?.id)
   // because in the scrollable area, columns[0] is the first time column, not 'task'
   const columnsToRender = displayColumns || columns;
-  const effectiveColumnsToRender = (row.type === 'workOrderLine' && !isFixedArea)
-    ? columnsToRender.filter(col => col.id !== 'task')
-    : columnsToRender;
+  // Always render all columns as we want the parent row to show aggregated schedules natively
+  const effectiveColumnsToRender = columnsToRender;
   const rowRef = useRef<HTMLDivElement>(null);
 
   // Force border style on mount and update
@@ -75,21 +72,13 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
   // Generate unique row ID based on row type and data
   // Use same format as ViewModeManager to ensure consistency
   const getRowId = useCallback(() => {
-    if (row.type === 'asset') {
-      return `asset_${row.assetId}`;
-    } else if (row.type === 'workOrderLine') {
-      return `task_${row.taskId}_asset_${row.assetId}`;
-    } else if (row.type === 'hierarchy') {
-      return `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`;
-    }
-
-    // Fallback: if row doesn't have type but has id, use the existing id
+    // If the row already has an ID assigned by the ViewModeManager or App.tsx, USE IT EXACTLY.
+    // Overwriting it causes complete lookup failures in copyPasteManager because it retains the original ID.
     if ((row as any).id) {
       return (row as any).id;
     }
-
     return 'unknown';
-  }, [row.type, row.assetId, row.taskId, row.hierarchyKey, row.hierarchyValue, (row as any).id]);
+  }, [row.type, row.assetId, row.workOrderId, (row as any).id]);
 
   const rowId = getRowId();
 
@@ -123,69 +112,37 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
   const getCellValue = useCallback((column: GridColumn) => {
     const { id } = column;
 
-    // For asset rows (band rows), show full hierarchy path in first column
-    if (row.type === 'asset') {
-      if (id === 'task') {
-        return row.assetName;  // Contains full path like "第一製油所 > Aエリア > 原油蒸留ユニット > P-101（原油供給ポンプ）"
+    // For first column ('task')
+    if (id === 'task') {
+      let finalVal = '';
+      if (row.type === 'workOrder') {
+        finalVal = `${row.workOrderName || row.task || ''}${row.ClassificationId ? ` [${row.ClassificationId}]` : ''}`;
+      } else {
+        finalVal = row.assetName || row.task || '';
       }
-      // Empty for other columns (no schedule on asset rows in task-based mode)
-      return '';
+            return finalVal;
     }
 
-    // For task rows, show task name in first column and schedule in time columns
-    if (row.type === 'workOrderLine') {
-      if (id === 'task') {
-        return `${row.taskName}${row.classification ? ` [${row.classification}]` : ''}`;
+    // Handle time columns - show schedule or results information
+    if (id.startsWith('time_')) {
+      const timeHeader = id.replace('time_', '');
+      const scheduleEntry = (row.aggregatedSchedule && row.aggregatedSchedule[timeHeader]) || undefined;
+
+      if (!scheduleEntry) {
+        if (viewMode === 'cost') return { planCost: 0, actualCost: 0 };
+        return { planned: false, actual: false };
       }
 
-      // Handle time columns - show schedule or results information
-      if (id.startsWith('time_')) {
-        const timeHeader = id.replace('time_', '');
-        // Use schedule if available, otherwise fallback to results (commonized behavior)
-        const scheduleEntry = (row.schedule && row.schedule[timeHeader]) ||
-          (row.results && row.results[timeHeader]);
-
-        console.log(`[TaskBasedRow] Getting cell value for time column:`, {
-          rowId: row.id,
-          timeHeader,
-          scheduleEntry,
-          availableScheduleKeys: Object.keys(row.schedule),
-          viewMode
-        });
-
-        if (!scheduleEntry) {
-          // No schedule for this time period
-          if (viewMode === 'cost') {
-            return { planCost: 0, actualCost: 0 };
-          } else {
-            return { planned: false, actual: false };
-          }
-        }
-
-        // Schedule data is now always aggregated (AggregatedStatus type)
-        // Check if it has the aggregated properties
-        const isAggregated = 'totalPlanCost' in scheduleEntry;
-
-        if (viewMode === 'cost') {
-          if (isAggregated) {
-            // AggregatedStatus type
-            return {
-              planCost: scheduleEntry.totalPlanCost || 0,
-              actualCost: scheduleEntry.totalActualCost || 0
-            };
-          } else {
-            // Fallback for raw schedule entry (shouldn't happen now)
-            return {
-              planCost: (scheduleEntry as any).planCost || 0,
-              actualCost: (scheduleEntry as any).actualCost || 0
-            };
-          }
-        } else {
-          return {
-            planned: scheduleEntry.planned || false,
-            actual: scheduleEntry.actual || false
-          };
-        }
+      if (viewMode === 'cost') {
+        return {
+          planCost: scheduleEntry.totalPlanCost || 0,
+          actualCost: scheduleEntry.totalActualCost || 0
+        };
+      } else {
+        return {
+          planned: scheduleEntry.planned || false,
+          actual: scheduleEntry.actual || false
+        };
       }
     }
 
@@ -193,92 +150,27 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
   }, [row, columns, viewMode]);
 
   // Calculate indentation based on level
-  const indentWidth = row.level * 20; // 20px per level
-
-  // Determine row styling based on type
+  const indentWidth = row.type === 'assetChild' ? 32 : 0; 
+  
   const getRowStyle = () => {
-    if (row.type === 'asset') {
-      // Asset rows (帯部分) - band style showing full hierarchy path
+    if (row.type === 'workOrder') {
       return {
-        backgroundColor: '#1e1e1e',
+        backgroundColor: '#262626', // slightly darker than regular rows, lighter than deep band
         fontWeight: 600,
         color: '#ffffff',
         isBand: true
       };
-    } else if (row.type === 'workOrderLine') {
-      // Task rows - normal background
-      return {
-        backgroundColor: 'transparent',
-        fontWeight: 400,
-        color: '#e0e0e0',
-        isBand: false
-      };
     } else {
       return {
         backgroundColor: 'transparent',
-        fontWeight: 400,
-        color: '#ffffff',
+        fontWeight: 500,
+        color: '#e0e0e0',
         isBand: false
       };
     }
   };
 
   const rowStyle = getRowStyle();
-
-  // For asset rows (band rows), render as a single full-width band exactly like GroupHeaderRow
-  if (row.type === 'asset') {
-    const cellValue = row.assetName;  // Full path: "第一製油所 > Aエリア > 原油蒸留ユニット > P-101（原油供給ポンプ）"
-    return (
-      <Box
-        ref={rowRef}
-        className="task-based-band-row group-header-row"
-        sx={{
-          display: 'flex',
-          height: 32,
-          backgroundColor: '#1e1e1e !important',
-          position: 'relative',
-          alignItems: 'center',
-          width: `${totalRowWidth}px`,
-          minWidth: `${totalRowWidth}px`,
-          boxSizing: 'border-box',
-          flexShrink: 0,
-          zIndex: 1  // Ensure band row is above task rows
-        }}
-        style={{
-          borderBottom: '1px solid #333333'
-        }}
-        data-row-id={rowId}
-        data-row-type={row.type}
-      >
-        <Box
-          sx={{
-            width: `${totalRowWidth}px`,
-            minWidth: `${totalRowWidth}px`,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 12px',
-            backgroundColor: '#1e1e1e !important',
-            color: '#ffffff !important'
-          }}
-        >
-          {/* 固定エリアでのみテキストを表示、スクロール可能エリアでは空白で行の高さのみ維持 */}
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 600,
-              color: '#ffffff !important',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              visibility: isFixedArea ? 'visible' : 'hidden'
-            }}
-          >
-            {isFixedArea ? cellValue : '　'}
-          </Typography>
-        </Box>
-      </Box>
-    );
-  }
 
   // For task rows, render normal cells
   return (
@@ -328,10 +220,10 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
               key={column.id}
               className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
               sx={{
-                width,
-                minWidth: width,
-                maxWidth: width,
-                display: 'flex',
+                width: isFixedArea ? width : 0,  // Hide task column heavily in scrollable area
+                minWidth: isFixedArea ? width : 0, 
+                maxWidth: isFixedArea ? width : 0,
+                display: isFixedArea ? 'flex' : 'none',
                 alignItems: 'center',
                 padding: '4px 8px',
                 paddingLeft: `${8 + indentWidth}px`, // Add indentation
@@ -350,18 +242,44 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
                 borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')
               }}
               onClick={() => handleCellClick(column.id)}
+              onDoubleClick={(e) => {
+                // For parent rows, clicking should ONLY edit the WorkOrder if explicitly targeted, else it acts like expand
+                // Let's pass the event up to handleCellDoubleClick as normal, which opens WorkOrder dialog for type === 'workOrder' cell!
+                handleCellDoubleClick(column.id, e);
+              }}
             >
+              {row.type === 'workOrder' && (
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onToggleExpand && row.workOrderId) {
+                      onToggleExpand(row.workOrderId);
+                    }
+                  }} 
+                  sx={{ color: '#fff', p: 0, mr: 1 }}
+                >
+                  {isExpanded ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
+                </IconButton>
+              )}
+              {row.type === 'assetChild' && row.bomCode && (
+                <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#999', mr: 1, border: '1px solid #555', borderRadius: '4px', px: 0.5 }}>
+                  {row.bomCode}
+                </Typography>
+              )}
+              {row.type === 'assetChild' && !row.bomCode && (
+                <Box sx={{ width: '16px', height: '16px', mr: 1 }} />
+              )}
               <Typography
                 variant="body2"
                 sx={{
                   fontSize: '0.875rem',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  visibility: isFixedArea ? 'visible' : 'hidden'
+                  whiteSpace: 'nowrap'
                 }}
               >
-                {isFixedArea ? (typeof cellValue === 'string' ? cellValue : '') : '　'}
+                {typeof cellValue === 'string' ? cellValue : ''}
               </Typography>
             </Box>
           );
@@ -371,13 +289,13 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
         // Create a mock item for MaintenanceCell compatibility
         const mockItem: HierarchicalData = {
           id: rowId,
-          task: row.taskName || '',
+          task: row.workOrderName || '',
           bomCode: row.assetId || '',
           specifications: [],
-          results: row.results || row.schedule || {},
+          results: (row.aggregatedSchedule || {}) as any,
           level: row.level,
           children: [],
-          rolledUpResults: row.results || row.schedule || {}
+          rolledUpResults: (row.aggregatedSchedule || {}) as any
         };
 
         return (
@@ -406,6 +324,6 @@ const TaskBasedRowComponent: React.FC<TaskBasedRowProps> = ({
 };
 
 // Memoize the component to prevent unnecessary re-renders
-export const TaskBasedRow = React.memo(TaskBasedRowComponent);
+export const WorkOrderBasedRow = React.memo(WorkOrderBasedRowComponent);
 
-export default TaskBasedRow;
+export default WorkOrderBasedRow;

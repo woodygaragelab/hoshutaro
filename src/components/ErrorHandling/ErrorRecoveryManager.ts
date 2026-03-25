@@ -162,16 +162,13 @@ export class ErrorRecoveryManager {
     for (const [key, strategy] of this.recoveryStrategies) {
       if (strategy.canRecover(error)) {
         try {
-          console.log(`Attempting recovery with strategy: ${strategy.name}`);
-          const success = await strategy.recover(error, context);
+                    const success = await strategy.recover(error, context);
           
           if (success) {
-            console.log(`Recovery successful with strategy: ${strategy.name}`);
-            return true;
+                        return true;
           }
         } catch (recoveryError) {
-          console.warn(`Recovery failed with strategy: ${strategy.name}`, recoveryError);
-          continue;
+                    continue;
         }
       }
     }
@@ -219,8 +216,7 @@ export class ErrorRecoveryManager {
    * オンライン復帰時の処理
    */
   private async handleOnlineRecovery(): Promise<void> {
-    console.log('Online recovery started');
-
+    
     // オフラインデータを同期
     for (const [key, data] of this.offlineData) {
       if (data.syncStatus === 'pending') {
@@ -246,8 +242,7 @@ export class ErrorRecoveryManager {
    * オフラインモード開始時の処理
    */
   private handleOfflineMode(): void {
-    console.log('Offline mode activated');
-    
+        
     // オフライン通知を表示
     this.showOfflineNotification();
   }
@@ -257,8 +252,7 @@ export class ErrorRecoveryManager {
    */
   private async syncOfflineData(key: string, data: OfflineData): Promise<void> {
     // 実際の実装では、サーバーAPIを呼び出してデータを同期
-    console.log(`Syncing offline data for key: ${key}`, data);
-    
+        
     // シミュレーション
     await this.delay(1000);
     
@@ -310,8 +304,7 @@ export class ErrorRecoveryManager {
    * グレースフルフォールバック
    */
   private async gracefulFallback(error: Error, context: ErrorContext): Promise<boolean> {
-    console.log('Attempting graceful fallback');
-
+    
     // 基本的なクリーンアップ
     this.clearCaches();
     this.resetDOMState();
@@ -358,16 +351,14 @@ export class ErrorRecoveryManager {
   private resetTouchListeners(): void {
     // 既存のタッチイベントリスナーを削除
     // 実際の実装では、アプリケーション固有のリスナー管理が必要
-    console.log('Resetting touch listeners');
-  }
+      }
 
   /**
    * データを再取得
    */
   private async refreshData(): Promise<void> {
     // 実際の実装では、アプリケーションのデータ更新ロジックを呼び出し
-    console.log('Refreshing data');
-    await this.delay(500);
+        await this.delay(500);
   }
 
   /**
@@ -375,8 +366,7 @@ export class ErrorRecoveryManager {
    */
   private showOfflineNotification(): void {
     // 実際の実装では、UI通知システムを使用
-    console.log('Showing offline notification');
-  }
+      }
 
   /**
    * 遅延ユーティリティ

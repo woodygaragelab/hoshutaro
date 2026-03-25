@@ -1,27 +1,22 @@
 /**
  * ViewModeManager - 表示モードの切り替えとデータ変換を管理
  *
- * v3.0.0: TaskAssociation/AssociationSchedule → WorkOrderLine/WorkOrderSchedule に移行
+ * v3.0.0: Event Record Model. WorkOrderLine is entirely flat.
  *
  * 要件:
- * - 4.1: 機器ベース表示モード
- * - 4.2: 機器ベースモードでの複数作業表示
- * - 5.1: 作業ベース表示モード
- * - 5.2: 作業ベースモードでの階層構造表示
+ * - 4.1: asset-based表示モード (機器単位)
+ * - 5.1: workorder-based表示モード (発注行単位のグループ化)
  * - 6.1: 表示モードの切り替え
  * - 6.2: フィルターと選択状態の保持
  * - 6.4: 時間スケール集約
- * - 6.5: 表示モード切り替え時のUI更新
  */
 
 import {
   ViewMode,
   ViewModeState,
-  EquipmentBasedRow,
-  TaskBasedRow,
+  AssetBasedRow,
+  WorkOrderBasedRow,
   AggregatedStatus,
-  WorkOrderSchedule,
-  Task,
   Asset,
   WorkOrderLine,
   WorkOrder,
@@ -30,12 +25,8 @@ import {
   TimeScale,
   EditContext,
 } from '../types/maintenanceTask';
-import { TaskManager } from './TaskManager';
-import { AssetManager } from './AssetManager';
-import { WorkOrderLineManager } from './WorkOrderLineManager';
-import { WorkOrderManager } from './WorkOrderManager';
-import { memoizeDeep, createMemoizedSelector, MemoizationBatch } from '../utils/memoization';
-import { getISOWeek, generateTimeRange, getTimeKey, parseTimeKey } from '../utils/dateUtils';
+import { memoizeDeep, MemoizationBatch } from '../utils/memoization';
+import { getISOWeek, generateTimeRange, getTimeKey } from '../utils/dateUtils';
 
 interface HierarchyNode {
   key: string;
@@ -51,40 +42,33 @@ interface HierarchyTree {
 
 export class ViewModeManager {
   private currentState: ViewModeState;
-  private tasks: Map<string, Task>;
   private assets: Map<string, Asset>;
   private workOrderLines: Map<string, WorkOrderLine>;
   private workOrders: Map<string, WorkOrder>;
   private hierarchy: HierarchyDefinition;
   private memoizationBatch: MemoizationBatch;
 
-  // Memoized methods
   private memoizedBuildHierarchyTree: () => HierarchyTree;
-  private memoizedAggregateSchedule: (schedule: WorkOrderSchedule, timeScale: TimeScale) => { [timeKey: string]: AggregatedStatus };
+  private memoizedAggregateEvents: (events: WorkOrderLine[], timeScale: TimeScale) => { [timeKey: string]: AggregatedStatus };
 
   constructor(
-    tasks: Task[],
     assets: Asset[],
     workOrderLines: WorkOrderLine[],
     hierarchy: HierarchyDefinition,
     workOrders?: WorkOrder[]
   ) {
-    this.tasks = new Map(tasks.map(t => [t.id, t]));
     this.assets = new Map(assets.map(a => [a.id, a]));
     this.workOrderLines = new Map(workOrderLines.map(l => [l.id, l]));
     this.workOrders = new Map((workOrders || []).map(wo => [wo.id, wo]));
     this.hierarchy = hierarchy;
 
-    // 初期状態: 機器ベースモード
     this.currentState = {
-      mode: 'equipment-based',
+      mode: 'asset-based',
       filters: {},
     };
 
-    // Initialize memoization batch
     this.memoizationBatch = new MemoizationBatch();
 
-    // Create memoized versions of expensive operations
     this.memoizedBuildHierarchyTree = (() => {
       let cache: HierarchyTree | null = null;
       return () => {
@@ -95,37 +79,17 @@ export class ViewModeManager {
       };
     })();
 
-    this.memoizedAggregateSchedule = memoizeDeep(
-      (schedule: WorkOrderSchedule, timeScale: TimeScale) =>
-        this.aggregateScheduleByTimeScaleInternal(schedule, timeScale),
+    this.memoizedAggregateEvents = memoizeDeep(
+      (events: WorkOrderLine[], timeScale: TimeScale) =>
+        this.aggregateEventsByTimeScaleInternal(events, timeScale),
       100
     );
   }
 
-  /**
-   * 時間スケールによる集約
-   * 要件 6.4
-   */
-  aggregateScheduleByTimeScale(
-    schedule: WorkOrderSchedule,
-    timeScale: TimeScale
-  ): { [timeKey: string]: AggregatedStatus } {
-    // bypass faulty `memoize` cache which only uses the 1st arg as key
-    return this.aggregateScheduleByTimeScaleInternal(schedule, timeScale);
-  }
-
-  /**
-   * 現在の表示モードを取得
-   * 要件 6.1
-   */
   getCurrentMode(): ViewMode {
     return this.currentState.mode;
   }
 
-  /**
-   * 表示モードを切り替え
-   * 要件 6.1, 6.2
-   */
   switchMode(newMode: ViewMode, preserveState: boolean = true): void {
     if (preserveState) {
       this.currentState = {
@@ -140,10 +104,6 @@ export class ViewModeManager {
     }
   }
 
-  /**
-   * フィルターを適用
-   * 要件 6.2
-   */
   applyFilters(filters: ViewModeState['filters']): void {
     this.currentState.filters = {
       ...this.currentState.filters,
@@ -151,18 +111,14 @@ export class ViewModeManager {
     };
   }
 
-  /**
-   * 選択状態を保持
-   * 要件 6.2
-   */
   preserveSelection(): void {
     if (this.currentState.selection) {
       const { rowId, columnId } = this.currentState.selection;
       let assetId: string | undefined;
 
-      if (this.currentState.mode === 'equipment-based') {
-        if (rowId.startsWith('asset_') && rowId.includes('_task_')) {
-          const match = rowId.match(/^asset_([^_]+)_task_/);
+      if (this.currentState.mode === 'asset-based') {
+        if (rowId.startsWith('asset_') && rowId.includes('_wo_')) {
+          const match = rowId.match(/^asset_([^_]+)_wo_/);
           if (match) {
             assetId = match[1];
           }
@@ -180,12 +136,12 @@ export class ViewModeManager {
 
         if (assetId && this.assets.has(assetId)) {
           const relatedLines = Array.from(this.workOrderLines.values())
-            .filter(line => line.assetId === assetId);
+            .filter(line => line.AssetId === assetId);
 
           if (relatedLines.length > 0) {
             const firstLine = relatedLines[0];
             this.currentState.selection = {
-              rowId: `asset_${assetId}_task_${firstLine.taskId}`,
+              rowId: `asset_${assetId}_wo_${firstLine.WorkOrderId}`,
               columnId,
             };
           } else {
@@ -200,26 +156,19 @@ export class ViewModeManager {
 
   /**
    * 機器ベースデータを取得
-   * 要件 4.1, 4.2
-   *
-   * グループ行: 製油所 > エリア > ユニット (フラットパス)
-   * データ行: 機器名のみ（TAG No.は別列）
    */
-  getEquipmentBasedData(): EquipmentBasedRow[] {
-    const rows: EquipmentBasedRow[] = [];
+  getAssetBasedData(): AssetBasedRow[] {
+    const rows: AssetBasedRow[] = [];
     const hierarchyTree = this.buildHierarchyTree();
 
     const traverseHierarchy = (node: HierarchyNode, parentPath: string[] = [], depth: number = 0) => {
       const currentPath = [...parentPath, node.value];
 
-      // 子ノードを先に再帰
       node.children.forEach(child => {
         traverseHierarchy(child, currentPath, depth + 1);
       });
 
-      // このノードにアセットがある場合、グループ行+アセットデータ行を出力
       if (node.assets.length > 0) {
-        // グループ行: フラットパス（例: 第一製油所 > Aエリア > 原油蒸留ユニット）
         const groupPath = currentPath.join(' > ');
         rows.push({
           type: 'hierarchy',
@@ -228,20 +177,28 @@ export class ViewModeManager {
           hierarchyValue: groupPath,
         });
 
-        // データ行: 各アセット（機器名のみ）
         node.assets.forEach(asset => {
           const relatedLines = Array.from(this.workOrderLines.values())
-            .filter(line => line.assetId === asset.id);
+            .filter(line => line.AssetId === asset.id);
 
-          const tasks = relatedLines.map(line => {
-            const task = this.tasks.get(line.taskId);
-            const wo = this.workOrders.get(line.workOrderId);
-            return {
-              taskId: line.taskId,
-              taskName: task?.name || '',
-              classification: wo?.taskClassificationId || '',
-              schedule: line.schedule,
-            };
+          const mappedLines = relatedLines.map(line => {
+             const wo = this.workOrders.get(line.WorkOrderId);
+             return {
+                workOrderLineId: line.id,
+                workOrderId: line.WorkOrderId,
+                workOrderName: wo?.name || '不明な発注',
+                name: line.name,
+                ClassificationId: wo?.ClassificationId || '',
+                PlanScheduleStart: line.PlanScheduleStart,
+                PlanScheduleEnd: line.PlanScheduleEnd,
+                ActualScheduleStart: line.ActualScheduleStart,
+                ActualScheduleEnd: line.ActualScheduleEnd,
+                Planned: line.Planned,
+                Actual: line.Actual,
+                PlanCost: line.PlanCost,
+                ActualCost: line.ActualCost,
+                manhours: line.PlannedManhours
+             };
           });
 
           rows.push({
@@ -249,8 +206,9 @@ export class ViewModeManager {
             assetId: asset.id,
             assetName: asset.name,
             hierarchyPath: asset.hierarchyPath,
+            classificationPath: asset.classificationPath,
             specifications: asset.specifications,
-            tasks,
+            workOrderLines: mappedLines,
             level: depth + 1,
           });
         });
@@ -261,245 +219,145 @@ export class ViewModeManager {
       traverseHierarchy(root, [], 0);
     });
 
-    return this.applyFiltersToEquipmentData(rows);
+    return this.applyFiltersToAssetData(rows);
   }
 
   /**
-   * 作業ベースデータを取得
-   * 要件 5.1, 5.2
+   * 作業ベースデータを取得 (WorkOrder grouping)
+   * 階層構造: 作業 (WorkOrder) ＞ 紐づく機器 (Asset)
    */
-  getTaskBasedData(timeScale: TimeScale = 'year'): TaskBasedRow[] {
-    console.log('[ViewModeManager] getTaskBasedData called');
-    console.log('[ViewModeManager] Data counts:', {
-      assets: this.assets.size,
-      tasks: this.tasks.size,
-      workOrderLines: this.workOrderLines.size,
-      hierarchyLevels: this.hierarchy.levels.length,
+  getWorkOrderBasedData(timeScale: TimeScale = 'month'): WorkOrderBasedRow[] {
+    const rows: WorkOrderBasedRow[] = [];
+    
+    // Convert WorkOrders to array and sort (optional: could sort by ClassificationId etc.)
+    const workOrdersList = Array.from(this.workOrders.values());
+    
+    workOrdersList.forEach(wo => {
+      // Find all lines for this WorkOrder
+      const relatedLines = Array.from(this.workOrderLines.values())
+        .filter(line => line.WorkOrderId === wo.id);
+        
+      // If a WorkOrder has no lines, we still show it so users can double-click to assign assets
+      
+      // Aggregate schedule for the parent row
+      const parentAggregatedSchedule = this.aggregateEventsByTimeScaleInternal(relatedLines, timeScale);
+      
+      // Create Parent Row (WorkOrder)
+      rows.push({
+        id: `workOrder_${wo.id}`,
+        type: 'workOrder',
+        level: 0,
+        workOrderId: wo.id,
+        workOrderName: wo.name,
+        ClassificationId: wo.ClassificationId,
+        task: wo.name,
+        bomCode: '',
+        aggregatedSchedule: parentAggregatedSchedule,
+        results: parentAggregatedSchedule,
+        rolledUpResults: parentAggregatedSchedule,
+      });
+      
+      // Group lines by AssetId
+      const assetMap = new Map<string, WorkOrderLine[]>();
+      relatedLines.forEach(line => {
+        if (!assetMap.has(line.AssetId)) assetMap.set(line.AssetId, []);
+        assetMap.get(line.AssetId)!.push(line);
+      });
+      
+      // Create Child Rows (Assets)
+      assetMap.forEach((lines, assetId) => {
+        const asset = this.assets.get(assetId);
+        if (asset) {
+          const childAggregatedSchedule = this.aggregateEventsByTimeScaleInternal(lines, timeScale);
+          
+          rows.push({
+            id: `workOrder_${wo.id}_asset_${asset.id}`,
+            type: 'assetChild',
+            level: 1,
+            workOrderId: wo.id,
+            assetId: asset.id,
+            assetName: asset.name,
+            hierarchyPath: asset.hierarchyPath,
+            task: asset.name,
+            bomCode: asset.id,
+            aggregatedSchedule: childAggregatedSchedule,
+            results: childAggregatedSchedule,
+            rolledUpResults: childAggregatedSchedule,
+          });
+        }
+      });
     });
 
-    const rows: TaskBasedRow[] = [];
-    const hierarchyTree = this.buildHierarchyTree();
-
-    console.log('[ViewModeManager] Hierarchy tree built:', {
-      rootCount: hierarchyTree.roots.length,
-      roots: hierarchyTree.roots.map(r => `${r.key}=${r.value} (${r.assets.length} assets)`),
-    });
-
-    const traverseHierarchy = (node: HierarchyNode, parentPath: string[] = [], depth: number = 0) => {
-      const currentPath = [...parentPath, node.value];
-
-      // 子ノードを先に再帰
-      node.children.forEach(child => {
-        traverseHierarchy(child, currentPath, depth + 1);
-      });
-
-      // このノードにアセットがある場合、アセットグループ行+WOLデータ行を出力
-      node.assets.forEach(asset => {
-        // グループ行: フラットパス（例: 第一製油所 > Aエリア > 原油蒸留ユニット > P-101（原油供給ポンプ））
-        const fullPath = [...currentPath, `${asset.id}（${asset.name}）`].join(' > ');
-
-        rows.push({
-          id: `asset_${asset.id}`,
-          type: 'asset',
-          assetId: asset.id,
-          assetName: fullPath,
-          hierarchyPath: asset.hierarchyPath,
-          level: 0,
-        } as any);
-
-        // データ行: WOL（作業名のみ）
-        const relatedLines = Array.from(this.workOrderLines.values())
-          .filter(line => line.assetId === asset.id);
-
-        console.log(`[ViewModeManager] Asset ${asset.id} has ${relatedLines.length} work order lines`);
-
-        relatedLines.forEach(line => {
-          const task = this.tasks.get(line.taskId);
-          if (task) {
-            const aggregatedSchedule = this.aggregateScheduleByTimeScaleInternal(line.schedule, timeScale);
-            const wo = this.workOrders.get(line.workOrderId);
-
-            rows.push({
-              id: `task_${task.id}_asset_${asset.id}_wol_${line.id}`,
-              type: 'workOrderLine',
-              taskId: task.id,
-              taskName: task.name,
-              classification: wo?.taskClassificationId || '',
-              assetId: asset.id,
-              schedule: aggregatedSchedule,
-              level: 1,
-            } as any);
-          } else {
-            console.log(`[ViewModeManager] Task ${line.taskId} not found for WorkOrderLine ${line.id}`);
-          }
-        });
-      });
-    };
-
-    hierarchyTree.roots.forEach(root => {
-      traverseHierarchy(root, [], 0);
-    });
-
-    console.log(`[ViewModeManager] Generated ${rows.length} task-based rows before filtering`);
-
-    const filteredRows = this.applyFiltersToTaskData(rows);
-
-    console.log(`[ViewModeManager] Final task-based data: ${filteredRows.length} rows after filtering`);
-    if (filteredRows.length > 0) {
-      console.log('[ViewModeManager] Sample rows:', filteredRows.slice(0, 5));
-      console.log('[ViewModeManager] Row types breakdown:', {
-        hierarchy: filteredRows.filter(r => r.type === 'hierarchy').length,
-        asset: filteredRows.filter(r => r.type === 'asset').length,
-        task: filteredRows.filter(r => r.type === 'workOrderLine').length,
-      });
-    }
-
-    return filteredRows;
+    return this.applyFiltersToWorkOrderData(rows);
   }
 
-  // Moved aggregateScheduleByTimeScale to be closer to memoizedAggregateSchedule
-  
   /**
-   * IMPORTANT: Uses string-based key extraction for year/month/day scales
-   * to avoid timezone pitfalls with new Date(dateKey) + getFullYear().
+   * 平坦化されたWorkOrderLineの配列から、日付キーでグループ化された集計結果を返す
    */
-  public aggregateScheduleByTimeScaleInternal(
-    schedule: WorkOrderSchedule,
+  public aggregateEventsByTimeScaleInternal(
+    events: WorkOrderLine[],
     timeScale: TimeScale
   ): { [timeKey: string]: AggregatedStatus } {
     const aggregated: { [timeKey: string]: AggregatedStatus } = {};
 
-    Object.entries(schedule).forEach(([dateKey, status]) => {
-      let aggregateKey: string | null = null;
+    events.forEach(event => {
+       // Convert string to Date if needed (sometimes JSON parse leaves it as string)
+       const date = typeof event.PlanScheduleStart === 'string' 
+           ? new Date(event.PlanScheduleStart) 
+           : event.PlanScheduleStart;
 
-      if (timeScale === 'year') {
-        const yearMatch = dateKey.match(/^(\d{4})/);
-        if (yearMatch) {
-          aggregateKey = yearMatch[1];
-        }
-      } else if (timeScale === 'month') {
-        const monthMatch = dateKey.match(/^(\d{4}-\d{2})/);
-        if (monthMatch) {
-          aggregateKey = monthMatch[1];
-        } else {
-          const yearMatch = dateKey.match(/^(\d{4})$/);
-          if (yearMatch) {
-            aggregateKey = `${yearMatch[1]}-01`;
-          }
-        }
-      } else if (timeScale === 'day') {
-        const dayMatch = dateKey.match(/^(\d{4}-\d{2}-\d{2})/);
-        if (dayMatch) {
-          aggregateKey = dayMatch[1];
-        } else {
-          const monthMatch = dateKey.match(/^(\d{4}-\d{2})$/);
-          if (monthMatch) {
-            aggregateKey = `${monthMatch[1]}-01`;
-          } else {
-            const yearMatch = dateKey.match(/^(\d{4})$/);
-            if (yearMatch) {
-              aggregateKey = `${yearMatch[1]}-01-01`;
-            }
-          }
-        }
-      }
+       if (isNaN(date.getTime())) return;
 
-      // For week scale or unmatched formats, fall back to Date-based parsing
-      if (!aggregateKey) {
-        let date = new Date(dateKey);
+       const aggregateKey = getTimeKey(date, timeScale);
 
-        if (isNaN(date.getTime())) {
-          let parsedDate: Date | null = null;
+       if (!aggregated[aggregateKey]) {
+         aggregated[aggregateKey] = {
+           planned: false,
+           actual: false,
+           totalPlanCost: 0,
+           totalActualCost: 0,
+           count: 0,
+         };
+       }
 
-          if (/^\d{4}-W\d{1,2}$/.test(dateKey)) {
-            parsedDate = parseTimeKey(dateKey, 'week');
-          } else if (/^\d{4}-\d{2}$/.test(dateKey)) {
-            parsedDate = parseTimeKey(dateKey, 'month');
-          } else if (/^\d{4}$/.test(dateKey)) {
-            parsedDate = parseTimeKey(dateKey, 'year');
-          }
-
-          if (parsedDate) {
-            date = parsedDate;
-          } else {
-            return;
-          }
-        }
-
-        aggregateKey = getTimeKey(date, timeScale);
-      }
-
-      if (!aggregated[aggregateKey]) {
-        aggregated[aggregateKey] = {
-          planned: false,
-          actual: false,
-          totalPlanCost: 0,
-          totalActualCost: 0,
-          count: 0,
-        };
-      }
-
-      aggregated[aggregateKey].planned = aggregated[aggregateKey].planned || status.planned;
-      aggregated[aggregateKey].actual = aggregated[aggregateKey].actual || status.actual;
-      aggregated[aggregateKey].totalPlanCost += status.planCost;
-      aggregated[aggregateKey].totalActualCost += status.actualCost;
-      aggregated[aggregateKey].count += 1;
+       aggregated[aggregateKey].planned = aggregated[aggregateKey].planned || event.Planned;
+       aggregated[aggregateKey].actual = aggregated[aggregateKey].actual || event.Actual;
+       aggregated[aggregateKey].totalPlanCost += event.PlanCost;
+       aggregated[aggregateKey].totalActualCost += event.ActualCost;
+       aggregated[aggregateKey].count += 1;
     });
 
     return aggregated;
   }
 
-  /**
-   * 表示記号を取得
-   */
   getDisplaySymbol(status: AggregatedStatus): string {
-    if (status.planned && status.actual) {
-      return '◎';
-    } else if (status.planned && !status.actual) {
-      return '○';
-    } else if (!status.planned && status.actual) {
-      return '●';
-    } else {
-      return '';
-    }
+    if (status.planned && status.actual) return '◎';
+    if (status.planned && !status.actual) return '○';
+    if (!status.planned && status.actual) return '●';
+    return '';
   }
 
-  /**
-   * WorkOrderLinesを取得（DataIndexManager用）
-   */
   getWorkOrderLines(): WorkOrderLine[] {
     return Array.from(this.workOrderLines.values());
   }
 
-  /**
-   * 現在の状態を取得
-   */
   getCurrentState(): ViewModeState {
     return { ...this.currentState };
   }
 
-  /**
-   * 現在の編集コンテキストを取得
-   * Requirement 5.7
-   */
   getEditContext(): EditContext {
     return {
       viewMode: this.currentState.mode,
-      editScope: this.currentState.mode === 'task-based' ? 'all-assets' : 'single-asset',
+      editScope: this.currentState.mode === 'workorder-based' ? 'all-assets' : 'single-asset',
     };
   }
 
-  /**
-   * データを更新
-   */
   updateData(
-    tasks: Task[],
     assets: Asset[],
     workOrderLines: WorkOrderLine[],
     hierarchy: HierarchyDefinition,
     workOrders?: WorkOrder[]
   ): void {
-    this.tasks = new Map(tasks.map(t => [t.id, t]));
     this.assets = new Map(assets.map(a => [a.id, a]));
     this.workOrderLines = new Map(workOrderLines.map(l => [l.id, l]));
     if (workOrders) {
@@ -507,7 +365,6 @@ export class ViewModeManager {
     }
     this.hierarchy = hierarchy;
 
-    // Clear memoization caches
     this.memoizationBatch.clearAll();
 
     this.memoizedBuildHierarchyTree = (() => {
@@ -520,56 +377,31 @@ export class ViewModeManager {
       };
     })();
 
-    this.memoizedAggregateSchedule = memoizeDeep(
-      (schedule: WorkOrderSchedule, timeScale: TimeScale) =>
-        this.aggregateScheduleByTimeScaleInternal(schedule, timeScale),
+    this.memoizedAggregateEvents = memoizeDeep(
+      (events: WorkOrderLine[], timeScale: TimeScale) =>
+        this.aggregateEventsByTimeScaleInternal(events, timeScale),
       100
     );
   }
 
-  // ============================================================================
-  // Private Helper Methods
-  // ============================================================================
-
-  /**
-   * 階層ツリーを構築 (memoized wrapper)
-   */
   private buildHierarchyTree(): HierarchyTree {
     return this.memoizedBuildHierarchyTree();
   }
 
-  /**
-   * 階層ツリーを構築 (internal implementation)
-   */
   private buildHierarchyTreeInternal(): HierarchyTree {
     const roots: HierarchyNode[] = [];
     const nodeMap = new Map<string, HierarchyNode>();
 
     const sortedLevels = [...this.hierarchy.levels].sort((a, b) => a.order - b.order);
 
-    console.log('[ViewModeManager] Building hierarchy tree with levels:', sortedLevels.map(l => `${l.key}(${l.order})`));
-
-    if (sortedLevels.length === 0) {
-      console.log('[ViewModeManager] No hierarchy levels defined, returning empty tree');
-      return { roots };
-    }
-
-    let processedAssets = 0;
-    let skippedAssets = 0;
+    if (sortedLevels.length === 0) return { roots };
 
     Array.from(this.assets.values()).forEach(asset => {
       let parentKey = '';
-      let assetProcessed = true;
 
       sortedLevels.forEach((level, index) => {
         const value = asset.hierarchyPath[level.key];
-        if (!value) {
-          if (skippedAssets < 3) {
-            console.log(`[ViewModeManager] Skipping asset ${asset.id} - missing value for level "${level.key}". Asset hierarchy:`, asset.hierarchyPath);
-          }
-          assetProcessed = false;
-          return;
-        }
+        if (!value) return;
 
         const nodeKey = parentKey ? `${parentKey}/${level.key}:${value}` : `${level.key}:${value}`;
 
@@ -600,39 +432,12 @@ export class ViewModeManager {
 
         parentKey = nodeKey;
       });
-
-      if (assetProcessed) {
-        processedAssets++;
-      } else {
-        skippedAssets++;
-      }
     });
-
-    console.log(`[ViewModeManager] Hierarchy tree built: ${processedAssets} assets processed, ${skippedAssets} assets skipped, ${roots.length} root nodes`);
-
-    if (roots.length > 0) {
-      console.log('[ViewModeManager] Root nodes:', roots.map(r => `${r.key}=${r.value} (${r.assets.length} assets)`));
-
-      const logNode = (node: HierarchyNode, depth: number = 0) => {
-        const indent = '  '.repeat(depth);
-        console.log(`${indent}${node.key}=${node.value} (${node.assets.length} assets, ${node.children.length} children)`);
-        if (node.assets.length > 0) {
-          console.log(`${indent}  Assets: ${node.assets.map(a => a.id).join(', ')}`);
-        }
-        node.children.forEach(child => logNode(child, depth + 1));
-      };
-
-      console.log('[ViewModeManager] Detailed hierarchy tree:');
-      roots.forEach(root => logNode(root));
-    }
 
     return { roots };
   }
 
-  /**
-   * 機器ベースデータにフィルターを適用
-   */
-  private applyFiltersToEquipmentData(rows: EquipmentBasedRow[]): EquipmentBasedRow[] {
+  private applyFiltersToAssetData(rows: AssetBasedRow[]): AssetBasedRow[] {
     let filtered = rows;
 
     if (this.currentState.filters.hierarchyPath) {
@@ -646,10 +451,14 @@ export class ViewModeManager {
 
     if (this.currentState.filters.dateRange) {
       filtered = filtered.filter(row => {
-        if (row.type === 'asset' && row.tasks) {
-          return row.tasks.some(task =>
-            this.hasScheduleInDateRange(task.schedule, this.currentState.filters.dateRange!)
-          );
+        if (row.type === 'asset' && row.workOrderLines) {
+          // dateRange filter logic for flat events
+          const startIso = this.currentState.filters.dateRange!.start;
+          const endIso = this.currentState.filters.dateRange!.end;
+          return row.workOrderLines.some(line => {
+             const iso = new Date(line.PlanScheduleStart).toISOString();
+             return iso >= startIso && iso <= endIso;
+          });
         }
         return true;
       });
@@ -658,17 +467,14 @@ export class ViewModeManager {
     return filtered;
   }
 
-  /**
-   * 作業ベースデータにフィルターを適用
-   */
-  private applyFiltersToTaskData(rows: TaskBasedRow[]): TaskBasedRow[] {
+  private applyFiltersToWorkOrderData(rows: WorkOrderBasedRow[]): WorkOrderBasedRow[] {
     let filtered = rows;
 
     if (this.currentState.filters.taskClassification) {
       const targetClassification = this.currentState.filters.taskClassification;
       filtered = filtered.filter(row => {
-        if (row.type === 'workOrderLine') {
-          return (row as any).classification === targetClassification;
+        if (row.type === 'workOrder' || row.type === 'assetChild') {
+          return row.ClassificationId === targetClassification;
         }
         return true;
       });
@@ -676,14 +482,11 @@ export class ViewModeManager {
 
     if (this.currentState.filters.hierarchyPath) {
       filtered = filtered.filter(row => {
-        if (row.type === 'asset' && row.hierarchyPath) {
+        if (row.type === 'assetChild' && row.hierarchyPath) {
           return this.matchesHierarchyFilter(row.hierarchyPath, this.currentState.filters.hierarchyPath!);
         }
-        if (row.type === 'workOrderLine' && row.assetId) {
-          const asset = this.assets.get(row.assetId);
-          if (asset?.hierarchyPath) {
-            return this.matchesHierarchyFilter(asset.hierarchyPath, this.currentState.filters.hierarchyPath!);
-          }
+        if (row.type === 'workOrder') {
+          return true; // Keep work orders, children will be filtered
         }
         return true;
       });
@@ -691,8 +494,10 @@ export class ViewModeManager {
 
     if (this.currentState.filters.dateRange) {
       filtered = filtered.filter(row => {
-        if (row.type === 'workOrderLine' && row.schedule) {
-          return this.hasScheduleInDateRange(row.schedule as WorkOrderSchedule, this.currentState.filters.dateRange!);
+        if ((row.type === 'assetChild' || row.type === 'workOrder') && row.aggregatedSchedule) {
+          return Object.keys(row.aggregatedSchedule).some(dateKey => {
+            return dateKey >= this.currentState.filters.dateRange!.start && dateKey <= this.currentState.filters.dateRange!.end;
+          });
         }
         return true;
       });
@@ -701,9 +506,6 @@ export class ViewModeManager {
     return filtered;
   }
 
-  /**
-   * 階層パスがフィルターに一致するかチェック
-   */
   private matchesHierarchyFilter(
     hierarchyPath: HierarchyPath,
     filter: Partial<HierarchyPath>
@@ -713,51 +515,19 @@ export class ViewModeManager {
     });
   }
 
-  /**
-   * 現在のデータに基づく時間ヘッダーを取得
-   * Requirements 6.4: Auto-scale time range based on data
-   */
   getTimeHeaders(timeScale: TimeScale): string[] {
     const years = new Set<number>();
-    const months = new Set<string>();
-    const weeks = new Set<string>();
-    const days = new Set<string>();
-
     const currentYear = new Date().getFullYear();
 
     years.add(currentYear);
     years.add(currentYear + 1);
     years.add(currentYear + 2);
 
-    // Scan all WorkOrderLines to find data range
     this.workOrderLines.forEach(line => {
-      if (line.schedule) {
-        Object.keys(line.schedule).forEach(dateKey => {
-          const yearMatch = dateKey.match(/^(\d{4})/);
-          if (yearMatch) {
-            const year = parseInt(yearMatch[1], 10);
-            years.add(year);
-
-            if (timeScale === 'month') {
-              const monthMatch = dateKey.match(/^(\d{4}-\d{2})/);
-              if (monthMatch) {
-                months.add(monthMatch[1]);
-              }
-            } else if (timeScale === 'week') {
-              const date = new Date(dateKey);
-              if (!isNaN(date.getTime())) {
-                const { year: isoYear, week } = getISOWeek(date);
-                weeks.add(`${isoYear}-W${String(week).padStart(2, '0')}`);
-              }
-            } else if (timeScale === 'day') {
-              const dayMatch = dateKey.match(/^(\d{4}-\d{2}-\d{2})/);
-              if (dayMatch) {
-                days.add(dayMatch[1]);
-              }
-            }
-          }
-        });
-      }
+       const date = typeof line.PlanScheduleStart === 'string' ? new Date(line.PlanScheduleStart) : line.PlanScheduleStart;
+       if (!isNaN(date.getTime())) {
+          years.add(date.getFullYear());
+       }
     });
 
     const sortedYears = Array.from(years).sort((a, b) => a - b);
@@ -773,18 +543,6 @@ export class ViewModeManager {
     const endDate = new Date(Date.UTC(maxYear, 11, 31));
 
     return generateTimeRange(startDate, endDate, timeScale);
-  }
-
-  /**
-   * スケジュールが日付範囲内にあるかチェック
-   */
-  private hasScheduleInDateRange(
-    schedule: WorkOrderSchedule,
-    dateRange: { start: string; end: string }
-  ): boolean {
-    return Object.keys(schedule).some(dateKey => {
-      return dateKey >= dateRange.start && dateKey <= dateRange.end;
-    });
   }
 }
 

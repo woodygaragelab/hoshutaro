@@ -87,16 +87,13 @@ const ViewModeDemo: React.FC = () => {
   };
 
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-    console.log('Cell edit:', { rowId, columnId, value });
-  };
+      };
 
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
-    console.log('Specification edit:', { rowId, specIndex, key, value });
-  };
+      };
 
   const handleUpdateItem = (updatedItem: HierarchicalData) => {
-    console.log('Update item:', updatedItem);
-  };
+      };
 
   return (
     <Box sx={{ padding: 3 }}>

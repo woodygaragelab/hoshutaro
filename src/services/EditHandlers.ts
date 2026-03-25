@@ -1,20 +1,16 @@
 /**
- * EditHandlers - Handles schedule editing with view mode awareness
+ * EditHandlers - Handles grid-level event block actions (Copy, Paste, Delete)
  *
- * v3.0.0: Uses WorkOrderLineManager instead of AssociationManager
- *
- * - Equipment-based mode: Edits affect only the single WorkOrderLine
- * - Task-based mode: Edits affect all WorkOrderLines with the same task (linked updates)
- *
- * Requirement 5.7: Distinguish between equipment-based and task-based edit scopes
+ * v3.0.0: Adopts the Event Record model where a single grid cell
+ * represents a block of WorkOrderLines sharing the same Asset+Time (and WO).
  */
 
 import {
   EditContext,
-  WorkOrderSchedule,
-  ScheduleEditRequest,
+  WorkOrderLine,
 } from '../types/maintenanceTask';
 import { WorkOrderLineManager } from './WorkOrderLineManager';
+import { AssetManager } from './AssetManager';
 
 export class EditHandlers {
   private workOrderLineManager: WorkOrderLineManager;
@@ -24,120 +20,69 @@ export class EditHandlers {
   }
 
   /**
-   * Handle schedule edit with view mode awareness
-   *
-   * @param request - Schedule edit request with context
-   * @returns Number of WorkOrderLines updated
+   * Paste a block of WorkOrderLines into a new cell context.
+   * This clones the source lines but assigns them the target's AssetId and Time.
    */
-  handleScheduleEdit(request: ScheduleEditRequest): number {
-    const { workOrderLineId, dateKey, scheduleEntry, context } = request;
-
-    const line = this.workOrderLineManager.getLine(workOrderLineId);
-    if (!line) {
-      throw new Error(`WorkOrderLine with id ${workOrderLineId} not found`);
-    }
-
-    if (context.editScope === 'all-assets' || context.viewMode === 'task-based') {
-      // Task-based mode: Update all lines with the same task
-      return this.workOrderLineManager.updateScheduleForAllLines(
-        line.taskId,
-        dateKey,
-        scheduleEntry
-      );
-    } else {
-      // Equipment-based mode: Update only the single line
-      this.workOrderLineManager.updateSchedule(workOrderLineId, dateKey, scheduleEntry);
-      return 1;
-    }
-  }
-
-  /**
-   * Handle schedule edit for a specific WorkOrderLine (equipment-based mode)
-   */
-  handleSingleLineEdit(
-    lineId: string,
-    dateKey: string,
-    scheduleEntry: WorkOrderSchedule[string]
-  ): void {
-    this.workOrderLineManager.updateSchedule(lineId, dateKey, scheduleEntry);
-  }
-
-  /**
-   * Handle schedule edit for all lines with a task (task-based mode)
-   *
-   * @returns Number of lines updated
-   */
-  handleLinkedLineEdit(
-    taskId: string,
-    dateKey: string,
-    scheduleEntry: WorkOrderSchedule[string]
+  pasteEventBlock(
+    sourceLines: WorkOrderLine[],
+    targetAssetId: string,
+    targetDate: Date
   ): number {
-    return this.workOrderLineManager.updateScheduleForAllLines(
-      taskId,
-      dateKey,
-      scheduleEntry
-    );
+    let createdCount = 0;
+
+    sourceLines.forEach(srcLine => {
+      // Create a cloned line with the new target context
+      this.workOrderLineManager.createWorkOrderLine({
+        name: srcLine.name,
+        WorkOrderId: srcLine.WorkOrderId,
+        AssetId: targetAssetId,
+        PlanScheduleStart: targetDate,
+        PlanScheduleEnd: targetDate,
+        ActualScheduleStart: targetDate,
+        ActualScheduleEnd: targetDate,
+        Planned: srcLine.Planned,
+        Actual: srcLine.Actual,
+        PlanCost: srcLine.PlanCost,
+        ActualCost: srcLine.ActualCost,
+        PlannedManhours: srcLine.PlannedManhours,
+        ActualManhours: srcLine.ActualManhours,
+      });
+      createdCount++;
+    });
+
+    return createdCount;
+  }
+
+  /**
+   * Delete an entire block of WorkOrderLines from a cell context.
+   */
+  deleteEventBlock(lineIds: string[]): number {
+    let deletedCount = 0;
+    lineIds.forEach(id => {
+      if (this.workOrderLineManager.hasLine(id)) {
+        this.workOrderLineManager.deleteWorkOrderLine(id);
+        deletedCount++;
+      }
+    });
+    return deletedCount;
   }
 
   /**
    * Get edit scope description for UI display
    */
   getEditScopeDescription(context: EditContext): string {
-    if (context.viewMode === 'task-based' || context.editScope === 'all-assets') {
-      return '同じ作業を持つすべての機器のスケジュールが連動して更新されます';
+    if (context.viewMode === 'workorder-based') {
+      return 'イベント（複数作業のまとまり）がWorkOrder単位で処理されます';
     } else {
-      return 'この機器のスケジュールのみが更新されます';
+      return 'この機器の指定日時の全作業が処理されます';
     }
-  }
-
-  /**
-   * Check if edit will affect multiple lines
-   */
-  willAffectMultipleLines(
-    lineId: string,
-    context: EditContext
-  ): boolean {
-    if (context.editScope === 'single-asset' && context.viewMode === 'equipment-based') {
-      return false;
-    }
-
-    const line = this.workOrderLineManager.getLine(lineId);
-    if (!line) {
-      return false;
-    }
-
-    const relatedLines = this.workOrderLineManager.getLinesByTask(line.taskId);
-    return relatedLines.length > 1;
-  }
-
-  /**
-   * Get count of lines that will be affected by an edit
-   */
-  getAffectedLineCount(
-    lineId: string,
-    context: EditContext
-  ): number {
-    if (context.editScope === 'single-asset' && context.viewMode === 'equipment-based') {
-      return 1;
-    }
-
-    const line = this.workOrderLineManager.getLine(lineId);
-    if (!line) {
-      return 0;
-    }
-
-    const relatedLines = this.workOrderLineManager.getLinesByTask(line.taskId);
-    return relatedLines.length;
   }
 
   /**
    * Handle specification edit for an asset
-   *
-   * Specification editing always affects only the single asset,
-   * regardless of view mode.
    */
   handleSpecificationEdit(
-    assetManager: any,
+    assetManager: AssetManager,
     assetId: string,
     specIndex: number,
     field: 'key' | 'value',
@@ -149,7 +94,6 @@ export class EditHandlers {
       throw new Error(`Asset with id ${assetId} not found`);
     }
 
-    // Save current state for undo if manager is provided
     if (undoRedoManager) {
       undoRedoManager.pushState('UPDATE_SPECIFICATION', {
         assetId,
@@ -159,7 +103,6 @@ export class EditHandlers {
 
     const updatedSpecs = [...asset.specifications];
 
-    // Ensure the specification exists
     while (updatedSpecs.length <= specIndex) {
       updatedSpecs.push({
         key: `spec_${updatedSpecs.length}`,
@@ -168,14 +111,12 @@ export class EditHandlers {
       });
     }
 
-    // Update the specification
     if (field === 'key') {
       updatedSpecs[specIndex] = { ...updatedSpecs[specIndex], key: value };
     } else if (field === 'value') {
       updatedSpecs[specIndex] = { ...updatedSpecs[specIndex], value: value };
     }
 
-    // Update through manager
     assetManager.updateAsset(assetId, { specifications: updatedSpecs });
   }
 }

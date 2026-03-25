@@ -97,13 +97,7 @@ export class ErrorHandler implements IErrorHandler {
     this.displayError(userMessage, 'warning');
     
     // Log for debugging
-    console.warn('[Validation Error]', {
-      field: error.field,
-      message: error.message,
-      value: error.value,
-      timestamp: new Date().toISOString()
-    });
-  }
+      }
 
   /**
    * Handle reference integrity errors
@@ -164,13 +158,7 @@ export class ErrorHandler implements IErrorHandler {
     this.displayError(userMessage, 'warning');
     
     // Log for debugging
-    console.warn('[Performance Error]', {
-      operation: error.operation,
-      duration: error.duration,
-      threshold: error.threshold,
-      timestamp: new Date().toISOString()
-    });
-  }
+      }
 
   /**
    * Generic error handler
@@ -286,10 +274,8 @@ export class ErrorHandler implements IErrorHandler {
     if (severity === 'error') {
       console.error(message);
     } else if (severity === 'warning') {
-      console.warn(message);
-    } else {
-      console.info(message);
-    }
+          } else {
+          }
   }
 
   /**

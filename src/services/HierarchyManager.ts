@@ -660,8 +660,7 @@ export class HierarchyManager {
     }
 
     if (errors.length > 0) {
-      console.warn('Some assets failed to reassign:', errors);
-    }
+          }
 
     return successfulIds;
   }

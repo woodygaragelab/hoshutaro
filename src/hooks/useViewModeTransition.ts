@@ -12,19 +12,19 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   ViewMode,
   ViewModeState,
-  EquipmentBasedRow,
-  TaskBasedRow,
-  Task,
+  AssetBasedRow,
+  WorkOrderBasedRow,
+  WorkOrder,
   Asset,
-  TaskAssociation,
+  WorkOrderLine,
   HierarchyDefinition,
 } from '../types/maintenanceTask';
 import { ViewModeManager } from '../services/ViewModeManager';
 
 interface UseViewModeTransitionProps {
-  tasks: Task[];
+  workOrders: WorkOrder[];
   assets: Asset[];
-  associations: TaskAssociation[];
+  associations: WorkOrderLine[];
   hierarchy: HierarchyDefinition;
   onModeChange?: (mode: ViewMode) => void;
   onTransitionStart?: () => void;
@@ -34,16 +34,16 @@ interface UseViewModeTransitionProps {
 interface UseViewModeTransitionReturn {
   currentMode: ViewMode;
   currentState: ViewModeState;
-  equipmentData: EquipmentBasedRow[];
-  taskData: TaskBasedRow[];
+  equipmentData: AssetBasedRow[];
+  taskData: WorkOrderBasedRow[];
   isTransitioning: boolean;
   transitionDuration: number;
   switchMode: (newMode: ViewMode, preserveState?: boolean) => void;
   applyFilters: (filters: ViewModeState['filters']) => void;
   updateData: (
-    tasks: Task[],
+    workOrders: WorkOrder[],
     assets: Asset[],
-    associations: TaskAssociation[],
+    associations: WorkOrderLine[],
     hierarchy: HierarchyDefinition
   ) => void;
 }
@@ -57,7 +57,7 @@ interface UseViewModeTransitionReturn {
  * - 大規模データセット（50,000機器）で1000ms以内の遷移を保証
  */
 export function useViewModeTransition({
-  tasks,
+  workOrders,
   assets,
   associations,
   hierarchy,
@@ -67,8 +67,8 @@ export function useViewModeTransition({
 }: UseViewModeTransitionProps): UseViewModeTransitionReturn {
   // ViewModeManagerのインスタンスを作成（データが変更されたときのみ再作成）
   const viewModeManager = useMemo(
-    () => new ViewModeManager(tasks, assets, associations, hierarchy),
-    [tasks, assets, associations, hierarchy]
+    () => new ViewModeManager(assets, associations, hierarchy, workOrders),
+    [workOrders, assets, associations, hierarchy]
   );
 
   // 現在の状態
@@ -93,46 +93,40 @@ export function useViewModeTransition({
    * 要件 4.1, 4.2
    */
   const equipmentData = useMemo(() => {
-    if (currentMode !== 'equipment-based') {
+    if (currentMode !== 'asset-based') {
       return [];
     }
 
     const startTime = performance.now();
-    const data = viewModeManager.getEquipmentBasedData();
+    const data = viewModeManager.getAssetBasedData();
     const duration = performance.now() - startTime;
 
     // パフォーマンス警告（開発環境のみ）
     if (process.env.NODE_ENV === 'development' && duration > 200) {
-      console.warn(
-        `[Performance] Equipment data generation took ${duration.toFixed(2)}ms (target: <200ms)`
-      );
-    }
+          }
 
     return data;
-  }, [viewModeManager, currentMode, currentState.filters, tasks, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
 
   /**
    * 作業ベースデータを取得（メモ化）
    * 要件 5.1, 5.2
    */
   const taskData = useMemo(() => {
-    if (currentMode !== 'task-based') {
+    if (currentMode !== 'workorder-based') {
       return [];
     }
 
     const startTime = performance.now();
-    const data = viewModeManager.getTaskBasedData();
+    const data = viewModeManager.getWorkOrderBasedData();
     const duration = performance.now() - startTime;
 
     // パフォーマンス警告（開発環境のみ）
     if (process.env.NODE_ENV === 'development' && duration > 200) {
-      console.warn(
-        `[Performance] Task data generation took ${duration.toFixed(2)}ms (target: <200ms)`
-      );
-    }
+          }
 
     return data;
-  }, [viewModeManager, currentMode, currentState.filters, tasks, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
 
   /**
    * 表示モードを切り替え
@@ -182,14 +176,8 @@ export function useViewModeTransition({
 
         // パフォーマンス警告（要件 6.3: 1000ms以内）
         if (duration > 1000) {
-          console.warn(
-            `[Performance] Mode transition took ${duration.toFixed(2)}ms (target: <1000ms)`
-          );
-        } else if (process.env.NODE_ENV === 'development') {
-          console.log(
-            `[Performance] Mode transition completed in ${duration.toFixed(2)}ms`
-          );
-        }
+                  } else if (process.env.NODE_ENV === 'development') {
+                  }
       });
     },
     [currentMode, viewModeManager, onModeChange, onTransitionStart, onTransitionComplete]
@@ -213,12 +201,15 @@ export function useViewModeTransition({
    */
   const updateData = useCallback(
     (
-      newTasks: Task[],
+      newWorkOrders: WorkOrder[],
       newAssets: Asset[],
-      newAssociations: TaskAssociation[],
+      newAssociations: WorkOrderLine[],
       newHierarchy: HierarchyDefinition
     ) => {
-      viewModeManager.updateData(newTasks, newAssets, newAssociations, newHierarchy);
+      // Create a fresh manager with exactly matching arguments
+      // Note: Data is not explicitly copied here since ViewModeManager handles its own references internally 
+      let newManager = new ViewModeManager(newAssets, newAssociations, newHierarchy, newWorkOrders);
+      viewModeManager.updateData(newAssets, newAssociations, newHierarchy, newWorkOrders);
       const newState = viewModeManager.getCurrentState();
       setCurrentState(newState);
     },

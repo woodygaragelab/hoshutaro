@@ -1,213 +1,5 @@
 {
   "version": "3.0.0",
-  "taskClassifications": [
-    {
-      "id": "01",
-      "name": "年次点検",
-      "order": 1
-    },
-    {
-      "id": "02",
-      "name": "隔年点検",
-      "order": 2
-    },
-    {
-      "id": "03",
-      "name": "オーバーホール",
-      "order": 3
-    },
-    {
-      "id": "04",
-      "name": "SDM",
-      "order": 4
-    },
-    {
-      "id": "05",
-      "name": "日常点検",
-      "order": 5
-    },
-    {
-      "id": "06",
-      "name": "月次点検",
-      "order": 6
-    },
-    {
-      "id": "07",
-      "name": "緊急修理",
-      "order": 7
-    },
-    {
-      "id": "08",
-      "name": "性能改善工事",
-      "order": 8
-    },
-    {
-      "id": "09",
-      "name": "設備更新",
-      "order": 9
-    }
-  ],
-  "assetClassification": {
-    "levels": [
-      {
-        "key": "機器大分類",
-        "order": 1,
-        "values": [
-          "回転機器",
-          "静止機器",
-          "計装機器"
-        ]
-      },
-      {
-        "key": "機器種別",
-        "order": 2,
-        "values": [
-          "ポンプ",
-          "コンプレッサー",
-          "塔",
-          "熱交換器",
-          "反応器",
-          "タンク"
-        ]
-      },
-      {
-        "key": "機器型式",
-        "order": 3,
-        "values": [
-          "遠心式",
-          "容積式",
-          "多管円筒式",
-          "空冷式",
-          "プレート式",
-          "固定床式",
-          "充填塔",
-          "浮き屋根式",
-          "コーンルーフ式"
-        ]
-      }
-    ]
-  },
-  "tasks": {
-    "task-001": {
-      "id": "task-001",
-      "name": "ポンプ分解点検",
-      "description": "ポンプ本体の分解および各部品点検作業",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-002": {
-      "id": "task-002",
-      "name": "ポンプ月次巡回点検",
-      "description": "ポンプの振動・温度・漏洩等の月次定期点検",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-003": {
-      "id": "task-003",
-      "name": "熱交換器チューブ点検",
-      "description": "熱交換器チューブの肉厚測定および健全性点検",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-004": {
-      "id": "task-004",
-      "name": "冷却器フィン清掃",
-      "description": "空冷式冷却器のフィン清掃および性能確認",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-005": {
-      "id": "task-005",
-      "name": "蒸留塔内部点検",
-      "description": "蒸留塔内部のトレイ・充填物の腐食・変形点検",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-006": {
-      "id": "task-006",
-      "name": "反応器触媒交換",
-      "description": "反応器内触媒の抜出しと新触媒の充填",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-007": {
-      "id": "task-007",
-      "name": "圧縮機ベアリング交換",
-      "description": "圧縮機主軸ベアリングの交換作業",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-008": {
-      "id": "task-008",
-      "name": "タンク開放点検",
-      "description": "貯蔵タンクの開放・内部点検および板厚測定",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-009": {
-      "id": "task-009",
-      "name": "タンク塗装補修",
-      "description": "貯蔵タンク外面の塗装補修工事",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-010": {
-      "id": "task-010",
-      "name": "圧縮機振動測定",
-      "description": "圧縮機の振動データ測定および傾向管理",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-011": {
-      "id": "task-011",
-      "name": "反応器架構点検",
-      "description": "反応器支持架構の腐食・変形点検",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-012": {
-      "id": "task-012",
-      "name": "コンデンサー清掃",
-      "description": "コンデンサーのプレート清掃および性能試験",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-013": {
-      "id": "task-013",
-      "name": "冷却器緊急チューブ修理",
-      "description": "チューブリークに対する緊急プラグ止め修理",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-014": {
-      "id": "task-014",
-      "name": "圧縮機緊急修理",
-      "description": "圧縮機の故障に対する緊急修理対応",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-015": {
-      "id": "task-015",
-      "name": "反応器性能改善工事",
-      "description": "反応器内部構造の改善工事",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-016": {
-      "id": "task-016",
-      "name": "タンク設備更新",
-      "description": "老朽化タンクの更新工事",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    },
-    "task-017": {
-      "id": "task-017",
-      "name": "熱交換器緊急修理",
-      "description": "熱交換器のチューブリークに対する緊急修理",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    }
-  },
   "assets": {
     "P-101": {
       "id": "P-101",
@@ -639,682 +431,948 @@
     "wo-001": {
       "id": "wo-001",
       "name": "原油蒸留ユニット ポンプ年次点検整備",
-      "taskClassificationId": "01",
-      "defaultSchedulePattern": {
-        "frequency": "yearly"
-      },
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "01",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-002": {
       "id": "wo-002",
       "name": "ポンプ月次巡回点検",
-      "taskClassificationId": "06",
-      "defaultSchedulePattern": {
-        "frequency": "monthly"
-      },
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "06",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-003": {
       "id": "wo-003",
       "name": "原油蒸留ユニット 熱交年次点検整備",
-      "taskClassificationId": "01",
-      "defaultSchedulePattern": {
-        "frequency": "yearly"
-      },
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "01",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-004": {
       "id": "wo-004",
       "name": "接触改質ユニット SDM",
-      "taskClassificationId": "04",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "04",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-005": {
       "id": "wo-005",
       "name": "接触改質ユニット 圧縮機オーバーホール",
-      "taskClassificationId": "03",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "03",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-006": {
       "id": "wo-006",
       "name": "製品貯蔵エリア タンク開放検査",
-      "taskClassificationId": "03",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "03",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-007": {
       "id": "wo-007",
       "name": "FCC反応系 オーバーホール",
-      "taskClassificationId": "03",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "03",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-008": {
       "id": "wo-008",
       "name": "ガス回収ユニット 年次点検整備",
-      "taskClassificationId": "01",
-      "defaultSchedulePattern": {
-        "frequency": "yearly"
-      },
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "01",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-009": {
       "id": "wo-009",
       "name": "製品冷却器緊急修理",
-      "taskClassificationId": "07",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "07",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-010": {
       "id": "wo-010",
       "name": "循環ガス圧縮機緊急修理",
-      "taskClassificationId": "07",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "07",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-011": {
       "id": "wo-011",
       "name": "反応器性能改善工事",
-      "taskClassificationId": "08",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "08",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-012": {
       "id": "wo-012",
       "name": "ナフサタンク設備更新",
-      "taskClassificationId": "09",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "09",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-013": {
       "id": "wo-013",
       "name": "FCC反応系 性能改善工事",
-      "taskClassificationId": "08",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "08",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wo-014": {
       "id": "wo-014",
       "name": "原油予熱器 緊急修理",
-      "taskClassificationId": "07",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "ClassificationId": "07",
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     }
   },
   "workOrderLines": {
     "wol-001": {
       "id": "wol-001",
-      "workOrderId": "wo-001",
-      "taskId": "task-001",
-      "assetId": "P-101",
-      "schedule": {
-        "2023-05": {
-          "planned": true,
-          "actual": true,
-          "planCost": 500000,
-          "actualCost": 480000
-        },
-        "2024-05": {
-          "planned": true,
-          "actual": true,
-          "planCost": 520000,
-          "actualCost": 510000
-        },
-        "2025-05": {
-          "planned": true,
-          "actual": false,
-          "planCost": 540000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 24,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-05-15T00:00:00Z"
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-001",
+      "AssetId": "P-101",
+      "PlanScheduleStart": "2023-05-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-05-01T00:00:00Z",
+      "ActualScheduleStart": "2023-05-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-05-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 500000,
+      "ActualCost": 480000,
+      "PlannedManhours": 24,
+      "ActualManhours": 24,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-05-15T00:00:00Z"
     },
     "wol-002": {
       "id": "wol-002",
-      "workOrderId": "wo-002",
-      "taskId": "task-002",
-      "assetId": "P-101",
-      "schedule": {
-        "2024-01": {
-          "planned": true,
-          "actual": true,
-          "planCost": 50000,
-          "actualCost": 48000
-        },
-        "2024-02": {
-          "planned": true,
-          "actual": true,
-          "planCost": 50000,
-          "actualCost": 52000
-        },
-        "2024-03": {
-          "planned": true,
-          "actual": true,
-          "planCost": 50000,
-          "actualCost": 49000
-        }
-      },
-      "manhours": 4,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-03-31T00:00:00Z"
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-001",
+      "AssetId": "P-101",
+      "PlanScheduleStart": "2024-05-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-05-01T00:00:00Z",
+      "ActualScheduleStart": "2024-05-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-05-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 520000,
+      "ActualCost": 510000,
+      "PlannedManhours": 24,
+      "ActualManhours": 24,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-05-15T00:00:00Z"
     },
     "wol-003": {
       "id": "wol-003",
-      "workOrderId": "wo-001",
-      "taskId": "task-001",
-      "assetId": "P-102",
-      "schedule": {
-        "2023-06": {
-          "planned": true,
-          "actual": true,
-          "planCost": 450000,
-          "actualCost": 440000
-        },
-        "2024-06": {
-          "planned": true,
-          "actual": false,
-          "planCost": 470000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 20,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2023-06-20T00:00:00Z"
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-001",
+      "AssetId": "P-101",
+      "PlanScheduleStart": "2025-05-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-05-01T00:00:00Z",
+      "ActualScheduleStart": "2025-05-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-05-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 540000,
+      "ActualCost": 0,
+      "PlannedManhours": 24,
+      "ActualManhours": 24,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-05-15T00:00:00Z"
     },
     "wol-004": {
       "id": "wol-004",
-      "workOrderId": "wo-003",
-      "taskId": "task-003",
-      "assetId": "E-201",
-      "schedule": {
-        "2023-08": {
-          "planned": true,
-          "actual": true,
-          "planCost": 800000,
-          "actualCost": 780000
-        },
-        "2025-02": {
-          "planned": true,
-          "actual": false,
-          "planCost": 850000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 40,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2023-08-22T00:00:00Z"
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-101",
+      "PlanScheduleStart": "2024-01-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-01-01T00:00:00Z",
+      "ActualScheduleStart": "2024-01-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-01-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 50000,
+      "ActualCost": 48000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-31T00:00:00Z"
     },
     "wol-005": {
       "id": "wol-005",
-      "workOrderId": "wo-009",
-      "taskId": "task-013",
-      "assetId": "E-202",
-      "schedule": {
-        "2024-01": {
-          "planned": false,
-          "actual": true,
-          "planCost": 0,
-          "actualCost": 150000
-        }
-      },
-      "manhours": 8,
-      "createdAt": "2024-01-20T00:00:00Z",
-      "updatedAt": "2024-01-20T00:00:00Z"
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-101",
+      "PlanScheduleStart": "2024-02-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-02-01T00:00:00Z",
+      "ActualScheduleStart": "2024-02-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-02-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 50000,
+      "ActualCost": 52000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-31T00:00:00Z"
     },
     "wol-006": {
       "id": "wol-006",
-      "workOrderId": "wo-004",
-      "taskId": "task-005",
-      "assetId": "T-301",
-      "schedule": {
-        "2022-11": {
-          "planned": true,
-          "actual": true,
-          "planCost": 5000000,
-          "actualCost": 4800000
-        },
-        "2026-11": {
-          "planned": true,
-          "actual": false,
-          "planCost": 5500000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 200,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2022-11-10T00:00:00Z"
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-101",
+      "PlanScheduleStart": "2024-03-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-03-01T00:00:00Z",
+      "ActualScheduleStart": "2024-03-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-03-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 50000,
+      "ActualCost": 49000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-31T00:00:00Z"
     },
     "wol-007": {
       "id": "wol-007",
-      "workOrderId": "wo-004",
-      "taskId": "task-006",
-      "assetId": "R-401",
-      "schedule": {
-        "2023-02": {
-          "planned": true,
-          "actual": true,
-          "planCost": 2500000,
-          "actualCost": 2450000
-        },
-        "2025-03": {
-          "planned": true,
-          "actual": false,
-          "planCost": 2700000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 120,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2023-02-20T00:00:00Z"
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-001",
+      "AssetId": "P-102",
+      "PlanScheduleStart": "2023-06-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-06-01T00:00:00Z",
+      "ActualScheduleStart": "2023-06-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-06-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 450000,
+      "ActualCost": 440000,
+      "PlannedManhours": 20,
+      "ActualManhours": 20,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-06-20T00:00:00Z"
     },
     "wol-008": {
       "id": "wol-008",
-      "workOrderId": "wo-011",
-      "taskId": "task-015",
-      "assetId": "R-401",
-      "schedule": {
-        "2024-09": {
-          "planned": true,
-          "actual": false,
-          "planCost": 3000000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 80,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-001",
+      "AssetId": "P-102",
+      "PlanScheduleStart": "2024-06-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-06-01T00:00:00Z",
+      "ActualScheduleStart": "2024-06-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-06-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 470000,
+      "ActualCost": 0,
+      "PlannedManhours": 20,
+      "ActualManhours": 20,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-06-20T00:00:00Z"
     },
     "wol-009": {
       "id": "wol-009",
-      "workOrderId": "wo-010",
-      "taskId": "task-014",
-      "assetId": "C-401",
-      "schedule": {
-        "2024-03": {
-          "planned": false,
-          "actual": true,
-          "planCost": 0,
-          "actualCost": 300000
-        }
-      },
-      "manhours": 16,
-      "createdAt": "2024-03-15T00:00:00Z",
-      "updatedAt": "2024-03-15T00:00:00Z"
+      "name": "熱交換器チューブ点検",
+      "WorkOrderId": "wo-003",
+      "AssetId": "E-201",
+      "PlanScheduleStart": "2023-08-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-08-01T00:00:00Z",
+      "ActualScheduleStart": "2023-08-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-08-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 800000,
+      "ActualCost": 780000,
+      "PlannedManhours": 40,
+      "ActualManhours": 40,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-08-22T00:00:00Z"
     },
     "wol-010": {
       "id": "wol-010",
-      "workOrderId": "wo-006",
-      "taskId": "task-008",
-      "assetId": "TK-501",
-      "schedule": {
-        "2021-09": {
-          "planned": true,
-          "actual": true,
-          "planCost": 12000000,
-          "actualCost": 11500000
-        },
-        "2031-09": {
-          "planned": true,
-          "actual": false,
-          "planCost": 15000000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 300,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2021-09-01T00:00:00Z"
+      "name": "熱交換器チューブ点検",
+      "WorkOrderId": "wo-003",
+      "AssetId": "E-201",
+      "PlanScheduleStart": "2025-02-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-02-01T00:00:00Z",
+      "ActualScheduleStart": "2025-02-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-02-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 850000,
+      "ActualCost": 0,
+      "PlannedManhours": 40,
+      "ActualManhours": 40,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-08-22T00:00:00Z"
     },
     "wol-011": {
       "id": "wol-011",
-      "workOrderId": "wo-012",
-      "taskId": "task-016",
-      "assetId": "TK-501",
-      "schedule": {
-        "2025-06": {
-          "planned": true,
-          "actual": false,
-          "planCost": 8000000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 150,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "name": "冷却器緊急チューブ修理",
+      "WorkOrderId": "wo-009",
+      "AssetId": "E-202",
+      "PlanScheduleStart": "2024-01-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-01-01T00:00:00Z",
+      "ActualScheduleStart": "2024-01-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-01-01T00:00:00Z",
+      "Planned": false,
+      "Actual": true,
+      "PlanCost": 0,
+      "ActualCost": 150000,
+      "PlannedManhours": 8,
+      "ActualManhours": 8,
+      "CreatedAt": "2024-01-20T00:00:00Z",
+      "UpdatedAt": "2024-01-20T00:00:00Z"
     },
     "wol-012": {
       "id": "wol-012",
-      "workOrderId": "wo-006",
-      "taskId": "task-008",
-      "assetId": "TK-502",
-      "schedule": {
-        "2022-04": {
-          "planned": true,
-          "actual": true,
-          "planCost": 9500000,
-          "actualCost": 9200000
-        },
-        "2032-04": {
-          "planned": true,
-          "actual": false,
-          "planCost": 12000000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 250,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2022-04-10T00:00:00Z"
+      "name": "蒸留塔内部点検",
+      "WorkOrderId": "wo-004",
+      "AssetId": "T-301",
+      "PlanScheduleStart": "2022-11-01T00:00:00Z",
+      "PlanScheduleEnd": "2022-11-01T00:00:00Z",
+      "ActualScheduleStart": "2022-11-01T00:00:00Z",
+      "ActualScheduleEnd": "2022-11-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 5000000,
+      "ActualCost": 4800000,
+      "PlannedManhours": 200,
+      "ActualManhours": 200,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2022-11-10T00:00:00Z"
     },
     "wol-013": {
       "id": "wol-013",
-      "workOrderId": "wo-001",
-      "taskId": "task-001",
-      "assetId": "P-2101",
-      "schedule": {
-        "2023-10": {
-          "planned": true,
-          "actual": true,
-          "planCost": 750000,
-          "actualCost": 730000
-        },
-        "2024-10": {
-          "planned": true,
-          "actual": false,
-          "planCost": 780000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 24,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2023-10-10T00:00:00Z"
+      "name": "蒸留塔内部点検",
+      "WorkOrderId": "wo-004",
+      "AssetId": "T-301",
+      "PlanScheduleStart": "2026-11-01T00:00:00Z",
+      "PlanScheduleEnd": "2026-11-01T00:00:00Z",
+      "ActualScheduleStart": "2026-11-01T00:00:00Z",
+      "ActualScheduleEnd": "2026-11-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 5500000,
+      "ActualCost": 0,
+      "PlannedManhours": 200,
+      "ActualManhours": 200,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2022-11-10T00:00:00Z"
     },
     "wol-014": {
       "id": "wol-014",
-      "workOrderId": "wo-007",
-      "taskId": "task-006",
-      "assetId": "R-2201",
-      "schedule": {
-        "2024-08": {
-          "planned": true,
-          "actual": true,
-          "planCost": 15000000,
-          "actualCost": 14500000
-        }
-      },
-      "manhours": 500,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-08-01T00:00:00Z"
+      "name": "反応器触媒交換",
+      "WorkOrderId": "wo-004",
+      "AssetId": "R-401",
+      "PlanScheduleStart": "2023-02-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-02-01T00:00:00Z",
+      "ActualScheduleStart": "2023-02-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-02-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 2500000,
+      "ActualCost": 2450000,
+      "PlannedManhours": 120,
+      "ActualManhours": 120,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-02-20T00:00:00Z"
     },
     "wol-015": {
       "id": "wol-015",
-      "workOrderId": "wo-007",
-      "taskId": "task-006",
-      "assetId": "R-2202",
-      "schedule": {
-        "2024-08": {
-          "planned": true,
-          "actual": true,
-          "planCost": 25000000,
-          "actualCost": 24000000
-        }
-      },
-      "manhours": 600,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-08-01T00:00:00Z"
+      "name": "反応器触媒交換",
+      "WorkOrderId": "wo-004",
+      "AssetId": "R-401",
+      "PlanScheduleStart": "2025-03-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-03-01T00:00:00Z",
+      "ActualScheduleStart": "2025-03-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-03-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 2700000,
+      "ActualCost": 0,
+      "PlannedManhours": 120,
+      "ActualManhours": 120,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-02-20T00:00:00Z"
     },
     "wol-016": {
       "id": "wol-016",
-      "workOrderId": "wo-008",
-      "taskId": "task-012",
-      "assetId": "E-2301",
-      "schedule": {
-        "2023-11": {
-          "planned": true,
-          "actual": true,
-          "planCost": 300000,
-          "actualCost": 290000
-        },
-        "2024-11": {
-          "planned": true,
-          "actual": false,
-          "planCost": 320000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 16,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2023-11-30T00:00:00Z"
+      "name": "反応器性能改善工事",
+      "WorkOrderId": "wo-011",
+      "AssetId": "R-401",
+      "PlanScheduleStart": "2024-09-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-09-01T00:00:00Z",
+      "ActualScheduleStart": "2024-09-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-09-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 3000000,
+      "ActualCost": 0,
+      "PlannedManhours": 80,
+      "ActualManhours": 80,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wol-017": {
       "id": "wol-017",
-      "workOrderId": "wo-008",
-      "taskId": "task-010",
-      "assetId": "C-2301",
-      "schedule": {
-        "2025-09": {
-          "planned": true,
-          "actual": false,
-          "planCost": 850000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 32,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "name": "圧縮機緊急修理",
+      "WorkOrderId": "wo-010",
+      "AssetId": "C-401",
+      "PlanScheduleStart": "2024-03-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-03-01T00:00:00Z",
+      "ActualScheduleStart": "2024-03-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-03-01T00:00:00Z",
+      "Planned": false,
+      "Actual": true,
+      "PlanCost": 0,
+      "ActualCost": 300000,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-03-15T00:00:00Z",
+      "UpdatedAt": "2024-03-15T00:00:00Z"
     },
     "wol-018": {
       "id": "wol-018",
-      "workOrderId": "wo-008",
-      "taskId": "task-001",
-      "assetId": "P-2301",
-      "schedule": {
-        "2024-02": {
-          "planned": true,
-          "actual": true,
-          "planCost": 200000,
-          "actualCost": 195000
-        },
-        "2025-02": {
-          "planned": true,
-          "actual": false,
-          "planCost": 210000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 16,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-02-10T00:00:00Z"
+      "name": "タンク開放点検",
+      "WorkOrderId": "wo-006",
+      "AssetId": "TK-501",
+      "PlanScheduleStart": "2021-09-01T00:00:00Z",
+      "PlanScheduleEnd": "2021-09-01T00:00:00Z",
+      "ActualScheduleStart": "2021-09-01T00:00:00Z",
+      "ActualScheduleEnd": "2021-09-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 12000000,
+      "ActualCost": 11500000,
+      "PlannedManhours": 300,
+      "ActualManhours": 300,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2021-09-01T00:00:00Z"
     },
     "wol-019": {
       "id": "wol-019",
-      "workOrderId": "wo-002",
-      "taskId": "task-002",
-      "assetId": "P-102",
-      "schedule": {
-        "2024-04": {
-          "planned": true,
-          "actual": true,
-          "planCost": 45000,
-          "actualCost": 47000
-        },
-        "2024-05": {
-          "planned": true,
-          "actual": true,
-          "planCost": 45000,
-          "actualCost": 44000
-        },
-        "2024-06": {
-          "planned": true,
-          "actual": false,
-          "planCost": 45000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 4,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-05-31T00:00:00Z"
+      "name": "タンク開放点検",
+      "WorkOrderId": "wo-006",
+      "AssetId": "TK-501",
+      "PlanScheduleStart": "2031-09-01T00:00:00Z",
+      "PlanScheduleEnd": "2031-09-01T00:00:00Z",
+      "ActualScheduleStart": "2031-09-01T00:00:00Z",
+      "ActualScheduleEnd": "2031-09-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 15000000,
+      "ActualCost": 0,
+      "PlannedManhours": 300,
+      "ActualManhours": 300,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2021-09-01T00:00:00Z"
     },
     "wol-020": {
       "id": "wol-020",
-      "workOrderId": "wo-014",
-      "taskId": "task-017",
-      "assetId": "E-201",
-      "schedule": {
-        "2024-07": {
-          "planned": false,
-          "actual": true,
-          "planCost": 0,
-          "actualCost": 250000
-        }
-      },
-      "manhours": 12,
-      "createdAt": "2024-07-15T00:00:00Z",
-      "updatedAt": "2024-07-15T00:00:00Z"
+      "name": "タンク設備更新",
+      "WorkOrderId": "wo-012",
+      "AssetId": "TK-501",
+      "PlanScheduleStart": "2025-06-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-06-01T00:00:00Z",
+      "ActualScheduleStart": "2025-06-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-06-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 8000000,
+      "ActualCost": 0,
+      "PlannedManhours": 150,
+      "ActualManhours": 150,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
     },
     "wol-021": {
       "id": "wol-021",
-      "workOrderId": "wo-006",
-      "taskId": "task-009",
-      "assetId": "TK-502",
-      "schedule": {
-        "2024-03": {
-          "planned": true,
-          "actual": true,
-          "planCost": 600000,
-          "actualCost": 580000
-        },
-        "2025-03": {
-          "planned": true,
-          "actual": false,
-          "planCost": 620000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 30,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-03-20T00:00:00Z"
+      "name": "タンク開放点検",
+      "WorkOrderId": "wo-006",
+      "AssetId": "TK-502",
+      "PlanScheduleStart": "2022-04-01T00:00:00Z",
+      "PlanScheduleEnd": "2022-04-01T00:00:00Z",
+      "ActualScheduleStart": "2022-04-01T00:00:00Z",
+      "ActualScheduleEnd": "2022-04-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 9500000,
+      "ActualCost": 9200000,
+      "PlannedManhours": 250,
+      "ActualManhours": 250,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2022-04-10T00:00:00Z"
     },
     "wol-022": {
       "id": "wol-022",
-      "workOrderId": "wo-005",
-      "taskId": "task-007",
-      "assetId": "C-401",
-      "schedule": {
-        "2023-07": {
-          "planned": true,
-          "actual": true,
-          "planCost": 1200000,
-          "actualCost": 1150000
-        },
-        "2025-07": {
-          "planned": true,
-          "actual": false,
-          "planCost": 1300000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 48,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2023-07-10T00:00:00Z"
+      "name": "タンク開放点検",
+      "WorkOrderId": "wo-006",
+      "AssetId": "TK-502",
+      "PlanScheduleStart": "2032-04-01T00:00:00Z",
+      "PlanScheduleEnd": "2032-04-01T00:00:00Z",
+      "ActualScheduleStart": "2032-04-01T00:00:00Z",
+      "ActualScheduleEnd": "2032-04-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 12000000,
+      "ActualCost": 0,
+      "PlannedManhours": 250,
+      "ActualManhours": 250,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2022-04-10T00:00:00Z"
     },
     "wol-023": {
       "id": "wol-023",
-      "workOrderId": "wo-002",
-      "taskId": "task-002",
-      "assetId": "P-2101",
-      "schedule": {
-        "2024-01": {
-          "planned": true,
-          "actual": true,
-          "planCost": 60000,
-          "actualCost": 58000
-        },
-        "2024-02": {
-          "planned": true,
-          "actual": true,
-          "planCost": 60000,
-          "actualCost": 62000
-        },
-        "2024-03": {
-          "planned": true,
-          "actual": true,
-          "planCost": 60000,
-          "actualCost": 59000
-        }
-      },
-      "manhours": 4,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-03-31T00:00:00Z"
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-001",
+      "AssetId": "P-2101",
+      "PlanScheduleStart": "2023-10-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-10-01T00:00:00Z",
+      "ActualScheduleStart": "2023-10-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-10-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 750000,
+      "ActualCost": 730000,
+      "PlannedManhours": 24,
+      "ActualManhours": 24,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-10-10T00:00:00Z"
     },
     "wol-024": {
       "id": "wol-024",
-      "workOrderId": "wo-013",
-      "taskId": "task-015",
-      "assetId": "R-2201",
-      "schedule": {
-        "2025-11": {
-          "planned": true,
-          "actual": false,
-          "planCost": 8000000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 200,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-001",
+      "AssetId": "P-2101",
+      "PlanScheduleStart": "2024-10-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-10-01T00:00:00Z",
+      "ActualScheduleStart": "2024-10-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-10-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 780000,
+      "ActualCost": 0,
+      "PlannedManhours": 24,
+      "ActualManhours": 24,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-10-10T00:00:00Z"
     },
     "wol-025": {
       "id": "wol-025",
-      "workOrderId": "wo-003",
-      "taskId": "task-004",
-      "assetId": "E-202",
-      "schedule": {
-        "2023-09": {
-          "planned": true,
-          "actual": true,
-          "planCost": 400000,
-          "actualCost": 390000
-        },
-        "2024-09": {
-          "planned": true,
-          "actual": true,
-          "planCost": 420000,
-          "actualCost": 410000
-        },
-        "2025-09": {
-          "planned": true,
-          "actual": false,
-          "planCost": 440000,
-          "actualCost": 0
-        }
-      },
-      "manhours": 16,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-09-15T00:00:00Z"
+      "name": "反応器触媒交換",
+      "WorkOrderId": "wo-007",
+      "AssetId": "R-2201",
+      "PlanScheduleStart": "2024-08-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-08-01T00:00:00Z",
+      "ActualScheduleStart": "2024-08-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-08-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 15000000,
+      "ActualCost": 14500000,
+      "PlannedManhours": 500,
+      "ActualManhours": 500,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-08-01T00:00:00Z"
     },
     "wol-026": {
       "id": "wol-026",
-      "workOrderId": "wo-004",
-      "taskId": "task-011",
-      "assetId": "R-401",
-      "schedule": {
-        "2023-02": {
-          "planned": true,
-          "actual": true,
-          "planCost": 300000,
-          "actualCost": 280000
-        }
-      },
-      "manhours": 16,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2023-02-20T00:00:00Z"
+      "name": "反応器触媒交換",
+      "WorkOrderId": "wo-007",
+      "AssetId": "R-2202",
+      "PlanScheduleStart": "2024-08-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-08-01T00:00:00Z",
+      "ActualScheduleStart": "2024-08-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-08-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 25000000,
+      "ActualCost": 24000000,
+      "PlannedManhours": 600,
+      "ActualManhours": 600,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-08-01T00:00:00Z"
+    },
+    "wol-027": {
+      "id": "wol-027",
+      "name": "コンデンサー清掃",
+      "WorkOrderId": "wo-008",
+      "AssetId": "E-2301",
+      "PlanScheduleStart": "2023-11-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-11-01T00:00:00Z",
+      "ActualScheduleStart": "2023-11-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-11-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 300000,
+      "ActualCost": 290000,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-11-30T00:00:00Z"
+    },
+    "wol-028": {
+      "id": "wol-028",
+      "name": "コンデンサー清掃",
+      "WorkOrderId": "wo-008",
+      "AssetId": "E-2301",
+      "PlanScheduleStart": "2024-11-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-11-01T00:00:00Z",
+      "ActualScheduleStart": "2024-11-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-11-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 320000,
+      "ActualCost": 0,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-11-30T00:00:00Z"
+    },
+    "wol-029": {
+      "id": "wol-029",
+      "name": "圧縮機振動測定",
+      "WorkOrderId": "wo-008",
+      "AssetId": "C-2301",
+      "PlanScheduleStart": "2025-09-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-09-01T00:00:00Z",
+      "ActualScheduleStart": "2025-09-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-09-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 850000,
+      "ActualCost": 0,
+      "PlannedManhours": 32,
+      "ActualManhours": 32,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
+    },
+    "wol-030": {
+      "id": "wol-030",
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-008",
+      "AssetId": "P-2301",
+      "PlanScheduleStart": "2024-02-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-02-01T00:00:00Z",
+      "ActualScheduleStart": "2024-02-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-02-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 200000,
+      "ActualCost": 195000,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-02-10T00:00:00Z"
+    },
+    "wol-031": {
+      "id": "wol-031",
+      "name": "ポンプ分解点検",
+      "WorkOrderId": "wo-008",
+      "AssetId": "P-2301",
+      "PlanScheduleStart": "2025-02-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-02-01T00:00:00Z",
+      "ActualScheduleStart": "2025-02-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-02-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 210000,
+      "ActualCost": 0,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-02-10T00:00:00Z"
+    },
+    "wol-032": {
+      "id": "wol-032",
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-102",
+      "PlanScheduleStart": "2024-04-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-04-01T00:00:00Z",
+      "ActualScheduleStart": "2024-04-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-04-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 45000,
+      "ActualCost": 47000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-05-31T00:00:00Z"
+    },
+    "wol-033": {
+      "id": "wol-033",
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-102",
+      "PlanScheduleStart": "2024-05-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-05-01T00:00:00Z",
+      "ActualScheduleStart": "2024-05-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-05-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 45000,
+      "ActualCost": 44000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-05-31T00:00:00Z"
+    },
+    "wol-034": {
+      "id": "wol-034",
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-102",
+      "PlanScheduleStart": "2024-06-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-06-01T00:00:00Z",
+      "ActualScheduleStart": "2024-06-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-06-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 45000,
+      "ActualCost": 0,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-05-31T00:00:00Z"
+    },
+    "wol-035": {
+      "id": "wol-035",
+      "name": "熱交換器緊急修理",
+      "WorkOrderId": "wo-014",
+      "AssetId": "E-201",
+      "PlanScheduleStart": "2024-07-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-07-01T00:00:00Z",
+      "ActualScheduleStart": "2024-07-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-07-01T00:00:00Z",
+      "Planned": false,
+      "Actual": true,
+      "PlanCost": 0,
+      "ActualCost": 250000,
+      "PlannedManhours": 12,
+      "ActualManhours": 12,
+      "CreatedAt": "2024-07-15T00:00:00Z",
+      "UpdatedAt": "2024-07-15T00:00:00Z"
+    },
+    "wol-036": {
+      "id": "wol-036",
+      "name": "タンク塗装補修",
+      "WorkOrderId": "wo-006",
+      "AssetId": "TK-502",
+      "PlanScheduleStart": "2024-03-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-03-01T00:00:00Z",
+      "ActualScheduleStart": "2024-03-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-03-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 600000,
+      "ActualCost": 580000,
+      "PlannedManhours": 30,
+      "ActualManhours": 30,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-20T00:00:00Z"
+    },
+    "wol-037": {
+      "id": "wol-037",
+      "name": "タンク塗装補修",
+      "WorkOrderId": "wo-006",
+      "AssetId": "TK-502",
+      "PlanScheduleStart": "2025-03-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-03-01T00:00:00Z",
+      "ActualScheduleStart": "2025-03-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-03-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 620000,
+      "ActualCost": 0,
+      "PlannedManhours": 30,
+      "ActualManhours": 30,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-20T00:00:00Z"
+    },
+    "wol-038": {
+      "id": "wol-038",
+      "name": "圧縮機ベアリング交換",
+      "WorkOrderId": "wo-005",
+      "AssetId": "C-401",
+      "PlanScheduleStart": "2023-07-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-07-01T00:00:00Z",
+      "ActualScheduleStart": "2023-07-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-07-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 1200000,
+      "ActualCost": 1150000,
+      "PlannedManhours": 48,
+      "ActualManhours": 48,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-07-10T00:00:00Z"
+    },
+    "wol-039": {
+      "id": "wol-039",
+      "name": "圧縮機ベアリング交換",
+      "WorkOrderId": "wo-005",
+      "AssetId": "C-401",
+      "PlanScheduleStart": "2025-07-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-07-01T00:00:00Z",
+      "ActualScheduleStart": "2025-07-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-07-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 1300000,
+      "ActualCost": 0,
+      "PlannedManhours": 48,
+      "ActualManhours": 48,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-07-10T00:00:00Z"
+    },
+    "wol-040": {
+      "id": "wol-040",
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-2101",
+      "PlanScheduleStart": "2024-01-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-01-01T00:00:00Z",
+      "ActualScheduleStart": "2024-01-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-01-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 60000,
+      "ActualCost": 58000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-31T00:00:00Z"
+    },
+    "wol-041": {
+      "id": "wol-041",
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-2101",
+      "PlanScheduleStart": "2024-02-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-02-01T00:00:00Z",
+      "ActualScheduleStart": "2024-02-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-02-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 60000,
+      "ActualCost": 62000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-31T00:00:00Z"
+    },
+    "wol-042": {
+      "id": "wol-042",
+      "name": "ポンプ月次巡回点検",
+      "WorkOrderId": "wo-002",
+      "AssetId": "P-2101",
+      "PlanScheduleStart": "2024-03-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-03-01T00:00:00Z",
+      "ActualScheduleStart": "2024-03-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-03-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 60000,
+      "ActualCost": 59000,
+      "PlannedManhours": 4,
+      "ActualManhours": 4,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-03-31T00:00:00Z"
+    },
+    "wol-043": {
+      "id": "wol-043",
+      "name": "反応器性能改善工事",
+      "WorkOrderId": "wo-013",
+      "AssetId": "R-2201",
+      "PlanScheduleStart": "2025-11-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-11-01T00:00:00Z",
+      "ActualScheduleStart": "2025-11-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-11-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 8000000,
+      "ActualCost": 0,
+      "PlannedManhours": 200,
+      "ActualManhours": 200,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-01-01T00:00:00Z"
+    },
+    "wol-044": {
+      "id": "wol-044",
+      "name": "冷却器フィン清掃",
+      "WorkOrderId": "wo-003",
+      "AssetId": "E-202",
+      "PlanScheduleStart": "2023-09-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-09-01T00:00:00Z",
+      "ActualScheduleStart": "2023-09-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-09-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 400000,
+      "ActualCost": 390000,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-09-15T00:00:00Z"
+    },
+    "wol-045": {
+      "id": "wol-045",
+      "name": "冷却器フィン清掃",
+      "WorkOrderId": "wo-003",
+      "AssetId": "E-202",
+      "PlanScheduleStart": "2024-09-01T00:00:00Z",
+      "PlanScheduleEnd": "2024-09-01T00:00:00Z",
+      "ActualScheduleStart": "2024-09-01T00:00:00Z",
+      "ActualScheduleEnd": "2024-09-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 420000,
+      "ActualCost": 410000,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-09-15T00:00:00Z"
+    },
+    "wol-046": {
+      "id": "wol-046",
+      "name": "冷却器フィン清掃",
+      "WorkOrderId": "wo-003",
+      "AssetId": "E-202",
+      "PlanScheduleStart": "2025-09-01T00:00:00Z",
+      "PlanScheduleEnd": "2025-09-01T00:00:00Z",
+      "ActualScheduleStart": "2025-09-01T00:00:00Z",
+      "ActualScheduleEnd": "2025-09-01T00:00:00Z",
+      "Planned": true,
+      "Actual": false,
+      "PlanCost": 440000,
+      "ActualCost": 0,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2024-09-15T00:00:00Z"
+    },
+    "wol-047": {
+      "id": "wol-047",
+      "name": "反応器架構点検",
+      "WorkOrderId": "wo-004",
+      "AssetId": "R-401",
+      "PlanScheduleStart": "2023-02-01T00:00:00Z",
+      "PlanScheduleEnd": "2023-02-01T00:00:00Z",
+      "ActualScheduleStart": "2023-02-01T00:00:00Z",
+      "ActualScheduleEnd": "2023-02-01T00:00:00Z",
+      "Planned": true,
+      "Actual": true,
+      "PlanCost": 300000,
+      "ActualCost": 280000,
+      "PlannedManhours": 16,
+      "ActualManhours": 16,
+      "CreatedAt": "2024-01-01T00:00:00Z",
+      "UpdatedAt": "2023-02-20T00:00:00Z"
     }
   },
   "hierarchy": {
@@ -1351,8 +1409,94 @@
       }
     ]
   },
+  "workOrderClassifications": [
+    {
+      "id": "01",
+      "name": "年次点検",
+      "order": 1
+    },
+    {
+      "id": "02",
+      "name": "隔年点検",
+      "order": 2
+    },
+    {
+      "id": "03",
+      "name": "オーバーホール",
+      "order": 3
+    },
+    {
+      "id": "04",
+      "name": "SDM",
+      "order": 4
+    },
+    {
+      "id": "05",
+      "name": "日常点検",
+      "order": 5
+    },
+    {
+      "id": "06",
+      "name": "月次点検",
+      "order": 6
+    },
+    {
+      "id": "07",
+      "name": "緊急修理",
+      "order": 7
+    },
+    {
+      "id": "08",
+      "name": "性能改善工事",
+      "order": 8
+    },
+    {
+      "id": "09",
+      "name": "設備更新",
+      "order": 9
+    }
+  ],
+  "assetClassification": {
+    "levels": [
+      {
+        "key": "機器大分類",
+        "order": 1,
+        "values": [
+          "回転機器",
+          "静止機器",
+          "計装機器"
+        ]
+      },
+      {
+        "key": "機器種別",
+        "order": 2,
+        "values": [
+          "ポンプ",
+          "コンプレッサー",
+          "塔",
+          "熱交換器",
+          "反応器",
+          "タンク"
+        ]
+      },
+      {
+        "key": "機器型式",
+        "order": 3,
+        "values": [
+          "遠心式",
+          "容積式",
+          "多管円筒式",
+          "空冷式",
+          "プレート式",
+          "固定床式",
+          "充填塔",
+          "浮き屋根式",
+          "コーンルーフ式"
+        ]
+      }
+    ]
+  },
   "metadata": {
-    "lastModified": "2024-08-01T00:00:00Z"
+    "lastModified": "2026-03-20T10:20:41.858Z"
   }
 }
-

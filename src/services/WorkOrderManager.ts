@@ -50,24 +50,24 @@ export class WorkOrderManager {
      */
     private validateWorkOrderData(data: {
         name: string;
-        taskClassificationId: string;
+        ClassificationId: string;
     }): void {
         if (!data.name || data.name.trim() === '') {
             throw new Error('WorkOrder名は必須です。');
         }
-        if (!data.taskClassificationId || data.taskClassificationId.trim() === '') {
+        if (!data.ClassificationId || data.ClassificationId.trim() === '') {
             throw new Error('作業分類IDは必須です。');
         }
         // 分類IDは01-20の範囲
-        const classNum = parseInt(data.taskClassificationId, 10);
+        const classNum = parseInt(data.ClassificationId, 10);
         if (isNaN(classNum) || classNum < 1 || classNum > 20) {
             throw new Error(
-                `無効な作業分類IDです: ${data.taskClassificationId}。01から20の範囲で指定してください。`
+                `無効な作業分類IDです: ${data.ClassificationId}。01から20の範囲で指定してください。`
             );
         }
-        if (!/^\d{2}$/.test(data.taskClassificationId)) {
+        if (!/^\d{2}$/.test(data.ClassificationId)) {
             throw new Error(
-                `作業分類IDは2桁の形式で指定してください（例: 01）。入力値: ${data.taskClassificationId}`
+                `作業分類IDは2桁の形式で指定してください（例: 01）。入力値: ${data.ClassificationId}`
             );
         }
     }
@@ -76,9 +76,9 @@ export class WorkOrderManager {
      * WorkOrderを作成
      */
     createWorkOrder(
-        data: Omit<WorkOrder, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+        data: Omit<WorkOrder, 'id' | 'CreatedAt' | 'UpdatedAt'> & { id?: string }
     ): WorkOrder {
-        this.validateWorkOrderData(data);
+        this.validateWorkOrderData(data as any); // validate
 
         const now = new Date();
         const id = data.id || this.generateId();
@@ -98,10 +98,9 @@ export class WorkOrderManager {
         const workOrder: WorkOrder = {
             id,
             name: data.name.trim(),
-            taskClassificationId: data.taskClassificationId,
-            defaultSchedulePattern: data.defaultSchedulePattern,
-            createdAt: now,
-            updatedAt: now,
+            ClassificationId: data.ClassificationId,
+            CreatedAt: now,
+            UpdatedAt: now,
         };
 
         this.workOrders.set(id, workOrder);
@@ -120,18 +119,18 @@ export class WorkOrderManager {
      */
     updateWorkOrder(
         id: string,
-        updates: Partial<Omit<WorkOrder, 'id' | 'createdAt'>>
+        updates: Partial<Omit<WorkOrder, 'id' | 'CreatedAt'>>
     ): WorkOrder {
         const existing = this.workOrders.get(id);
         if (!existing) {
             throw new Error(`WorkOrderが見つかりません: ${id}`);
         }
 
-        if (updates.name !== undefined || updates.taskClassificationId !== undefined) {
+        if (updates.name !== undefined || updates.ClassificationId !== undefined) {
             const toValidate = {
                 name: updates.name ?? existing.name,
-                taskClassificationId:
-                    updates.taskClassificationId ?? existing.taskClassificationId,
+                ClassificationId:
+                    updates.ClassificationId ?? existing.ClassificationId,
             };
             this.validateWorkOrderData(toValidate);
         }
@@ -140,8 +139,8 @@ export class WorkOrderManager {
             ...existing,
             ...updates,
             id: existing.id,
-            createdAt: existing.createdAt,
-            updatedAt: new Date(),
+            CreatedAt: existing.CreatedAt,
+            UpdatedAt: new Date(),
         };
 
         this.workOrders.set(id, updated);
@@ -195,7 +194,7 @@ export class WorkOrderManager {
      */
     getWorkOrdersByClassification(classificationId: string): WorkOrder[] {
         return Array.from(this.workOrders.values()).filter(
-            (wo) => wo.taskClassificationId === classificationId
+            (wo) => wo.ClassificationId === classificationId
         );
     }
 

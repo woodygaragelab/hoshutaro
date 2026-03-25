@@ -82,8 +82,7 @@ export class ScaleChangeOptimizer {
         try {
           operation();
         } catch (error) {
-          console.warn('Deferred operation failed:', error);
-        }
+                  }
       });
     });
   }
@@ -152,8 +151,7 @@ export class RenderOptimizer {
         try {
           render();
         } catch (error) {
-          console.warn('Render operation failed:', error);
-        }
+                  }
       });
 
       this.isRendering = false;

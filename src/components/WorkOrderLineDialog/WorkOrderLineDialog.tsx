@@ -32,6 +32,9 @@ import {
   FormControl,
   InputLabel,
   Collapse,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -41,28 +44,33 @@ import {
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
   Link as LinkIcon,
   Schedule as ScheduleIcon,
+  ExpandMore as ExpandMoreIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import {
-  Task,
+  WorkOrder,
   WorkOrderLine,
   Asset,
   WorkOrderLineUpdate,
 } from '../../types/maintenanceTask';
 import { getClassificationOptions } from '../../config/classificationMaster';
+import { AssetSelectionDialog } from '../AssetSelectionDialog/AssetSelectionDialog';
 
 export interface WorkOrderLineDialogProps {
   open: boolean;
   assetId: string;
   dateKey: string;              // Date key being edited (e.g., "2025-02-01" or "2025-02")
+  workOrderId?: string;         // If opened from a specific task row
   associations: WorkOrderLine[]; // All work order lines for this asset
-  allTasks: Task[];             // All available tasks
+  allWorkOrders: WorkOrder[];             // All available tasks
   allAssets: Asset[];           // All assets (for related assets feature)
+  allWorkOrderLines: WorkOrderLine[]; // All work order lines across all assets
   onSave: (updates: WorkOrderLineUpdate[]) => void;
-  onUpdateTask?: (taskId: string, updates: Partial<Task>) => void; // Optional callback to update task definitions
+  onUpdateWorkOrder?: (workOrderId: string, updates: Partial<WorkOrder>) => void; // Optional callback to update definitions
   onClose: () => void;
   readOnly?: boolean;
   editScope?: 'single-asset' | 'all-assets';
-  dataViewMode?: 'equipment-based' | 'task-based';
+  dataViewMode?: 'asset-based' | 'workorder-based';
 }
 
 interface TabPanelProps {
@@ -86,18 +94,30 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-// New simplified data structure for maintenance records
 interface MaintenanceRecord {
   id: string;                 // Unique ID for this record
-  taskName: string;           // Editable task name
-  classification: string;     // Task classification (01-20)
-  type: 'planned' | 'actual'; // Planned or Actual
-  date: string;               // Date in YYYY-MM-DD format
-  cost: number;               // Cost amount
+  workOrderId: string;        // Selected WorkOrder ID
+  assetId?: string;           // Track the original Asset ID if editing globally
+  lineName: string;           // WorkOrderLine name
+  planned: boolean;           // Is planned?
+  planStartDate: string;      // YYYY-MM-DD
+  planEndDate: string;        // YYYY-MM-DD
+  planCost: number;           // Cost
+  actual: boolean;            // Is actual?
+  actualStartDate: string;    // YYYY-MM-DD
+  actualEndDate: string;      // YYYY-MM-DD
+  actualCost: number;         // Cost
   isNew: boolean;             // Is this a new record?
   isDeleted: boolean;         // Is this record marked for deletion?
   isModified: boolean;        // Has this record been modified?
   associationId?: string;     // Original association ID (if exists)
+}
+
+export interface WorkOrderDraft {
+  id: string;
+  name: string;
+  classificationId: string;
+  isNew: boolean;
 }
 
 // Legacy interface - kept for backward compatibility
@@ -119,14 +139,6 @@ interface TaskEditItem {
   };
 }
 
-interface RelatedAssetItem {
-  assetId: string;
-  assetName: string;
-  hierarchyPath: string;
-  hasTask: boolean;
-  selected: boolean;
-}
-
 /**
  * WorkOrderLineDialog - Dialog for editing work order lines associated with an asset
  * 
@@ -142,23 +154,26 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   open,
   assetId,
   dateKey,
+  workOrderId: contextWorkOrderId,
   associations,
-  allTasks,
+  allWorkOrders,
   allAssets,
+  allWorkOrderLines,
   onSave,
-  onUpdateTask,
+  onUpdateWorkOrder,
   onClose,
   readOnly = false,
   editScope = 'single-asset',
-  dataViewMode = 'equipment-based',
+  dataViewMode = 'asset-based',
 }) => {
-  const [tabValue, setTabValue] = useState(0);
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
+  const [activeWorkOrderId, setActiveWorkOrderId] = useState<string | null>(null);
+  const [workOrderDrafts, setWorkOrderDrafts] = useState<Record<string, WorkOrderDraft>>({});
+
   const [editItems, setEditItems] = useState<TaskEditItem[]>([]); // Legacy - kept for compatibility
-  const [selectedTaskForRelated, setSelectedTaskForRelated] = useState<string | null>(null);
-  const [relatedAssets, setRelatedAssets] = useState<RelatedAssetItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [expandedPatternIndex, setExpandedPatternIndex] = useState<number | null>(null);
+  const [assetSelectorState, setAssetSelectorState] = useState<{ open: boolean; recordIndex: number | null }>({ open: false, recordIndex: null });
 
   // Available classifications (01-20) with names
   const availableClassifications = getClassificationOptions();
@@ -171,142 +186,98 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   // Initialize maintenance records from associations
   useEffect(() => {
     if (open) {
-      console.log('[TaskEditDialog] Initializing with:', {
-        assetId,
-        dateKey,
-        associationsCount: associations.length,
-        editScope,
-        dataViewMode,
-        associations: associations.map(a => ({
-          id: a.id,
-          taskId: a.taskId,
-          hasScheduleForDate: !!a.schedule[dateKey]
-        }))
-      });
-
+      
       const records: MaintenanceRecord[] = [];
+      const uniqueWoIds = new Set<string>();
 
       // Convert associations to maintenance records
-      // Support both exact match and prefix match for aggregated time periods
       associations.forEach(assoc => {
-        const task = allTasks.find(t => t.id === assoc.taskId);
+        if (assoc.WorkOrderId) uniqueWoIds.add(assoc.WorkOrderId);
 
-        // Find all schedule entries that match the dateKey
-        // For year: "2023" matches "2023-01-01", "2023-05-15", etc.
-        // For month: "2023-05" matches "2023-05-01", "2023-05-15", etc.
-        // For day: "2023-05-15" matches exactly "2023-05-15"
-        const matchingEntries = Object.entries(assoc.schedule).filter(([scheduleDate]) => {
-          // Exact match
-          if (scheduleDate === dateKey) return true;
+        // In context mode, skip records not matching the context WorkOrder
+        if (contextWorkOrderId && assoc.WorkOrderId !== contextWorkOrderId) return;
 
-          // Prefix match for aggregated periods
-          // If dateKey is "2023", match all dates starting with "2023-"
-          // If dateKey is "2023-05", match all dates starting with "2023-05-"
-          return scheduleDate.startsWith(dateKey + '-');
-        });
+        const formatDate = (dateValue: any) => {
+          if (!dateValue) return '';
+          const d = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+          if (isNaN(d.getTime())) return '';
+          return d.toISOString().split('T')[0];
+        };
 
-        if (matchingEntries.length === 0) return;
+        const planStart = formatDate(assoc.PlanScheduleStart);
+        const actualStart = formatDate(assoc.ActualScheduleStart);
 
-        // Aggregate all matching entries
-        let totalPlanned = false;
-        let totalActual = false;
-        let totalPlanCost = 0;
-        let totalActualCost = 0;
+        // Check prefix match for aggregated periods against either start date
+        const matchesDateKey = (dateStr: string) => dateStr === dateKey || dateStr.startsWith(dateKey + '-');
+        if (!matchesDateKey(planStart) && !matchesDateKey(actualStart)) {
+          return; // Skip if it doesn't match the cell's dateKey
+        }
 
-        matchingEntries.forEach(([, scheduleEntry]) => {
-          totalPlanned = totalPlanned || scheduleEntry.planned;
-          totalActual = totalActual || scheduleEntry.actual;
-          totalPlanCost += scheduleEntry.planCost;
-          totalActualCost += scheduleEntry.actualCost;
-        });
-
-        // Create separate records for each date entry
-        matchingEntries.forEach(([scheduleDate, scheduleEntry]) => {
-          // Normalize date for HTML date input (requires YYYY-MM-DD)
-          let normalizedDate = scheduleDate;
-          if (/^\d{4}$/.test(scheduleDate)) {
-            normalizedDate = `${scheduleDate}-01-01`;
-          } else if (/^\d{4}-\d{2}$/.test(scheduleDate)) {
-            normalizedDate = `${scheduleDate}-01`;
-          }
-
-          // Create a record for planned if exists
-          if (scheduleEntry.planned) {
-            records.push({
-              id: `${assoc.id}-planned-${scheduleDate}`,
-              taskName: task?.name || 'Unknown Task',
-              classification: task?.classification || '01',
-              type: 'planned',
-              date: normalizedDate,
-              cost: scheduleEntry.planCost,
-              isNew: false,
-              isDeleted: false,
-              isModified: false,
-              associationId: assoc.id,
-            });
-          }
-
-          // Create a record for actual if exists
-          if (scheduleEntry.actual) {
-            records.push({
-              id: `${assoc.id}-actual-${scheduleDate}`,
-              taskName: task?.name || 'Unknown Task',
-              classification: task?.classification || '01',
-              type: 'actual',
-              date: normalizedDate,
-              cost: scheduleEntry.actualCost,
-              isNew: false,
-              isDeleted: false,
-              isModified: false,
-              associationId: assoc.id,
-            });
-          }
+        records.push({
+          id: assoc.id,
+          workOrderId: assoc.WorkOrderId || '',
+          assetId: assoc.AssetId,
+          lineName: assoc.name || '',
+          planned: !!assoc.Planned,
+          planStartDate: planStart,
+          planEndDate: formatDate(assoc.PlanScheduleEnd) || planStart,
+          planCost: assoc.PlanCost || 0,
+          actual: !!assoc.Actual,
+          actualStartDate: actualStart,
+          actualEndDate: formatDate(assoc.ActualScheduleEnd) || actualStart,
+          actualCost: assoc.ActualCost || 0,
+          isNew: false,
+          isDeleted: false,
+          isModified: false,
+          associationId: assoc.id,
         });
       });
 
-      console.log('[TaskEditDialog] Initialized maintenance records:', records.length);
-      console.log('[TaskEditDialog] DEBUG: records with dates:', records.map(r => ({ id: r.id, date: r.date, type: r.type })));
+      if (contextWorkOrderId) {
+        uniqueWoIds.add(contextWorkOrderId);
+      }
 
-      setMaintenanceRecords(records);
-      setHasChanges(false);
-      setTabValue(0);
-      setSelectedTaskForRelated(null);
-    }
-    // Only re-run when dialog opens or key identifiers change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, assetId, dateKey]);
+      const drafts: Record<string, WorkOrderDraft> = {};
+      let initialActiveId: string | null = null;
 
-  // Update related assets when a task is selected
-  useEffect(() => {
-    if (selectedTaskForRelated) {
-      const relatedAssocs = associations.filter(a => a.taskId === selectedTaskForRelated);
-      const relatedAssetIds = new Set(relatedAssocs.map(a => a.assetId));
-
-      const items: RelatedAssetItem[] = allAssets
-        .filter(asset => asset.id !== assetId) // Exclude current asset
-        .map(asset => {
-          const hierarchyStr = Object.values(asset.hierarchyPath).join(' > ');
-
-          return {
-            assetId: asset.id,
-            assetName: asset.name,
-            hierarchyPath: hierarchyStr,
-            hasTask: relatedAssetIds.has(asset.id),
-            selected: false,
+      if (uniqueWoIds.size === 0) {
+        // If empty (e.g. clicking an empty cell in asset-view), create a default new Draft
+        const newId = `NEW_${Date.now()}`;
+        drafts[newId] = {
+           id: newId,
+           name: '',
+           classificationId: '01',
+           isNew: true
+        };
+        initialActiveId = newId;
+      } else {
+        uniqueWoIds.forEach(id => {
+          const wo = allWorkOrders.find(w => w.id === id);
+          drafts[id] = {
+            id,
+            name: wo?.name || '',
+            classificationId: wo?.ClassificationId || '01',
+            isNew: false
           };
         });
+        
+        if (contextWorkOrderId && drafts[contextWorkOrderId]) {
+           initialActiveId = contextWorkOrderId;
+        } else {
+           initialActiveId = Array.from(uniqueWoIds)[0];
+        }
+      }
 
-      setRelatedAssets(items);
+      setWorkOrderDrafts(drafts);
+      setActiveWorkOrderId(initialActiveId);
+      setMaintenanceRecords(records);
+      setHasChanges(false);
     }
-  }, [selectedTaskForRelated, associations, allAssets, assetId]);
-
-  // Handle tab change
-  const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, assetId, dateKey, contextWorkOrderId, associations, allWorkOrders]);
 
   // Handle adding a new maintenance record
-  const handleAddRecord = useCallback(() => {
+  const handleAddRecord = useCallback((draftId: string) => {
     // Determine default date based on dateKey
     let defaultDate = dateKey;
     if (dateKey.length === 4) {
@@ -319,11 +290,16 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
 
     const newRecord: MaintenanceRecord = {
       id: `new-${Date.now()}`,
-      taskName: '',
-      classification: '01',
-      type: 'planned',
-      date: defaultDate,
-      cost: 0,
+      workOrderId: draftId,
+      lineName: '',
+      planned: true,
+      planStartDate: defaultDate,
+      planEndDate: defaultDate,
+      planCost: 0,
+      actual: false,
+      actualStartDate: defaultDate,
+      actualEndDate: defaultDate,
+      actualCost: 0,
       isNew: true,
       isDeleted: false,
       isModified: false,
@@ -333,10 +309,54 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
     setHasChanges(true);
   }, [maintenanceRecords, dateKey]);
 
+  // Handle Draft Master info editing
+  const handleEditDraft = useCallback((draftId: string, field: keyof WorkOrderDraft, value: string) => {
+    setWorkOrderDrafts(prev => ({
+      ...prev,
+      [draftId]: {
+        ...prev[draftId],
+        [field]: value
+      }
+    }));
+    setHasChanges(true);
+  }, []);
+
+  // Handle adding a brand new WorkOrder draft
+  const handleAddNewWorkOrder = useCallback(() => {
+    const newId = `NEW_${Date.now()}`;
+    setWorkOrderDrafts(prev => ({
+      ...prev,
+      [newId]: {
+        id: newId,
+        name: '',
+        classificationId: '01',
+        isNew: true
+      }
+    }));
+    setActiveWorkOrderId(newId);
+    setHasChanges(true);
+  }, []);
+
   // Handle deleting a maintenance record
   const handleDeleteRecord = useCallback((index: number) => {
     const newRecords = [...maintenanceRecords];
     newRecords[index] = { ...newRecords[index], isDeleted: true };
+    setMaintenanceRecords(newRecords);
+    setHasChanges(true);
+  }, [maintenanceRecords]);
+
+  // Handle duplicating a maintenance record
+  const handleDuplicateRecord = useCallback((index: number) => {
+    const original = maintenanceRecords[index];
+    const newRecord: MaintenanceRecord = {
+      ...original,
+      id: `new-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      isNew: true,
+      isModified: true,
+      associationId: undefined
+    };
+    const newRecords = [...maintenanceRecords];
+    newRecords.splice(index + 1, 0, newRecord);
     setMaintenanceRecords(newRecords);
     setHasChanges(true);
   }, [maintenanceRecords]);
@@ -358,31 +378,25 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [maintenanceRecords]);
 
   // Handle adding a new task association
-  const handleAddTask = useCallback((task: Task | null) => {
-    if (!task) return;
+  const handleAddTask = useCallback((wo: WorkOrder | null) => {
+    if (!wo) return;
 
     // Check if task already exists
-    const exists = editItems.some(item => item.taskId === task.id && !item.isDeleted);
+    const exists = editItems.some(item => item.taskId === wo.id && !item.isDeleted);
     if (exists) {
       alert('この作業は既に追加されています');
       return;
     }
 
-    // Apply default schedule pattern if available
+    // Apply default options
     let defaultPlanned = false;
     let defaultPlanCost = 0;
 
-    if (task.defaultSchedulePattern) {
-      // If task has a default schedule pattern, set planned to true
-      defaultPlanned = true;
-      // Could set a default cost based on pattern, but for now keep it 0
-    }
-
     const newItem: TaskEditItem = {
       associationId: `new-${Date.now()}`,
-      taskId: task.id,
-      taskName: task.name,
-      classification: task.classification,
+      taskId: wo.id,
+      taskName: wo.name,
+      classification: wo.ClassificationId,
       planned: defaultPlanned,
       actual: false,
       planCost: defaultPlanCost,
@@ -390,7 +404,6 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
       isNew: true,
       isDeleted: false,
       isModified: false,
-      defaultSchedulePattern: task.defaultSchedulePattern,
     };
 
     setEditItems([...editItems, newItem]);
@@ -471,545 +484,347 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
     setExpandedPatternIndex(expandedPatternIndex === index ? null : index);
   }, [expandedPatternIndex]);
 
-  // Handle selecting task for related assets view
-  const handleSelectTaskForRelated = useCallback((taskId: string) => {
-    setSelectedTaskForRelated(taskId);
-  }, []);
-
-  // Handle toggling related asset selection
-  const handleToggleRelatedAsset = useCallback((index: number) => {
-    const newItems = [...relatedAssets];
-    newItems[index] = { ...newItems[index], selected: !newItems[index].selected };
-    setRelatedAssets(newItems);
-  }, [relatedAssets]);
-
-  // Handle bulk schedule update for related assets
-  const handleBulkScheduleUpdate = useCallback(() => {
-    const selectedAssetIds = relatedAssets
-      .filter(item => item.selected)
-      .map(item => item.assetId);
-
-    if (selectedAssetIds.length === 0) {
-      alert('機器を選択してください');
-      return;
-    }
-
-    if (!selectedTaskForRelated) return;
-
-    // Find the schedule for the selected task in current asset
-    const currentTaskItem = editItems.find(
-      item => item.taskId === selectedTaskForRelated && !item.isDeleted
-    );
-
-    if (!currentTaskItem) return;
-
-    const message = `選択した${selectedAssetIds.length}件の機器に対して、` +
-      `作業「${currentTaskItem.taskName}」のスケジュールを更新しますか？\n\n` +
-      `計画: ${currentTaskItem.planned ? '有' : '無'}\n` +
-      `実績: ${currentTaskItem.actual ? '有' : '無'}\n` +
-      `計画コスト: ¥${currentTaskItem.planCost.toLocaleString()}\n` +
-      `実績コスト: ¥${currentTaskItem.actualCost.toLocaleString()}`;
-
-    if (!window.confirm(message)) {
-      return;
-    }
-
-    // This would trigger updates to related assets
-    // For now, just show confirmation
-    alert(`${selectedAssetIds.length}件の機器のスケジュールを更新しました`);
-
-    // Reset selection
-    setRelatedAssets(relatedAssets.map(item => ({ ...item, selected: false })));
-  }, [relatedAssets, selectedTaskForRelated, editItems]);
-
-  // Handle save - convert maintenance records back to task associations
-  const handleSave = useCallback(() => {
+  const generateUpdates = useCallback(() => {
     const updates: WorkOrderLineUpdate[] = [];
 
-    // Group records by task name, classification, and date
-    const recordsByTask = new Map<string, MaintenanceRecord[]>();
+    // Generate a set of association IDs that were originally passed to us
+    const originalAssocIds = new Set<string>();
+    associations.forEach(a => {
+      // In context mode, only process deletions for the associations of THIS workOrder
+      if (contextWorkOrderId && a.WorkOrderId !== contextWorkOrderId) return;
+      originalAssocIds.add(a.id);
+    });
+    
+    const processedAssocIds = new Set<string>();
 
     maintenanceRecords.forEach(record => {
-      if (record.isDeleted) return;
+      // Skip new records that were immediately deleted
+      if (record.isNew && record.isDeleted) return;
+      if (!record.workOrderId) return; // Skip if no WorkOrder selected
 
-      const key = `${record.taskName}|||${record.classification}`;
-      if (!recordsByTask.has(key)) {
-        recordsByTask.set(key, []);
-      }
-      recordsByTask.get(key)!.push(record);
-    });
-
-    // Track which association IDs have been updated
-    const updatedAssociationIds = new Set<string>();
-
-    // Process each task group
-    recordsByTask.forEach((records, key) => {
-      const [taskName, classification] = key.split('|||');
-
-      // Find or create task
-      let task = allTasks.find(t => t.name === taskName && t.classification === classification);
-      const taskId = task?.id || `task-${Date.now()}-${Math.random()}`;
-
-      // Group records by date to create schedule entries
-      const scheduleByDate = new Map<string, { planned: boolean; actual: boolean; planCost: number; actualCost: number }>();
-
-      // Also track which original association these records came from
-      // If we find a dominant association ID, we should try to update THAT association
-      // instead of creating a new one.
-      const sourceAssociationIds = new Map<string, number>();
-
-      records.forEach(record => {
-        if (record.associationId) {
-          sourceAssociationIds.set(record.associationId, (sourceAssociationIds.get(record.associationId) || 0) + 1);
-        }
-
-        if (!scheduleByDate.has(record.date)) {
-          scheduleByDate.set(record.date, {
-            planned: false,
-            actual: false,
-            planCost: 0,
-            actualCost: 0,
-          });
-        }
-
-        const entry = scheduleByDate.get(record.date)!;
-        if (record.type === 'planned') {
-          entry.planned = true;
-          entry.planCost += record.cost;
-        } else {
-          entry.actual = true;
-          entry.actualCost += record.cost;
-        }
-      });
-
-      // Determine target association
-      // 1. First check if there is an existing association for the TARGET task
-      let targetAssoc = associations.find(a => {
-        const t = allTasks.find(task => task.id === a.taskId);
-        return t?.name === taskName && t?.classification === classification;
-      });
-
-      // 2. If NO existing association for target task, check if we are renaming an existing association
-      // If the records overwhelmingly come from one association (and that association isn't already used elsewhere)
-      if (!targetAssoc && sourceAssociationIds.size > 0) {
-        // Find the most common source association
-        let maxCount = 0;
-        let bestSourceId: string | null = null;
-        sourceAssociationIds.forEach((count, id) => {
-          if (count > maxCount) {
-            maxCount = count;
-            bestSourceId = id;
-          }
-        });
-
-        if (bestSourceId) {
-          const sourceAssoc = associations.find(a => a.id === bestSourceId);
-          // Only reuse source association if it hasn't been claimed by another group yet
-          // (In a split scenario, the first group wins, or we logic it out. For simple rename, this works)
-          if (sourceAssoc && !updatedAssociationIds.has(bestSourceId)) {
-            targetAssoc = sourceAssoc;
-          }
-        }
-      }
-
-      if (targetAssoc) {
-        // Update existing association (either pre-existing target, or renamed source)
-        updatedAssociationIds.add(targetAssoc.id);
-
-        // Build new schedule from records
-        const newSchedule: { [key: string]: any } = {};
-
-        // Copy existing schedule entries that are outside the dateKey range
-        Object.entries(targetAssoc.schedule).forEach(([scheduleDate, entry]) => {
-          // Keep entries that don't match the dateKey
-          if (scheduleDate !== dateKey && !scheduleDate.startsWith(dateKey + '-')) {
-            newSchedule[scheduleDate] = entry;
-          }
-        });
-
-        // Add new schedule entries from records
-        scheduleByDate.forEach((entry, date) => {
-          newSchedule[date] = entry;
-        });
-
-        const updateData: Partial<WorkOrderLine> = {
-          schedule: newSchedule,
-          updatedAt: new Date(),
-        };
-
-        // If we are renaming (taskId changed), update taskId as well
-        // If we are renaming (taskId changed), update taskId as well
-        if (targetAssoc.taskId !== taskId) {
-          updateData.taskId = taskId;
-
-          // If new task definition might be needed, pass it in the update object
-          // This ensures atomic creation/update in App.tsx
-          if (!task) {
-            updates.push({
-              lineId: targetAssoc.id,
-              action: 'update',
-              data: updateData,
-              newTaskDef: {
-                id: taskId,
-                name: taskName,
-                classification,
-                description: taskName, // Default description
-                defaultSchedulePattern: { frequency: 'yearly', interval: 1 }
-              }
-            });
-            return; // Skip the push below
-          }
-        }
-
-        updates.push({
-          lineId: targetAssoc.id,
-          action: 'update',
-          data: updateData,
-        });
-      } else {
-        // Create new association
-        const newAssocId = `assoc-${Date.now()}-${Math.random()}`;
-
-        // Build schedule from records
-        const newSchedule: { [key: string]: any } = {};
-        scheduleByDate.forEach((entry, date) => {
-          newSchedule[date] = entry;
-        });
-
-        // Inherit workOrderId from source association (for rename scenarios)
-        let workOrderId = '';
-        if (sourceAssociationIds.size > 0) {
-          const firstSourceId = sourceAssociationIds.keys().next().value;
-          const sourceAssoc = associations.find(a => a.id === firstSourceId);
-          if (sourceAssoc) {
-            workOrderId = sourceAssoc.workOrderId;
-          }
-        }
-        // Fallback: use the first association's workOrderId
-        if (!workOrderId && associations.length > 0) {
-          workOrderId = associations[0].workOrderId;
-        }
-        // Final fallback: generate a new workOrderId
-        if (!workOrderId) {
-          workOrderId = `wo-${Date.now()}`;
-        }
-
-        updates.push({
-          lineId: newAssocId,
-          action: 'create',
-          data: {
-            assetId,
-            taskId,
-            workOrderId,
-            schedule: newSchedule,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-
-        // If task doesn't exist, create it via callback
-        if (!task && onUpdateTask) {
-          onUpdateTask(taskId, {
-            name: taskName,
-            classification,
-            description: '',
-          });
-        }
-      }
-    });
-
-    // Handle abandoned associations (renamed or deleted tasks)
-    // Any association that was in the original list but NOT updated needs to be processed
-    associations.forEach(assoc => {
-      if (updatedAssociationIds.has(assoc.id)) return;
-
-      // Safety check: Skip associations where dateKey entries exist but no records
-      // were created during initialization (i.e., planned:false/actual:false entries).
-      // These "invisible" entries should be preserved unchanged to prevent data loss.
-      const hasDateKeyEntries = Object.keys(assoc.schedule).some(
-        scheduleDate => scheduleDate === dateKey || scheduleDate.startsWith(dateKey + '-')
-      );
-      const hadRecordsFromThisAssoc = maintenanceRecords.some(
-        r => r.associationId === assoc.id && !r.isDeleted
-      );
-      if (hasDateKeyEntries && !hadRecordsFromThisAssoc) {
-        // This association has invisible entries (planned:false AND actual:false)
-        // Preserve them unchanged
-        console.log('[TaskEditDialog] Preserving invisible entries for association:', assoc.id);
+      if (record.isDeleted && record.associationId) {
+        updates.push({ lineId: record.associationId, action: 'delete' });
+        processedAssocIds.add(record.associationId);
         return;
       }
 
-      // This association was not updated in the loop above.
-      // This means either:
-      // 1. All records for this task were deleted.
-      // 2. All records for this task were renamed (moved to a new task).
+      const toDate = (dateStr: string) => {
+        let normalized = dateStr;
+        if (normalized.length === 7) normalized = `${normalized}-01`;
+        if (normalized.length === 4) normalized = `${normalized}-01-01`;
+        return new Date(`${normalized}T00:00:00`);
+      };
 
-      // We need to strip the current date's records from this association.
-      const newSchedule: { [key: string]: any } = {};
-      let hasRemainingSchedule = false;
+      const draft = workOrderDrafts[record.workOrderId!];
 
-      Object.entries(assoc.schedule).forEach(([scheduleDate, entry]) => {
-        // Keep entries that don't match the dateKey
-        if (scheduleDate !== dateKey && !scheduleDate.startsWith(dateKey + '-')) {
-          newSchedule[scheduleDate] = entry;
-          hasRemainingSchedule = true;
-        }
-      });
+      const lineData: Partial<WorkOrderLine> & { __workOrderDraft?: any } = {
+         WorkOrderId: record.workOrderId,
+         name: record.lineName, 
+         AssetId: record.assetId || assetId,
+         PlanScheduleStart: toDate(record.planStartDate),
+         PlanScheduleEnd: toDate(record.planEndDate),
+         ActualScheduleStart: toDate(record.actualStartDate),
+         ActualScheduleEnd: toDate(record.actualEndDate),
+         Planned: record.planned,
+         Actual: record.actual,
+         PlanCost: record.planCost,
+         ActualCost: record.actualCost,
+         __workOrderDraft: draft
+      };
 
-      if (hasRemainingSchedule) {
-        // If there are records for other dates, update the association to remove current date's records
-        updates.push({
-          lineId: assoc.id,
-          action: 'update',
-          data: {
-            schedule: newSchedule,
-            updatedAt: new Date(),
-          },
-        });
+      if (record.associationId) {
+        updates.push({ lineId: record.associationId, action: 'update', data: { ...lineData, UpdatedAt: new Date() } });
+        processedAssocIds.add(record.associationId);
       } else {
-        // If no records remain at all, delete the association
-        updates.push({
-          lineId: assoc.id,
-          action: 'delete',
-        });
+        updates.push({ lineId: `assoc-${Date.now()}-${Math.random()}`, action: 'create', data: { ...lineData, CreatedAt: new Date(), UpdatedAt: new Date() } as any });
       }
     });
 
-    console.log('[TaskEditDialog] Saving updates:', updates);
-    onSave(updates);
+    // Cleanup: any original association passed into this dialog that was NOT processed above
+    // indicates that all of its records were deleted or it was entirely orphaned.
+    originalAssocIds.forEach(assocId => {
+      if (!processedAssocIds.has(assocId)) {
+        updates.push({ lineId: assocId, action: 'delete' });
+      }
+    });
+
+    return updates;
+  }, [maintenanceRecords, assetId, dateKey, associations, contextWorkOrderId, workOrderDrafts]);
+
+  // Handle save - execute flat record updates directly
+  const handleSave = useCallback(() => {
+    const updates = generateUpdates();
+        onSave(updates);
     onClose();
-  }, [maintenanceRecords, assetId, dateKey, associations, allTasks, onSave, onUpdateTask, onClose]);
+  }, [generateUpdates, onSave, onClose]);
 
-  // Get available tasks for adding (exclude already added tasks)
-  const availableTasks = useMemo(() => {
-    const addedTaskIds = new Set(
-      editItems.filter(item => !item.isDeleted).map(item => item.taskId)
+  // Render Master-Detail Area
+  const renderMasterDetailArea = (draftId: string) => {
+    const activeDraft = workOrderDrafts[draftId];
+    if (!activeDraft) return null;
+
+    const activeRecords = maintenanceRecords.filter(
+      record => record.workOrderId === draftId && !record.isDeleted
     );
-    return allTasks.filter(task => !addedTaskIds.has(task.id));
-  }, [allTasks, editItems]);
-
-  // Render maintenance records list
-  const renderMaintenanceRecordsList = () => {
-    const activeRecords = maintenanceRecords.filter(record => !record.isDeleted);
-
-    if (activeRecords.length === 0) {
-      return (
-        <Alert severity="info" sx={{ my: 2 }}>
-          この日付に保守作業レコードがありません。「+ レコード追加」ボタンから追加してください。
-        </Alert>
-      );
-    }
 
     return (
-      <List>
-        {activeRecords.map((record, index) => {
-          const actualIndex = maintenanceRecords.indexOf(record);
-          return (
-            <React.Fragment key={record.id}>
-              <ListItem
-                sx={{
-                  flexDirection: 'column',
-                  alignItems: 'stretch',
-                  py: 1.5,
-                  px: 2,
-                  bgcolor: record.isNew ? 'action.hover' : 'transparent',
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  mb: 1,
-                }}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {!contextWorkOrderId && (
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <TextField
+              label="作業名 (任意)"
+              value={activeDraft.name}
+              onChange={(e) => handleEditDraft(draftId, 'name', e.target.value)}
+              size="small"
+              fullWidth
+              disabled={readOnly}
+              placeholder="例: ボイラー設備年次点検整備"
+            />
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>分類</InputLabel>
+              <Select
+                value={activeDraft.classificationId}
+                label="分類"
+                onChange={(e) => handleEditDraft(draftId, 'classificationId', e.target.value)}
+                disabled={readOnly}
               >
-                {/* Row 1: Task name and delete button */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  {record.isNew && (
-                    <Chip label="新規" size="small" color="success" sx={{ height: 24 }} />
-                  )}
-                  <TextField
-                    label="作業名称"
-                    value={record.taskName}
-                    onChange={(e) => handleEditRecord(actualIndex, 'taskName', e.target.value)}
-                    disabled={readOnly}
-                    size="small"
-                    placeholder="作業名を入力"
-                    sx={{ flex: 1 }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteRecord(actualIndex)}
-                    disabled={readOnly}
-                    color="error"
-                    sx={{ ml: 1 }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-
-                {/* Row 2: Classification, Type, Date, Cost in one compact row */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '100px 100px 160px 1fr', gap: 1, alignItems: 'center' }}>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={record.classification}
-                      onChange={(e) => handleEditRecord(actualIndex, 'classification', e.target.value)}
-                      disabled={readOnly}
-                      displayEmpty
+                {availableClassifications.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        )}
+        {/* Lines Area */}
+        <Box>
+          {activeRecords.length === 0 ? (
+            <Alert severity="info" sx={{ my: 2 }}>
+              この作業には明細レコードがありません。「明細を追加」ボタンから追加してください。
+            </Alert>
+          ) : (
+            <List sx={{ p: 0 }}>
+              {maintenanceRecords.map((record, index) => {
+                if (record.workOrderId !== activeWorkOrderId || record.isDeleted) return null;
+                const actualIndex = index;
+                return (
+                  <React.Fragment key={record.id}>
+                    <ListItem
+                      sx={{
+                        flexDirection: 'column',
+                        alignItems: 'stretch',
+                        py: 1.5,
+                        px: 2,
+                        bgcolor: record.isNew ? 'action.hover' : 'transparent',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        mb: 1,
+                      }}
                     >
-                      {availableClassifications.map(cls => (
-                        <MenuItem
-                          key={cls.value}
-                          value={cls.value}
-                          title={cls.description}
+                      {/* Row 1: Line name and delete button */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        {record.isNew && (
+                          <Chip label="新規" size="small" color="primary" variant="outlined" sx={{ height: 24 }} />
+                        )}
+                        <Chip 
+                          label={allAssets.find(a => a.id === (record.assetId || assetId))?.name || '機器未指定'} 
+                          size="small" 
+                          color="default" 
+                          variant="filled" 
+                          onDoubleClick={() => !readOnly && setAssetSelectorState({ open: true, recordIndex: actualIndex })}
+                          sx={{ height: 24, flexShrink: 0, bgcolor: '#333', cursor: readOnly ? 'default' : 'pointer' }} 
+                        />
+                        <TextField
+                          label="作業明細名 (Line Name - 任意)"
+                          value={record.lineName}
+                          onChange={(e) => handleEditRecord(actualIndex, 'lineName', e.target.value)}
+                          disabled={readOnly}
+                          size="small"
+                          fullWidth
+                          placeholder="例: ボイラードラム分解清掃"
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDuplicateRecord(actualIndex)}
+                          disabled={readOnly}
+                          color="primary"
+                          sx={{ ml: 1 }}
+                          title="明細をコピー"
                         >
-                          {cls.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteRecord(actualIndex)}
+                          disabled={readOnly}
+                          color="error"
+                          title="明細を削除"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
 
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={record.type}
-                      onChange={(e) => handleEditRecord(actualIndex, 'type', e.target.value)}
-                      disabled={readOnly}
-                      displayEmpty
-                    >
-                      <MenuItem value="planned">計画</MenuItem>
-                      <MenuItem value="actual">実績</MenuItem>
-                    </Select>
-                  </FormControl>
+                      {/* Row 2: Planned schedule */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, pl: 1 }}>
+                        <FormControlLabel
+                          control={<Checkbox checked={record.planned} onChange={(e) => handleEditRecord(actualIndex, 'planned', e.target.checked)} disabled={readOnly} size="small" color="primary" />}
+                          label={<Typography variant="body2" sx={{ fontWeight: 500, width: 40, color: record.planned ? 'text.primary' : 'text.disabled' }}>計画</Typography>}
+                          sx={{ m: 0 }}
+                        />
+                        <TextField
+                          type="date"
+                          label="開始日"
+                          value={record.planStartDate}
+                          onChange={(e) => handleEditRecord(actualIndex, 'planStartDate', e.target.value)}
+                          disabled={readOnly || !record.planned}
+                          size="small"
+                          InputLabelProps={{ shrink: true }}
+                          variant="standard"
+                          sx={{ width: 130 }}
+                        />
+                        <Typography variant="body2" color="text.secondary">～</Typography>
+                        <TextField
+                          type="date"
+                          label="終了日"
+                          value={record.planEndDate}
+                          onChange={(e) => handleEditRecord(actualIndex, 'planEndDate', e.target.value)}
+                          disabled={readOnly || !record.planned}
+                          size="small"
+                          InputLabelProps={{ shrink: true }}
+                          variant="standard"
+                          sx={{ width: 130 }}
+                        />
+                        <TextField
+                          type="number"
+                          label="計画コスト"
+                          value={record.planCost || ''}
+                          onChange={(e) => handleEditRecord(actualIndex, 'planCost', Number(e.target.value))}
+                          disabled={readOnly || !record.planned}
+                          size="small"
+                          variant="standard"
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start"><YenIcon fontSize="small" /></InputAdornment>,
+                          }}
+                          sx={{ width: 130, ml: 'auto', mr: 2 }}
+                        />
+                      </Box>
 
-                  <TextField
-                    type="date"
-                    value={record.date}
-                    onChange={(e) => handleEditRecord(actualIndex, 'date', e.target.value)}
-                    disabled={readOnly}
-                    size="small"
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
+                      {/* Row 3: Actual schedule */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, pl: 1 }}>
+                        <FormControlLabel
+                          control={<Checkbox checked={record.actual} onChange={(e) => handleEditRecord(actualIndex, 'actual', e.target.checked)} disabled={readOnly} size="small" color="success" />}
+                          label={<Typography variant="body2" sx={{ fontWeight: 500, width: 40, color: record.actual ? 'text.primary' : 'text.disabled' }}>実績</Typography>}
+                          sx={{ m: 0 }}
+                        />
+                        <TextField
+                          type="date"
+                          label="開始日"
+                          value={record.actualStartDate}
+                          onChange={(e) => handleEditRecord(actualIndex, 'actualStartDate', e.target.value)}
+                          disabled={readOnly || !record.actual}
+                          size="small"
+                          InputLabelProps={{ shrink: true }}
+                          variant="standard"
+                          sx={{ width: 130 }}
+                        />
+                        <Typography variant="body2" color="text.secondary">～</Typography>
+                        <TextField
+                          type="date"
+                          label="終了日"
+                          value={record.actualEndDate}
+                          onChange={(e) => handleEditRecord(actualIndex, 'actualEndDate', e.target.value)}
+                          disabled={readOnly || !record.actual}
+                          size="small"
+                          InputLabelProps={{ shrink: true }}
+                          variant="standard"
+                          sx={{ width: 130 }}
+                        />
+                        <TextField
+                          type="number"
+                          label="実績コスト"
+                          value={record.actualCost || ''}
+                          onChange={(e) => handleEditRecord(actualIndex, 'actualCost', Number(e.target.value))}
+                          disabled={readOnly || !record.actual}
+                          size="small"
+                          variant="standard"
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start"><YenIcon fontSize="small" /></InputAdornment>,
+                          }}
+                          sx={{ width: 130, ml: 'auto', mr: 2 }}
+                        />
+                      </Box>
+                    </ListItem>
+                  </React.Fragment>
+                );
+              })}
+            </List>
+          )}
 
-                  <TextField
-                    type="number"
-                    value={record.cost}
-                    onChange={(e) => handleEditRecord(actualIndex, 'cost', Number(e.target.value))}
-                    disabled={readOnly}
-                    size="small"
-                    placeholder="コスト"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <YenIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
-              </ListItem>
-              {index < activeRecords.length - 1 && <Divider sx={{ my: 1 }} />}
-            </React.Fragment>
-          );
-        })}
-      </List>
-    );
-  };
-
-  // Legacy render function - kept for backward compatibility
-  const renderTaskList = () => {
-    return renderMaintenanceRecordsList();
-  };
-
-  // Render related assets tab
-  const renderRelatedAssetsTab = () => {
-    if (!selectedTaskForRelated) {
-      return (
-        <Alert severity="info">
-          作業を選択してください。「作業一覧」タブで作業の「関連機器を表示」ボタンをクリックしてください。
-        </Alert>
-      );
-    }
-
-    const selectedTask = allTasks.find(t => t.id === selectedTaskForRelated);
-    const currentTaskItem = editItems.find(
-      item => item.taskId === selectedTaskForRelated && !item.isDeleted
-    );
-
-    return (
-      <Box>
-        <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            選択中の作業
-          </Typography>
-          <Typography variant="h6" gutterBottom>
-            {selectedTask?.name}
-          </Typography>
-          {currentTaskItem && (
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="body2">
-                計画: {currentTaskItem.planned ? '有' : '無'} /
-                実績: {currentTaskItem.actual ? '有' : '無'}
-              </Typography>
-              <Typography variant="body2">
-                計画コスト: ¥{currentTaskItem.planCost.toLocaleString()} /
-                実績コスト: ¥{currentTaskItem.actualCost.toLocaleString()}
-              </Typography>
+          {!readOnly && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<Typography sx={{ fontSize: '1.2rem', mt: -0.2 }}>+</Typography>}
+                onClick={() => handleAddRecord(draftId)}
+              >
+                明細を追加
+              </Button>
             </Box>
           )}
-        </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="subtitle1">
-            この作業を持つ他の機器 ({relatedAssets.filter(a => a.hasTask).length}件)
-          </Typography>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleBulkScheduleUpdate}
-            disabled={readOnly || relatedAssets.filter(a => a.selected).length === 0}
+        </Box>
+      </Box>
+    );
+  };
+
+  // Inline Editable Title Component
+  const renderEditableTitle = () => {
+    if (!contextWorkOrderId || !activeWorkOrderId || !workOrderDrafts[activeWorkOrderId]) {
+      return <Typography variant="h6">{currentAsset?.name || '作業編集'}</Typography>;
+    }
+
+    const activeDraft = workOrderDrafts[activeWorkOrderId];
+
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        {readOnly ? (
+          <Typography variant="h6">{activeDraft.name}</Typography>
+        ) : (
+          <TextField
+            value={activeDraft.name}
+            onChange={(e) => handleEditDraft(activeWorkOrderId, 'name', e.target.value)}
+            placeholder="作業名をクリックして編集"
+            variant="standard"
+            InputProps={{
+              disableUnderline: true,
+              sx: { 
+                fontSize: '1.25rem', 
+                fontWeight: 500, 
+                width: { xs: '100%', sm: 400 },
+                transition: 'background-color 0.2s',
+                '&:hover': { bgcolor: 'action.hover', borderRadius: 1 },
+                '&.Mui-focused': { bgcolor: 'action.hover', borderRadius: 1 }
+              }
+            }}
+          />
+        )}
+        
+        <FormControl variant="standard" size="small" sx={{ minWidth: 150 }}>
+          <Select
+            value={activeDraft.classificationId}
+            onChange={(e) => handleEditDraft(activeWorkOrderId, 'classificationId', e.target.value)}
+            disabled={readOnly}
+            sx={{ fontSize: '0.9rem', color: 'text.secondary', '&:before': { borderBottom: 'none' } }}
           >
-            選択した機器のスケジュールを更新
-          </Button>
-        </Box>
-
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox">選択</TableCell>
-                <TableCell>機器ID</TableCell>
-                <TableCell>機器名</TableCell>
-                <TableCell>階層</TableCell>
-                <TableCell>状態</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {relatedAssets.map((asset, index) => (
-                <TableRow key={asset.assetId}>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={asset.selected}
-                      onChange={() => handleToggleRelatedAsset(index)}
-                      disabled={readOnly}
-                    />
-                  </TableCell>
-                  <TableCell>{asset.assetId}</TableCell>
-                  <TableCell>{asset.assetName}</TableCell>
-                  <TableCell>
-                    <Typography variant="caption" color="text.secondary">
-                      {asset.hierarchyPath}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {asset.hasTask ? (
-                      <Chip label="関連付け済み" size="small" color="success" />
-                    ) : (
-                      <Chip label="未関連付け" size="small" variant="outlined" />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            {availableClassifications.map(option => (
+              <MenuItem key={option.value} value={option.value}>
+                分類: {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
     );
   };
@@ -1022,67 +837,67 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
       fullWidth
       PaperProps={{
         sx: {
-          minHeight: '60vh',
+          height: '85vh',
           maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h6">
-              作業編集
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {currentAsset?.name} ({assetId}) - {dateKey}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <Chip
-                label={dataViewMode === 'equipment-based' ? '機器ベース' : '作業ベース'}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-              <Chip
-                label={editScope === 'single-asset' ? '単一機器' : '全機器'}
-                size="small"
-                color={editScope === 'all-assets' ? 'warning' : 'default'}
-              />
-            </Box>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box sx={{ flexGrow: 1 }}>
+            {renderEditableTitle()}
           </Box>
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={onClose} size="small" sx={{ mt: -0.5, mr: -1 }}>
             <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="作業一覧" />
-          <Tab label="関連機器" />
-        </Tabs>
-      </Box>
+      <DialogContent sx={{ p: 3, flexGrow: 1, overflowY: 'auto', bgcolor: 'grey.50', display: 'flex', flexDirection: 'column' }}>
+        {contextWorkOrderId ? (
+            // Workorder-based mode: directly render the single WorkOrder Master-Detail without Accordion
+            activeWorkOrderId && renderMasterDetailArea(activeWorkOrderId)
+          ) : (
+            // Asset-based mode: Accordion layout for multiple WorkOrders
+            <Box>
+              
+              {Object.values(workOrderDrafts).map(draft => (
+                <Accordion 
+                  key={draft.id} 
+                  expanded={activeWorkOrderId === draft.id} 
+                  onChange={() => setActiveWorkOrderId(activeWorkOrderId === draft.id ? null : draft.id)}
+                  sx={{ mb: 2, '&:before': { display: 'none' }, boxShadow: 1 }}
+                >
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'background.paper', borderBottom: activeWorkOrderId === draft.id ? 1 : 0, borderColor: 'divider' }}>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {draft.name || '(新規作業)'}
+                      </Typography>
+                      {draft.isNew && (
+                        <Chip label="新規" size="small" color="primary" variant="outlined" sx={{ height: 20 }} />
+                      )}
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ bgcolor: 'grey.50', pt: 3 }}>
+                    {renderMasterDetailArea(draft.id)}
+                  </AccordionDetails>
+                </Accordion>
+              ))}
 
-      <DialogContent>
-        <TabPanel value={tabValue} index={0}>
-          {renderMaintenanceRecordsList()}
-
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-            <Button
-              variant="outlined"
-              startIcon={<Typography sx={{ fontSize: '1.2rem' }}>+</Typography>}
-              onClick={handleAddRecord}
-              disabled={readOnly}
-              fullWidth
-            >
-              レコード追加
-            </Button>
-          </Box>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={1}>
-          {renderRelatedAssetsTab()}
-        </TabPanel>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handleAddNewWorkOrder}
+                  startIcon={<Typography sx={{ fontSize: '1.2rem' }}>+</Typography>}
+                  disabled={readOnly}
+                >
+                  新しい作業を追加
+                </Button>
+              </Box>
+            </Box>
+          )}
       </DialogContent>
 
       <DialogActions>
@@ -1102,6 +917,17 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
           保存
         </Button>
       </DialogActions>
+      <AssetSelectionDialog
+        open={assetSelectorState.open}
+        assets={allAssets}
+        currentAssetId={assetSelectorState.recordIndex !== null ? (maintenanceRecords[assetSelectorState.recordIndex].assetId || assetId) : undefined}
+        onSelect={(newAssetId) => {
+          if (assetSelectorState.recordIndex !== null) {
+            handleEditRecord(assetSelectorState.recordIndex, 'assetId', newAssetId);
+          }
+        }}
+        onClose={() => setAssetSelectorState({ open: false, recordIndex: null })}
+      />
     </Dialog>
   );
 };

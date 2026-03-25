@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+// HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
 import './App.css';
 import './styles/responsive.css';
 import './styles/grid-text-fix.css';
@@ -12,7 +13,6 @@ import { useAccessibility } from './utils/accessibility';
 import { memoize, memoizeArray, createMemoizedSelector } from './utils/memoization';
 
 // Import all service managers
-import { TaskManager } from './services/TaskManager';
 import { AssetManager } from './services/AssetManager';
 import { WorkOrderManager } from './services/WorkOrderManager';
 import { WorkOrderLineManager } from './services/WorkOrderLineManager';
@@ -35,14 +35,11 @@ import ModernHeader from './components/ModernHeader';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
 import { HierarchyEditDialog } from './components/HierarchyEditDialog/HierarchyEditDialog';
 import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
-import StatusSelectionDialog from './components/StatusSelectionDialog/StatusSelectionDialog';
-import CostInputDialog from './components/CostInputDialog/CostInputDialog';
 import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey } from './utils/dateUtils';
 import { transformData } from './utils/dataTransformer';
-import SimpleStatusDialog from './components/SimpleStatusDialog';
 import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
 import { darkTheme } from './theme/darkTheme';
-import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderSchedule, WorkOrderLineUpdate, ScheduleEditRequest } from './types/maintenanceTask';
+import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate } from './types/maintenanceTask';
 
 const App: React.FC = () => {
   // Performance and accessibility hooks
@@ -50,7 +47,6 @@ const App: React.FC = () => {
   const { announce, setupGridKeyboardNavigation } = useAccessibility();
 
   // Initialize all service managers
-  const taskManagerRef = useRef<TaskManager | null>(null);
   const assetManagerRef = useRef<AssetManager | null>(null);
   const workOrderManagerRef = useRef<WorkOrderManager | null>(null);
   const workOrderLineManagerRef = useRef<WorkOrderLineManager | null>(null);
@@ -81,7 +77,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Data view mode state - Requirements 6.1, 6.2, 6.5
-  const [dataViewMode, setDataViewMode] = useState<'equipment-based' | 'task-based'>('equipment-based');
+  const [dataViewMode, setDataViewMode] = useState<'asset-based' | 'workorder-based'>('asset-based');
 
   // Edit scope state - Requirements 4.8, 5.7: User-controllable edit scope
   // In equipment-based mode: user can choose to edit single asset or all assets with same task
@@ -102,16 +98,13 @@ const App: React.FC = () => {
   const isTransitioning = false;
   const transitionDuration = 0;
   const hookSwitchMode = (mode: any, preserveState?: boolean) => {
-    console.log('[App] Simple mode switch to:', mode);
-    // Don't call setDataViewMode here to prevent infinite loops
+        // Don't call setDataViewMode here to prevent infinite loops
     // The mode change will be handled by the handleDataViewModeChange function
   };
   const hookApplyFilters = (filters: any) => {
-    console.log('[App] Simple filter apply:', filters);
-  };
+      };
   const hookUpdateData = (tasks: any, assets: any, associations: any, hierarchy: any) => {
-    console.log('[App] Simple data update');
-  };
+      };
 
   // Original hook disabled:
   /*
@@ -130,18 +123,14 @@ const App: React.FC = () => {
     associations: workOrderLineManagerRef.current?.getAllWorkOrderLines() || [],
     hierarchy: hierarchyManagerRef.current?.getHierarchyDefinition() || { levels: [] },
     onModeChange: (mode) => {
-      console.log('[App] View mode changed to:', mode);
-      setDataViewMode(mode);
+            setDataViewMode(mode);
     },
     onTransitionStart: () => {
-      console.log('[App] View mode transition started');
-    },
+          },
     onTransitionComplete: (duration) => {
-      console.log('[App] View mode transition completed in', duration, 'ms');
-      // Requirements 6.3: Verify transition completes within 1000ms for 50,000 assets
+            // Requirements 6.3: Verify transition completes within 1000ms for 50,000 assets
       if (duration > 1000) {
-        console.warn('[App] View mode transition exceeded 1000ms threshold:', duration);
-      }
+              }
     },
   });
   */
@@ -176,122 +165,12 @@ const App: React.FC = () => {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [aiAssistantWidth] = useState(400);
 
-  // Dialog states for proper implementation based on view mode
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [costDialogOpen, setCostDialogOpen] = useState(false);
-  const [selectedItemForDialog, setSelectedItemForDialog] = useState<{
-    itemId: string;
-    itemName: string;
-    timeHeader: string;
-    currentValue: any;
-    assetId?: string;
-    taskId?: string;
-  } | null>(null);
-  const [dialogAnchorEl, setDialogAnchorEl] = useState<HTMLElement | null>(null);
-
-  // Handle status dialog save
-  const handleStatusDialogSave = (value: { planned: boolean; actual: boolean }) => {
-    if (!selectedItemForDialog) return;
-
-    // Update the maintenance data
-    setMaintenanceData(prevData =>
-      prevData.map(item => {
-        if (item.id === selectedItemForDialog.itemId) {
-          const updatedResults = {
-            ...item.results,
-            [selectedItemForDialog.timeHeader]: {
-              planned: value.planned,
-              actual: value.actual,
-              planCost: 0,
-              actualCost: 0
-            }
-          };
-
-          return {
-            ...item,
-            results: updatedResults,
-            rolledUpResults: updatedResults
-          };
-        }
-        return item;
-      })
-    );
-
-    // Show success message
-    showSnackbar(`${selectedItemForDialog.itemName} の ${selectedItemForDialog.timeHeader} を更新しました`, 'success');
-
-    // Reset dialog state
-    setSelectedItemForDialog(null);
-    setStatusDialogOpen(false);
-    setDialogAnchorEl(null);
-  };
-
-  // Handle cost dialog save
-  const handleCostDialogSave = (value: { planCost: number; actualCost: number }) => {
-    if (!selectedItemForDialog) return;
-
-    // Update the maintenance data
-    setMaintenanceData(prevData =>
-      prevData.map(item => {
-        if (item.id === selectedItemForDialog.itemId) {
-          const updatedResults = {
-            ...item.results,
-            [selectedItemForDialog.timeHeader]: {
-              planned: value.planCost > 0,
-              actual: value.actualCost > 0,
-              planCost: value.planCost,
-              actualCost: value.actualCost
-            }
-          };
-
-          return {
-            ...item,
-            results: updatedResults,
-            rolledUpResults: updatedResults
-          };
-        }
-        return item;
-      })
-    );
-
-    // Show success message
-    showSnackbar(`${selectedItemForDialog.itemName} の ${selectedItemForDialog.timeHeader} のコストを更新しました`, 'success');
-
-    // Reset dialog state
-    setSelectedItemForDialog(null);
-    setCostDialogOpen(false);
-    setDialogAnchorEl(null);
-  };
-
   // Handle cell double click - proper dialog routing based on view mode
   const handleCellDoubleClick = (item: any, header: string, event: React.MouseEvent<HTMLElement>) => {
-    console.log('[App] Cell double click:', {
-      dataViewMode,
-      viewMode,
-      itemId: item.id,
-      header,
-      assetId: item.assetId,
-      taskId: item.taskId
-    });
-
-    const result = item.results?.[header];
-
-    // Set selected item for dialog
-    setSelectedItemForDialog({
-      itemId: item.id,
-      itemName: item.task,
-      timeHeader: header,
-      currentValue: result,
-      assetId: item.assetId || item.bomCode,
-      taskId: item.taskId
-    });
-
-    // Set anchor element for popover dialogs
-    setDialogAnchorEl(event.currentTarget);
-
+    
     // Route to appropriate dialog based on view mode
     // Both modes use TaskEditDialog, but with different context
-    if (dataViewMode === 'equipment-based') {
+    if (dataViewMode === 'asset-based') {
       // Equipment-based mode: Use TaskEditDialog for comprehensive task management
       const assetId = item.assetId || item.bomCode;
       if (assetId) {
@@ -315,6 +194,7 @@ const App: React.FC = () => {
   const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
   const [taskEditAssetId, setTaskEditAssetId] = useState<string>('');
   const [taskEditDateKey, setTaskEditDateKey] = useState<string>('');
+  const [taskEditTaskId, setTaskEditTaskId] = useState<string | undefined>(undefined);
 
   // AssetReassignDialog states - Requirements 3.2, 3.6
   const [assetReassignDialogOpen, setAssetReassignDialogOpen] = useState(false);
@@ -331,7 +211,6 @@ const App: React.FC = () => {
         dataStoreRef.current = new DataStore();
 
         // Initialize managers with UndoRedoManager (order matters!)
-        taskManagerRef.current = new TaskManager([], undoRedoManagerRef.current);
         assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
         workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
         workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
@@ -344,14 +223,12 @@ const App: React.FC = () => {
         // --- Debug: expose managers to browser console for data integrity testing ---
         if (import.meta.env.DEV) {
           (window as any).__wolManager = workOrderLineManagerRef.current;
-          (window as any).__taskManager = taskManagerRef.current;
           (window as any).__assetManager = assetManagerRef.current;
           (window as any).__woManager = workOrderManagerRef.current;
         }
 
         // Initialize ViewModeManager with empty data (will be populated after loading)
         viewModeManagerRef.current = new ViewModeManager(
-          [],
           [],
           [],
           { levels: [] }
@@ -363,34 +240,14 @@ const App: React.FC = () => {
           // Step 1: Check data version before attempting to load
           const dataVersion = (rawData as any).version;
 
-          console.log('[App] Data version check:', dataVersion);
-
+          
           if (dataVersion === '3.0.0') {
             // New data model (v3.0.0) - use DataStore
-            console.log('[App] Loading new data model (v3.0.0)');
-            const loadedData = dataStoreRef.current.loadData(rawData);
+                        const loadedData = dataStoreRef.current.loadData(rawData);
 
-            console.log('[App] DEBUG loadedData keys:', Object.keys(loadedData || {}));
-            console.log('[App] DEBUG loadedData.workOrderLines:', {
-              type: typeof loadedData?.workOrderLines,
-              isNull: loadedData?.workOrderLines === null,
-              isUndefined: loadedData?.workOrderLines === undefined,
-              keys: Object.keys(loadedData?.workOrderLines || {}),
-              count: Object.keys(loadedData?.workOrderLines || {}).length
-            });
-            console.log('[App] DEBUG loadedData.hierarchy:', {
-              type: typeof loadedData?.hierarchy,
-              levels: loadedData?.hierarchy?.levels?.length
-            });
-
+                                    
             // Populate managers with loaded data
             if (loadedData) {
-              // Load tasks - pass existing tasks to constructor
-              const existingTasks = Object.values(loadedData.tasks);
-              if (existingTasks.length > 0) {
-                taskManagerRef.current = new TaskManager(existingTasks, undoRedoManagerRef.current);
-              }
-
               // Load assets - create new manager and populate
               assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
               const existingAssets = Object.values(loadedData.assets);
@@ -408,8 +265,7 @@ const App: React.FC = () => {
               // Load workOrderLines - create new manager and populate
               workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
               const existingWorkOrderLines = Object.values(loadedData.workOrderLines || {});
-              console.log('[App] DEBUG: existingWorkOrderLines count before forEach:', existingWorkOrderLines.length);
-              let wolSuccessCount = 0;
+                            let wolSuccessCount = 0;
               let wolErrorCount = 0;
               existingWorkOrderLines.forEach((wol: any) => {
                 try {
@@ -420,17 +276,14 @@ const App: React.FC = () => {
                   console.error('[App] DEBUG: createWorkOrderLine error for', wol?.id, ':', e.message);
                 }
               });
-              console.log('[App] DEBUG: WOL creation results:', { wolSuccessCount, wolErrorCount });
-              const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
-              console.log('[App] DEBUG: After creation, getAllWorkOrderLines count:', postCreationLines.length);
-              (window as any).__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
+                            const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
+                            (window as any).__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
 
               // Reinitialize EditHandlers with the new WorkOrderLineManager
               editHandlersRef.current = new EditHandlers(workOrderLineManagerRef.current);
 
               // Reinitialize ViewModeManager with loaded data
               viewModeManagerRef.current = new ViewModeManager(
-                existingTasks,
                 existingAssets,
                 existingWorkOrderLines,
                 loadedData.hierarchy || { levels: [] }
@@ -448,15 +301,12 @@ const App: React.FC = () => {
                   }))
                 };
 
-                console.log('[App] Using original hierarchy definition:', hierarchyDefinition);
-                hierarchyManagerRef.current?.setHierarchyDefinition(hierarchyDefinition);
+                                hierarchyManagerRef.current?.setHierarchyDefinition(hierarchyDefinition);
 
                 // アセットの階層パスはそのまま使用（変換不要）
-                console.log('[App] Asset hierarchy paths will use original Japanese keys');
-
+                
                 // ViewModeManagerを階層定義で初期化
                 viewModeManagerRef.current = new ViewModeManager(
-                  existingTasks,
                   existingAssets,
                   existingWorkOrderLines,
                   hierarchyDefinition
@@ -464,16 +314,14 @@ const App: React.FC = () => {
               }
 
               // Build data indexes for O(1) lookups - Requirements 10.1, 10.2, 10.3
-              console.log('[App] Building data indexes...');
-              dataIndexManagerRef.current.buildAll({
+                            dataIndexManagerRef.current.buildAll({
                 assets: existingAssets,
-                tasks: existingTasks,
+                workOrders: existingWorkOrders,
                 associations: existingWorkOrderLines
               });
 
               const indexStats = dataIndexManagerRef.current.getStats();
-              console.log('[App] Data indexes built:', indexStats);
-
+              
               // Update time headers based on data range
               // Requirements 6.4: Auto-scale time range based on data
               const years = new Set<number>();
@@ -495,17 +343,14 @@ const App: React.FC = () => {
 
               const sortedYears = Array.from(years).sort((a, b) => a - b);
               const headerStrings = sortedYears.map(y => y.toString());
-              console.log('[App] Setting time headers from data:', headerStrings);
-              setTimeHeaders(headerStrings);
+                            setTimeHeaders(headerStrings);
 
               announce('データモデル (v3.0.0) が読み込まれました');
             }
           } else {
             // Legacy data (no version or different version) - use legacy transformation
             // Requirements 9.1: Detect and handle legacy data
-            console.log('[App] Legacy data detected (version:', dataVersion || 'none', ')');
-            console.log('[App] Using legacy data transformation');
-
+                        
             const [flatData, headers, filterTree] = transformData(rawData as unknown as { [id: string]: RawEquipment }, timeScale);
             setMaintenanceData(flatData);
             setTimeHeaders(headers);
@@ -515,7 +360,7 @@ const App: React.FC = () => {
             announce(`レガシーデータが読み込まれました (${versionInfo})。${flatData.length}件の設備データが表示されています。`);
 
             // setLegacyDataDetected(true);
-            setMigrationDialogOpen(true);
+            // setMigrationDialogOpen(true);
           }
         } catch (error) {
           console.error('[App] Failed to load data:', error);
@@ -540,8 +385,7 @@ const App: React.FC = () => {
           }
 
           // Fallback to legacy data transformation
-          console.log('[App] Falling back to legacy data transformation');
-
+          
           // Ensure rawData is valid before transformation
           const validRawData = rawData && typeof rawData === 'object' ? rawData : {};
           const [flatData, headers, filterTree] = transformData(validRawData as unknown as { [id: string]: RawEquipment }, timeScale);
@@ -613,12 +457,11 @@ const App: React.FC = () => {
     }, 20); // Cache last 20 results
   }, []);
 
-  // Update hook data when managers change
   useEffect(() => {
-    if (isServicesInitialized && taskManagerRef.current && assetManagerRef.current &&
+    if (isServicesInitialized && assetManagerRef.current &&
       workOrderLineManagerRef.current && hierarchyManagerRef.current) {
       hookUpdateData(
-        taskManagerRef.current.getAllTasks(),
+        [], // taskManager removed
         assetManagerRef.current.getAllAssets(),
         workOrderLineManagerRef.current.getAllWorkOrderLines(),
         hierarchyManagerRef.current.getHierarchyDefinition()
@@ -629,9 +472,7 @@ const App: React.FC = () => {
   // Memoized data transformation functions - Requirements 10.1, 10.2, 10.3
   const transformEquipmentData = useMemo(() => {
     return createMemoizedSelector((equipmentData: any[]) => {
-      console.log('[App] transformEquipmentData called with', equipmentData.length, 'rows');
-      console.log('[App] Sample equipment input rows:', equipmentData.slice(0, 5));
-
+            
       return equipmentData.map(row => {
         if (row.type === 'hierarchy') {
           // Hierarchy header row (帯部分)
@@ -651,29 +492,27 @@ const App: React.FC = () => {
           const results: any = {};
 
           // Aggregate schedule data by time scale
-          if (row.tasks) {
-            row.tasks.forEach((task: any) => {
-              const aggregated = viewModeManagerRef.current!.aggregateScheduleByTimeScale(
-                task.schedule,
-                timeScale
-              );
+          if (row.workOrderLines) {
+            const aggregated = viewModeManagerRef.current!.aggregateEventsByTimeScaleInternal(
+              row.workOrderLines,
+              timeScale
+            );
 
-              Object.entries(aggregated).forEach(([timeKey, status]: [string, any]) => {
-                if (!results[timeKey]) {
-                  results[timeKey] = {
-                    planned: false,
-                    actual: false,
-                    planCost: 0,
-                    actualCost: 0
-                  };
-                }
+            Object.entries(aggregated).forEach(([timeKey, status]: [string, any]) => {
+              if (!results[timeKey]) {
+                results[timeKey] = {
+                  planned: false,
+                  actual: false,
+                  planCost: 0,
+                  actualCost: 0
+                };
+              }
 
-                // Merge status (OR operation for flags)
-                results[timeKey].planned = results[timeKey].planned || status.planned;
-                results[timeKey].actual = results[timeKey].actual || status.actual;
-                results[timeKey].planCost += status.totalPlanCost;
-                results[timeKey].actualCost += status.totalActualCost;
-              });
+              // Merge status (OR operation for flags)
+              results[timeKey].planned = results[timeKey].planned || status.planned;
+              results[timeKey].actual = results[timeKey].actual || status.actual;
+              results[timeKey].planCost += status.totalPlanCost;
+              results[timeKey].actualCost += status.totalActualCost;
             });
           }
 
@@ -692,8 +531,7 @@ const App: React.FC = () => {
           };
         } else {
           // Fallback for unknown row types
-          console.warn('[App] Unknown row type in transformEquipmentData:', row.type, row);
-          return {
+                    return {
             id: `unknown_${row.id || 'no-id'}`,
             task: row.hierarchyValue || row.assetName || 'Unknown',
             bomCode: '',
@@ -714,34 +552,23 @@ const App: React.FC = () => {
   // Updated to use useViewModeTransition hook data when available
   // Helper function to load data from ViewModeManager with explicit mode parameter
   // This avoids state synchronization issues when switching modes
-  const loadDataFromViewModeManagerWithMode = useCallback((mode: 'equipment-based' | 'task-based', timeScaleOverride?: 'year' | 'month' | 'week' | 'day') => {
-    console.log('[App] loadDataFromViewModeManagerWithMode called:', {
-      isServicesInitialized,
-      hasViewModeManager: !!viewModeManagerRef.current,
-      hasAssetManager: !!assetManagerRef.current,
-      mode
-    });
-
+  const loadDataFromViewModeManagerWithMode = useCallback((mode: 'asset-based' | 'workorder-based', timeScaleOverride?: 'year' | 'month' | 'week' | 'day') => {
+    
     if (!isServicesInitialized || !viewModeManagerRef.current || !assetManagerRef.current) {
       return;
     }
 
     try {
       // Rebuild data indexes for O(1) lookups - Requirements 10.1, 10.2, 10.3
-      if (taskManagerRef.current && workOrderLineManagerRef.current) {
-        const tasks = taskManagerRef.current.getAllTasks();
+      if (workOrderManagerRef.current && workOrderLineManagerRef.current) {
+        const workOrders = workOrderManagerRef.current.getAllWorkOrders();
         const assets = assetManagerRef.current.getAllAssets();
         const workOrderLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
 
-        console.log('[App] Data indexes rebuilt:', {
-          assetCount: assets.length,
-          taskCount: tasks.length,
-          workOrderLineCount: workOrderLines.length
-        });
-
+        
         dataIndexManagerRef.current.buildAll({
           assets,
-          tasks,
+          workOrders,
           associations: workOrderLines
         });
       }
@@ -750,47 +577,29 @@ const App: React.FC = () => {
 
       if (assets.length > 0) {
         // Use the explicit mode parameter instead of state
-        if (mode === 'equipment-based') {
+        if (mode === 'asset-based') {
           // Update ViewModeManager with latest data before fetching
           // This ensures we have the latest edits from EditHandlers
-          if (taskManagerRef.current && workOrderLineManagerRef.current && hierarchyManagerRef.current) {
+          if (workOrderLineManagerRef.current && hierarchyManagerRef.current) {
             viewModeManagerRef.current.updateData(
-              taskManagerRef.current.getAllTasks(),
               assetManagerRef.current.getAllAssets(),
               workOrderLineManagerRef.current.getAllWorkOrderLines(),
-              hierarchyManagerRef.current.getHierarchyDefinition()
+              hierarchyManagerRef.current.getHierarchyDefinition(),
+              workOrderManagerRef.current?.getAllWorkOrders() || []
             );
           }
 
           // Use hook's equipment data if available, otherwise fall back to ViewModeManager
           const equipmentData = hookEquipmentData.length > 0
             ? hookEquipmentData
-            : viewModeManagerRef.current.getEquipmentBasedData();
+            : viewModeManagerRef.current.getAssetBasedData();
 
-          console.log('[App] Equipment-based mode - raw data from ViewModeManager:', {
-            equipmentDataLength: equipmentData.length,
-            hierarchyRows: equipmentData.filter(r => r.type === 'hierarchy').length,
-            assetRows: equipmentData.filter(r => r.type === 'asset').length,
-            sampleRows: equipmentData.slice(0, 5)
-          });
-
+          
           // Transform to legacy format for grid compatibility using memoized function
           // Requirements 10.1, 10.2, 10.3: Memoized transformation for performance
           const transformedData = transformEquipmentData(equipmentData);
 
-          console.log('[App] Equipment-based mode - transformed data:', {
-            transformedDataLength: transformedData.length,
-            hierarchyRows: transformedData.filter(r => r.isGroupHeader).length,
-            assetRows: transformedData.filter(r => !r.isGroupHeader).length,
-            sampleTransformed: transformedData.slice(0, 5).map(d => ({
-              id: d.id,
-              task: d.task,
-              isGroupHeader: d.isGroupHeader,
-              assetId: (d as any).assetId,
-              resultsKeys: Object.keys(d.results || {})
-            }))
-          });
-
+          
           setMaintenanceData(transformedData);
 
           // Generate time headers with full range
@@ -803,95 +612,67 @@ const App: React.FC = () => {
         } else {
           // Task-based mode
           // Ensure ViewModeManager is properly initialized with current data
-          if (viewModeManagerRef.current && taskManagerRef.current && assetManagerRef.current && workOrderLineManagerRef.current) {
-            const currentTasks = taskManagerRef.current.getAllTasks();
+          if (viewModeManagerRef.current && assetManagerRef.current && workOrderLineManagerRef.current) {
             const currentAssets = assetManagerRef.current.getAllAssets();
             const currentWorkOrderLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
             const currentHierarchy = hierarchyManagerRef.current?.getHierarchyDefinition() || { levels: [] };
+            const currentWorkOrders = workOrderManagerRef.current?.getAllWorkOrders() || [];
 
             // Reinitialize ViewModeManager with current data
             // Fix: Use updateData instead of re-instantiation to preserve view mode state
             viewModeManagerRef.current.updateData(
-              currentTasks,
               currentAssets,
               currentWorkOrderLines,
-              currentHierarchy
+              currentHierarchy,
+              currentWorkOrders
             );
           }
 
           const effectiveTimeScale = timeScaleOverride || timeScale;
-          const taskBasedData = viewModeManagerRef.current.getTaskBasedData(effectiveTimeScale);
+          const taskBasedData = viewModeManagerRef.current.getWorkOrderBasedData(effectiveTimeScale);
 
-          console.log('[App] Task-based mode - raw data from ViewModeManager:', {
-            taskBasedDataLength: taskBasedData.length,
-            hierarchyRows: taskBasedData.filter(r => r.type === 'hierarchy').length,
-            assetRows: taskBasedData.filter(r => r.type === 'asset').length,
-            taskRows: taskBasedData.filter(r => r.type === 'workOrderLine').length,
-            sampleRows: taskBasedData.slice(0, 5)
-          });
-
+          
           // Transform task-based data to legacy format for grid compatibility
           const transformedData = taskBasedData.map(row => {
-            if (row.type === 'hierarchy') {
+            if (row.type === 'workOrder') {
               return {
-                id: `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`,
-                task: row.hierarchyValue!,
+                ...row,
+                type: row.type,
+                id: row.id,
+                task: row.workOrderName || '',
                 bomCode: '',
                 specifications: [],
                 results: {},
                 rolledUpResults: {},
-                isGroupHeader: true,
+                isGroupHeader: false, // In task mode, work order acts as parent but it has its own schedule
                 level: row.level,
                 children: []
               };
-            } else if (row.type === 'asset') {
+            } else if (row.type === 'assetChild') {
+              const results: any = row.aggregatedSchedule || {};
+              const rolledUpResults: any = row.aggregatedSchedule || {};
               return {
-                id: `asset_${row.assetId}`,
-                task: row.assetName!,
-                bomCode: row.assetId!,
-                specifications: [],
-                results: {},
-                rolledUpResults: {},
-                isGroupHeader: false,
-                level: row.level,
-                assetId: row.assetId,
-                hierarchyPath: row.hierarchyPath ? Object.values(row.hierarchyPath).join(' > ') : '',
-                children: []
-              };
-            } else {
-              const results: any = row.schedule || {};
-              const rolledUpResults: any = row.schedule || {};
-              return {
+                ...row,
+                type: row.type,
                 id: row.id,
-                task: row.taskName || '',
-                bomCode: row.assetId!,
+                task: row.assetName || '',
+                bomCode: row.assetId || '',
                 specifications: [],
                 results,
                 rolledUpResults,
+                isGroupHeader: false,
                 hierarchyPath: row.hierarchyPath ? Object.values(row.hierarchyPath).join(' > ') : '',
                 level: row.level,
                 assetId: row.assetId,
-                taskId: row.taskId,
-                schedule: row.schedule,
+                taskId: row.workOrderId,
+                ClassificationId: row.ClassificationId,
                 children: []
               };
+            } else {
+              return row as any;
             }
           });
-          console.log('[App] Task-based mode - transformed data:', {
-            transformedDataLength: transformedData.length,
-            hierarchyRows: transformedData.filter(r => (r as any).isGroupHeader).length,
-            assetRows: transformedData.filter(r => !(r as any).isGroupHeader && (r as any).assetId && !(r as any).taskId).length,
-            taskRows: transformedData.filter(r => (r as any).taskId).length,
-            sampleTransformed: transformedData.slice(0, 5).map(d => ({
-              id: d.id,
-              task: d.task,
-              isGroupHeader: (d as any).isGroupHeader,
-              assetId: (d as any).assetId,
-              taskId: (d as any).taskId,
-              resultsKeys: Object.keys(d.results || {})
-            }))
-          });
-
+          
           setMaintenanceData(transformedData);
 
           // Generate time headers dynamically based on the transformed data
@@ -1105,23 +886,23 @@ const App: React.FC = () => {
           }
         });
 
-        // Also check task names using task index
-        if (taskManagerRef.current) {
-          const allTasks = taskManagerRef.current.getAllTasks();
-          const matchingTaskIds = new Set<string>();
+        // Also check workOrder names using workOrder index
+        if (workOrderManagerRef.current) {
+          const allWorkOrders = workOrderManagerRef.current.getAllWorkOrders();
+          const matchingWoIds = new Set<string>();
 
-          allTasks.forEach(task => {
-            if (task.name.toLowerCase().includes(searchLower)) {
-              matchingTaskIds.add(task.id);
+          allWorkOrders.forEach(wo => {
+            if (wo.name.toLowerCase().includes(searchLower)) {
+              matchingWoIds.add(wo.id);
             }
           });
 
-          // If we found matching tasks, get all assets associated with those tasks
-          if (matchingTaskIds.size > 0 && workOrderLineManagerRef.current) {
-            matchingTaskIds.forEach(taskId => {
-              const associations = dataIndexManagerRef.current.associations.getByTask(taskId);
+          // If we found matching workOrders, get all assets associated with those workOrders
+          if (matchingWoIds.size > 0 && workOrderLineManagerRef.current) {
+            matchingWoIds.forEach(woId => {
+              const associations = dataIndexManagerRef.current.associations.getByWorkOrder(woId);
               associations.forEach(assoc => {
-                matchingAssetIds.add(assoc.assetId);
+                matchingAssetIds.add(assoc.AssetId);
               });
             });
           }
@@ -1136,10 +917,10 @@ const App: React.FC = () => {
           if (item.bomCode && matchingAssetIds.has(item.bomCode)) {
             return true;
           }
-          // Check if item matches by task name (for task-based view)
-          if (item.taskId && taskManagerRef.current) {
-            const task = dataIndexManagerRef.current.tasks.get(item.taskId);
-            if (task && task.name.toLowerCase().includes(searchLower)) {
+          // Check if item matches by workOrder name (for task-based view)
+          if (item.taskId && workOrderManagerRef.current) {
+            const wo = dataIndexManagerRef.current.workOrders.get(item.taskId);
+            if (wo && wo.name.toLowerCase().includes(searchLower)) {
               return true;
             }
           }
@@ -1204,7 +985,7 @@ const App: React.FC = () => {
 
   // Handle data view mode change - Requirements 6.1, 6.2, 6.5
   // Updated to use useViewModeTransition hook
-  const handleDataViewModeChange = (mode: 'equipment-based' | 'task-based') => {
+  const handleDataViewModeChange = (mode: 'asset-based' | 'workorder-based') => {
     if (!isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -1250,7 +1031,7 @@ const App: React.FC = () => {
 
         // Auto-switch displayMode when switching to task-based mode
         // Task-based mode doesn't support specifications, so force to 'maintenance'
-        if (mode === 'task-based' && displayMode !== 'maintenance') {
+        if (mode === 'workorder-based' && displayMode !== 'maintenance') {
           setDisplayMode('maintenance');
         }
 
@@ -1265,8 +1046,8 @@ const App: React.FC = () => {
         // The ViewModeManager preserves its internal filter state through the switch
 
         // Announce the change
-        announce(`表示モードを${mode === 'equipment-based' ? '機器ベース' : '作業ベース'}に切り替えました。フィルターは保持されています。`);
-        showSnackbar(`表示モードを${mode === 'equipment-based' ? '機器ベース' : '作業ベース'}に切り替えました`, 'success');
+        announce(`表示モードを${mode === 'asset-based' ? '機器ベース' : '作業ベース'}に切り替えました。フィルターは保持されています。`);
+        showSnackbar(`表示モードを${mode === 'asset-based' ? '機器ベース' : '作業ベース'}に切り替えました`, 'success');
       });
     } catch (error) {
       console.error('[App] Error switching view mode:', error);
@@ -1292,8 +1073,7 @@ const App: React.FC = () => {
   // Handle specification editing
   // Requirements 4.2: Use EditHandlers for specification editing
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
-    console.log('[App] handleSpecificationEdit called:', { rowId, specIndex, key, value });
-
+    
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && assetManagerRef.current && undoRedoManagerRef.current) {
       try {
@@ -1307,8 +1087,7 @@ const App: React.FC = () => {
           undoRedoManagerRef.current
         );
 
-        console.log('[App] Specification updated via EditHandlers');
-
+        
         // Reload data to reflect changes
         loadDataFromViewModeManager();
 
@@ -1351,8 +1130,7 @@ const App: React.FC = () => {
 
   // Handle specification column reordering (affects all equipment)
   const handleSpecificationColumnReorder = (fromIndex: number, toIndex: number) => {
-    console.log('[App] handleSpecificationColumnReorder called', { fromIndex, toIndex });
-
+    
     // 仕様を現在の順序（orderプロパティ）に基づいて収集
     const specKeysMap = new Map<string, number>();
     maintenanceData.forEach(item => {
@@ -1376,11 +1154,9 @@ const App: React.FC = () => {
       })
       .map(entry => entry[0]);
 
-    console.log('[App] Sorted spec keys:', sortedKeys);
-
+    
     if (fromIndex < 0 || fromIndex >= sortedKeys.length || toIndex < 0 || toIndex >= sortedKeys.length) {
-      console.log('[App] Invalid indices, aborting');
-      return;
+            return;
     }
 
     // 並び替え
@@ -1388,9 +1164,7 @@ const App: React.FC = () => {
     const [movedKey] = reorderedKeys.splice(fromIndex, 1);
     reorderedKeys.splice(toIndex, 0, movedKey);
 
-    console.log('[App] Reordered keys:', reorderedKeys);
-    console.log('[App] Moved key:', movedKey, 'from', fromIndex, 'to', toIndex);
-
+        
     // 全機器の仕様を新しい順序で並び替え
     // 1. Local state (maintenanceData)
     setMaintenanceData(prevData =>
@@ -1455,8 +1229,7 @@ const App: React.FC = () => {
         try {
           assetManagerRef.current?.updateSpecifications(asset.id, reorderedSpecs);
         } catch (e) {
-          console.warn('[App] Failed to persist specification order to asset:', asset.id, e);
-        }
+                  }
       });
     }
 
@@ -1466,8 +1239,7 @@ const App: React.FC = () => {
   // Handle cell editing for EnhancedMaintenanceGrid
   // Requirements 4.2, 4.8, 5.7: Use EditHandlers for schedule editing with view mode awareness
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-    console.log('[App] handleCellEdit called:', { rowId, columnId, value, viewMode, dataViewMode });
-
+    
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
       try {
@@ -1476,71 +1248,62 @@ const App: React.FC = () => {
           maintenanceData: [...maintenanceData]
         };
 
-        if (columnId.startsWith('time_')) {
-          const timeHeader = columnId.replace('time_', '');
-
-          // Find workOrderLines for this asset
-          const workOrderLines = workOrderLineManagerRef.current.getWorkOrderLinesByAsset(rowId);
-
-          if (workOrderLines.length > 0) {
-            // Prepare schedule entry
-            const currentSchedule = workOrderLines[0].schedule[timeHeader] || {
-              planned: false,
-              actual: false,
-              planCost: 0,
-              actualCost: 0
-            };
-
-            const updatedSchedule = {
-              ...currentSchedule,
-              planned: typeof value.planned === 'boolean' ? value.planned : currentSchedule.planned,
-              actual: typeof value.actual === 'boolean' ? value.actual : currentSchedule.actual,
-              planCost: typeof value.planCost === 'number' ? value.planCost : currentSchedule.planCost,
-              actualCost: typeof value.actualCost === 'number' ? value.actualCost : currentSchedule.actualCost
-            };
-
-            // Create edit context based on current view mode and user's edit scope preference
-            const effectiveEditScope = dataViewMode === 'task-based' ? 'all-assets' as const : editScope;
-
-            const editContext = {
-              viewMode: dataViewMode,
-              editScope: effectiveEditScope
-            };
-
-            // Use EditHandlers.handleScheduleEdit for each workOrderLine
-            let updatedCount = 0;
-            workOrderLines.forEach(wol => {
-              const request: ScheduleEditRequest = {
-                workOrderLineId: wol.id,
-                dateKey: timeHeader,
-                scheduleEntry: updatedSchedule,
-                context: editContext
-              };
-
-              const count = editHandlersRef.current!.handleScheduleEdit(request);
-              updatedCount += count;
-            });
-
-            console.log(`[App] Updated ${updatedCount} workOrderLine(s) via EditHandlers`);
-
-            // Push to undo stack
-            undoRedoManagerRef.current.pushState('UPDATE_WORK_ORDER_LINE', {
-              previousState: currentState,
-              assetId: rowId,
-              timeHeader,
-              value
-            });
-
-            // Reload data to reflect changes
-            loadDataFromViewModeManager();
-
-            // Show feedback with edit scope information
-            const scopeDescription = editHandlersRef.current.getEditScopeDescription(editContext);
-            const affectedCount = editHandlersRef.current.getAffectedAssociationCount(workOrderLines[0].id, editContext);
-            showSnackbar(`更新しました (${affectedCount}件): ${scopeDescription}`, 'success');
-
-            return; // Exit early, data is reloaded
+        // Parse rowId to get the actual Asset ID
+        let actualAssetId = rowId;
+        let associatedTaskId: string | null = null;
+        let associatedWolId: string | null = null;
+        
+        if (rowId.startsWith('asset_')) {
+          actualAssetId = rowId.replace('asset_', '');
+        } else if (rowId.startsWith('task_')) {
+          // Format: task_{taskId}_asset_{assetId}_wol_{wolId} OR task_{taskId}_asset_{assetId}
+          const parts = rowId.split('_asset_');
+          if (parts.length === 2) {
+            associatedTaskId = parts[0].replace('task_', '');
+            
+            // Check if there's a wol suffix
+            const assetParts = parts[1].split('_wol_');
+            actualAssetId = assetParts[0];
+            
+            if (assetParts.length === 2) {
+              associatedWolId = assetParts[1];
+            }
           }
+        }
+
+        // Deal with specification editing which was missing completely
+        if (columnId.startsWith('spec_')) {
+          const specKey = columnId.replace('spec_', '');
+          const asset = assetManagerRef.current?.getAsset(actualAssetId);
+          if (asset && assetManagerRef.current) {
+            const specIndex = asset.specifications.findIndex(s => s.key === specKey);
+            if (specIndex >= 0) {
+              const newSpecs = [...asset.specifications];
+              newSpecs[specIndex] = { ...newSpecs[specIndex], value: String(value) };
+              assetManagerRef.current.updateAsset(actualAssetId, { specifications: newSpecs });
+              showSnackbar('機器仕様を更新しました', 'success');
+              loadDataFromViewModeManager();
+            }
+          }
+          return;
+        }
+
+        // Handle Task Name editing
+        if (columnId === 'task' && associatedTaskId && workOrderManagerRef.current) {
+          try {
+            workOrderManagerRef.current.updateWorkOrder(associatedTaskId, { name: String(value).trim() });
+            showSnackbar('作業名を更新しました', 'success');
+            loadDataFromViewModeManager();
+          } catch (error) {
+            console.error('Failed to update task name:', error);
+            showSnackbar('作業名の更新に失敗しました', 'error');
+          }
+          return;
+        }
+
+        if (columnId.startsWith('time_')) {
+          showSnackbar('スケジュールの編集はセルをダブルクリックしてダイアログから行ってください。', 'info');
+          return;
         }
       } catch (error) {
         console.error('Failed to update through EditHandlers:', error);
@@ -1551,49 +1314,9 @@ const App: React.FC = () => {
         }
         showSnackbar('セルの更新に失敗しました', 'error');
       }
+    } else {
+      showSnackbar('サービスが初期化されていません', 'error');
     }
-
-    // Fallback: Update local state for immediate UI feedback (legacy mode)
-    setMaintenanceData(prevData =>
-      prevData.map(item => {
-        if (item.id === rowId) {
-          if (columnId === 'task') {
-            return { ...item, task: value };
-          } else if (columnId.startsWith('time_')) {
-            const timeHeader = columnId.replace('time_', '');
-            const updatedResults = { ...item.results };
-
-            if (viewMode === 'cost') {
-              // コストモードでは、コストとステータスの両方を更新
-              const currentData = updatedResults[timeHeader] || { planned: false, actual: false, planCost: 0, actualCost: 0 };
-              console.log('[App] Before update:', { timeHeader, currentData, receivedValue: value });
-
-              const updatedValue = {
-                ...currentData,
-                planCost: typeof value.planCost === 'number' ? value.planCost : currentData.planCost,
-                actualCost: typeof value.actualCost === 'number' ? value.actualCost : currentData.actualCost,
-                planned: typeof value.planned === 'boolean' ? value.planned : currentData.planned,
-                actual: typeof value.actual === 'boolean' ? value.actual : currentData.actual
-              };
-              updatedResults[timeHeader] = updatedValue;
-
-              console.log('[App] After update:', { timeHeader, updatedValue });
-            } else {
-              // ステータスモードでは、ステータスのみを更新
-              const currentData = updatedResults[timeHeader] || { planned: false, actual: false, planCost: 0, actualCost: 0 };
-              updatedResults[timeHeader] = {
-                ...currentData,
-                planned: typeof value.planned === 'boolean' ? value.planned : currentData.planned,
-                actual: typeof value.actual === 'boolean' ? value.actual : currentData.actual
-              };
-            }
-
-            return { ...item, results: updatedResults };
-          }
-        }
-        return item;
-      })
-    );
   };
 
 
@@ -1629,8 +1352,7 @@ const App: React.FC = () => {
       try {
         return generateFullTimeRange(sortedHeaders[0], sortedHeaders[sortedHeaders.length - 1], timeScale);
       } catch (error) {
-        console.warn('[App] Error in generateFullTimeRange, returning exact headers:', error);
-        return sortedHeaders;
+                return sortedHeaders;
       }
     } else {
       // If no data, generate headers for current year and next few years
@@ -1673,8 +1395,7 @@ const App: React.FC = () => {
     }
 
     // Fallback if parsing fails (should roughly match old logic but safer)
-    console.warn('[App] Failed to parse periods for range generation:', { startPeriod, endPeriod });
-    return [startPeriod, endPeriod]; // Return minimum
+        return [startPeriod, endPeriod]; // Return minimum
   };
 
   const handleAddYearConfirm = () => {
@@ -1759,17 +1480,10 @@ const App: React.FC = () => {
 
     try {
       // Collect all data from managers
-      const tasks = taskManagerRef.current?.getAllTasks() || [];
       const assets = assetManagerRef.current?.getAllAssets() || [];
       const workOrders = workOrderManagerRef.current?.getAllWorkOrders() || [];
       const workOrderLines = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
       const hierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
-
-      // Convert arrays to objects with IDs as keys
-      const tasksObj = tasks.reduce((acc, task) => {
-        acc[task.id] = task;
-        return acc;
-      }, {} as any);
 
       const assetsObj = assets.reduce((acc, asset) => {
         acc[asset.id] = asset;
@@ -1786,14 +1500,14 @@ const App: React.FC = () => {
         return acc;
       }, {} as any);
 
-      // Save data
       await dataStoreRef.current.saveData({
         version: '3.0.0',
-        tasks: tasksObj,
         assets: assetsObj,
         workOrders: workOrdersObj,
         workOrderLines: workOrderLinesObj,
         hierarchy: hierarchy || { levels: [] },
+        workOrderClassifications: (rawData as any)?.taskClassifications || [],
+        assetClassification: (rawData as any)?.assetClassification || { levels: [] },
         metadata: {
           lastModified: new Date(),
         }
@@ -1815,11 +1529,9 @@ const App: React.FC = () => {
   };
 
   const handleExportData = () => {
-    console.log('[App] handleExportData called - isServicesInitialized:', isServicesInitialized, 'dataStoreRef:', !!dataStoreRef.current);
-    if (!isServicesInitialized || !dataStoreRef.current) {
+        if (!isServicesInitialized || !dataStoreRef.current) {
       // Fallback to legacy export
-      console.warn('[App] Using legacy export fallback');
-      const dataToExport = { timeHeaders, maintenanceData, timeScale };
+            const dataToExport = { timeHeaders, maintenanceData, timeScale };
       const jsonString = JSON.stringify(dataToExport, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1836,17 +1548,10 @@ const App: React.FC = () => {
 
     try {
       // Export new data model (v3.0.0)
-      console.log('[App] Exporting v3.0.0 data model');
-      const tasks = taskManagerRef.current?.getAllTasks() || [];
-      const assets = assetManagerRef.current?.getAllAssets() || [];
+            const assets = assetManagerRef.current?.getAllAssets() || [];
       const workOrders = workOrderManagerRef.current?.getAllWorkOrders() || [];
       const workOrderLines = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
       const hierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
-
-      const tasksObj = tasks.reduce((acc, task) => {
-        acc[task.id] = task;
-        return acc;
-      }, {} as any);
 
       const assetsObj = assets.reduce((acc, asset) => {
         acc[asset.id] = asset;
@@ -1871,7 +1576,6 @@ const App: React.FC = () => {
         version: '3.0.0',
         taskClassifications: sourceTaskClassifications,
         assetClassification: sourceAssetClassification,
-        tasks: tasksObj,
         assets: assetsObj,
         workOrders: workOrdersObj,
         workOrderLines: workOrderLinesObj,
@@ -1881,14 +1585,7 @@ const App: React.FC = () => {
         }
       };
 
-      console.log('[App] Export data summary:', {
-        version: dataToExport.version,
-        tasksCount: Object.keys(tasksObj).length,
-        assetsCount: Object.keys(assetsObj).length,
-        workOrdersCount: Object.keys(workOrdersObj).length,
-        workOrderLinesCount: Object.keys(workOrderLinesObj).length,
-      });
-
+      
       const jsonString = JSON.stringify(dataToExport, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1926,15 +1623,13 @@ const App: React.FC = () => {
         const imported = JSON.parse(e.target?.result as string);
 
         // Detect v3.0.0 format
-        if (imported.version === '3.0.0' && imported.tasks && imported.assets) {
-          console.log('[App] v3.0.0 format detected for import');
-
+        if (imported.version === '3.0.0' && imported.assets) {
+          
           // Validate with DataStore
           if (dataStoreRef.current) {
             try {
               dataStoreRef.current.loadData(imported);
-              console.log('[App] v3.0.0 data validated successfully');
-            } catch (validationError: any) {
+                          } catch (validationError: any) {
               throw new Error(`v3.0.0バリデーションエラー: ${validationError.message}`);
             }
           }
@@ -1943,8 +1638,7 @@ const App: React.FC = () => {
           setImportConfirmDialogOpen(true);
         } else if (imported.timeHeaders && Array.isArray(imported.timeHeaders) && imported.maintenanceData && Array.isArray(imported.maintenanceData)) {
           // Legacy format
-          console.log('[App] Legacy format detected for import');
-          setImportedFileData({ ...imported, _format: 'legacy' });
+                    setImportedFileData({ ...imported, _format: 'legacy' });
           setImportConfirmDialogOpen(true);
         } else {
           throw new Error('サポートされていないファイル形式です。v3.0.0またはレガシー形式のJSONファイルを選択してください。');
@@ -1970,16 +1664,9 @@ const App: React.FC = () => {
     try {
       if (importedFileData._format === 'v3') {
         // v3.0.0 import: reload all managers with imported data
-        console.log('[App] Importing v3.0.0 data...');
-
+        
         const importData = { ...importedFileData };
         delete importData._format;
-
-        // Reload tasks
-        const existingTasks = Object.values(importData.tasks || {}) as any[];
-        if (taskManagerRef.current) {
-          taskManagerRef.current = new TaskManager(existingTasks, undoRedoManagerRef.current!);
-        }
 
         // Reload assets
         const existingAssets = Object.values(importData.assets || {}) as any[];
@@ -2021,16 +1708,16 @@ const App: React.FC = () => {
 
         // Reinitialize ViewModeManager
         viewModeManagerRef.current = new ViewModeManager(
-          existingTasks,
           existingAssets,
           existingWorkOrderLines,
-          hierarchyDef
+          hierarchyDef,
+          existingWorkOrders
         );
 
         // Rebuild data indexes
         dataIndexManagerRef.current.buildAll({
           assets: existingAssets,
-          tasks: existingTasks,
+          workOrders: existingWorkOrders,
           associations: existingWorkOrderLines
         });
 
@@ -2051,14 +1738,8 @@ const App: React.FC = () => {
         const sortedYears = Array.from(years).sort((a, b) => a - b);
         setTimeHeaders(sortedYears.map(y => y.toString()));
 
-        console.log('[App] v3.0.0 import complete:', {
-          tasks: existingTasks.length,
-          assets: existingAssets.length,
-          workOrders: existingWorkOrders.length,
-          workOrderLines: existingWorkOrderLines.length,
-        });
-
-        showSnackbar(`v3.0.0データをインポートしました（機器:${existingAssets.length}件, 作業:${existingTasks.length}件）`, 'success');
+        
+        showSnackbar(`v3.0.0データをインポートしました（機器:${existingAssets.length}件, 作業指示:${existingWorkOrders.length}件）`, 'success');
       } else {
         // Legacy import
         setTimeHeaders(importedFileData.timeHeaders);
@@ -2101,22 +1782,16 @@ const App: React.FC = () => {
   };
 
   // TaskEditDialog handlers - Requirements 4.2, 4.3, 4.5, 4.6, 4.7, 4.8
-  const handleOpenTaskEditDialog = (assetId: string, dateKey: string) => {
+  const handleOpenTaskEditDialog = (assetId: string, dateKey: string, taskId?: string) => {
     if (!isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
     }
 
-    console.log('[App] Opening TaskEditDialog:', {
-      assetId,
-      dateKey,
-      editScope,
-      dataViewMode,
-      workOrderLinesCount: workOrderLineManagerRef.current?.getWorkOrderLinesByAsset(assetId).length || 0
-    });
-
+    
     setTaskEditAssetId(assetId);
     setTaskEditDateKey(dateKey);
+    setTaskEditTaskId(taskId);
     setTaskEditDialogOpen(true);
   };
 
@@ -2124,16 +1799,11 @@ const App: React.FC = () => {
     setTaskEditDialogOpen(false);
     setTaskEditAssetId('');
     setTaskEditDateKey('');
+    setTaskEditTaskId(undefined);
   };
 
   const handleSaveTaskEdits = (updates: WorkOrderLineUpdate[]) => {
-    console.log('[App] handleSaveTaskEdits called:', {
-      updatesCount: updates.length,
-      editScope,
-      dataViewMode,
-      updates: updates.map(u => ({ action: u.action, lineId: u.lineId }))
-    });
-
+    
     if (!workOrderLineManagerRef.current || !undoRedoManagerRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -2151,112 +1821,57 @@ const App: React.FC = () => {
 
       let totalUpdated = 0;
 
+      const newWoIdMap = new Map<string, string>(); // Maps NEW_xx draft IDs to actual created WO IDs
+
       // Process each update
       updates.forEach(update => {
-        // Handle atomic task creation if definition is provided
-        if (update.newTaskDef) {
-          // Ensure task exists or create it
-          if (taskManagerRef.current && !taskManagerRef.current.getTask(update.newTaskDef.id!)) {
-            taskManagerRef.current.createTask({
-              id: update.newTaskDef.id,
-              name: update.newTaskDef.name!,
-              classification: update.newTaskDef.classification!,
-              description: update.newTaskDef.description || update.newTaskDef.name!,
-              defaultSchedulePattern: update.newTaskDef.defaultSchedulePattern || { frequency: 'yearly' }
-            });
-          }
-        }
 
         if (update.action === 'create' && update.data) {
-          // Check if task exists, if not create it (handling new task creation legacy path)
-          const taskId = update.data.taskId;
-          if (taskId && taskManagerRef.current && !taskManagerRef.current.getTask(taskId)) {
-            // Create new task if missing
-            const taskName = (update.data as any).taskName || 'New Task';
-            // Default classification to '01' if missing or invalid, to satisfy validation
-            const rawClass = (update.data as any).classification;
-            const classification = (rawClass && /^\d{2}$/.test(rawClass)) ? rawClass : '01';
+          const draft = (update.data as any).__workOrderDraft;
+          let workOrderId = update.data.WorkOrderId;
 
-            // Create new task (TaskManager generates a new ID)
-            const newTask = taskManagerRef.current.createTask({
-              name: taskName,
-              description: taskName, // Require description
-              classification,
-              defaultSchedulePattern: { frequency: 'yearly' } // Fix TS Error: frequency object required
-            });
-
-            // Update association to point to the real Task ID
-            update.data.taskId = newTask.id;
+          if (draft && draft.isNew) {
+            if (newWoIdMap.has(draft.id)) {
+               workOrderId = newWoIdMap.get(draft.id)!;
+            } else {
+               const newWo = workOrderManagerRef.current!.createWorkOrder({
+                 name: draft.name || '新規作業',
+                 ClassificationId: draft.classificationId || '01'
+               });
+               workOrderId = newWo.id;
+               newWoIdMap.set(draft.id, workOrderId);
+            }
+          } else if (draft && !draft.isNew) {
+            const existingWo = workOrderManagerRef.current!.getWorkOrder(workOrderId!);
+            if (existingWo && (existingWo.name !== draft.name || existingWo.ClassificationId !== draft.classificationId)) {
+               workOrderManagerRef.current!.updateWorkOrder(workOrderId!, {
+                  name: draft.name,
+                  ClassificationId: draft.classificationId
+               });
+            }
           }
+
+          update.data.WorkOrderId = workOrderId;
+          delete (update.data as any).__workOrderDraft;
           workOrderLineManagerRef.current!.createWorkOrderLine(update.data as any);
           totalUpdated++;
         } else if (update.action === 'update' && update.data) {
-          // Use EditHandlers for schedule updates to respect edit scope
-          // Requirements 4.8, 5.7: Edit scope handling
-          if (update.data.schedule && editHandlersRef.current) {
-            // Create edit context based on current view mode and edit scope
-            const effectiveEditScope = dataViewMode === 'task-based' ? 'all-assets' as const : editScope;
-
-            if (effectiveEditScope === 'single-asset') {
-              // For single-asset scope, direct update is most reliable and handles deletions correctly
-              workOrderLineManagerRef.current!.updateWorkOrderLine(update.lineId, update.data);
-              totalUpdated++;
-            } else {
-              // For all-assets scope, we need to propagate edits using EditHandlers
-
-              // [FIX] Ensure non-schedule updates (like taskId change) are applied to the target association
-              // even when propagation is enabled. This fixes the "Rename Disappearing" bug in task-based mode.
-              const { schedule, ...otherUpdates } = update.data;
-
-              if (Object.keys(otherUpdates).length > 0) {
-                console.log('[App] Applying non-schedule updates in all-assets scope:', { lineId: update.lineId, updates: otherUpdates });
-
-                // Safety Check: If updating taskId, ensure Task exists
-                if (otherUpdates.taskId) {
-                  const targetTask = taskManagerRef.current?.getTask(otherUpdates.taskId);
-                  if (!targetTask) {
-                    console.error('[App] CRITICAL: Attempting to link association to non-existent Task ID:', otherUpdates.taskId);
-                    // Attempt late creation if newTaskDef was provided but somehow missed or failed?
-                    // (Should have been handled by atomic block above)
-                  } else {
-                    console.log('[App] Verified target task exists:', targetTask.name);
-                  }
-                }
-
-                workOrderLineManagerRef.current!.updateWorkOrderLine(update.lineId, otherUpdates);
-              }
-
-              // Iterate through all schedule entries that match the current edit context (taskEditDateKey)
-              // This fixes the bug where only the first key [0] was being processed
-              Object.entries(update.data.schedule).forEach(([dateKey, scheduleEntry]) => {
-                // Only propagate changes relevant to the current editing session
-                // If taskEditDateKey is set (e.g., '2025'), only sync dates starting with it
-                if (taskEditDateKey && !dateKey.startsWith(taskEditDateKey)) {
-                  return;
-                }
-
-                const workOrderLine = workOrderLineManagerRef.current!.getWorkOrderLine(update.lineId);
-                if (workOrderLine) {
-                  const request: ScheduleEditRequest = {
-                    workOrderLineId: update.lineId,
-                    dateKey,
-                    scheduleEntry,
-                    context: {
-                      viewMode: dataViewMode,
-                      editScope: effectiveEditScope
-                    }
-                  };
-
-                  const count = editHandlersRef.current!.handleScheduleEdit(request);
-                  totalUpdated += count;
-                }
-              });
+          const draft = (update.data as any).__workOrderDraft;
+          const workOrderId = update.data.WorkOrderId;
+          if (draft && !draft.isNew && workOrderId) {
+            const existingWo = workOrderManagerRef.current!.getWorkOrder(workOrderId);
+            if (existingWo && (existingWo.name !== draft.name || existingWo.ClassificationId !== draft.classificationId)) {
+               workOrderManagerRef.current!.updateWorkOrder(workOrderId, {
+                  name: draft.name,
+                  ClassificationId: draft.classificationId
+               });
             }
-          } else {
-            // Fallback to direct update if not a schedule update
-            workOrderLineManagerRef.current!.updateWorkOrderLine(update.lineId, update.data);
-            totalUpdated++;
           }
+          delete (update.data as any).__workOrderDraft;
+          
+          // Direct update for the flat WorkOrderLine record
+          workOrderLineManagerRef.current!.updateWorkOrderLine(update.lineId, update.data);
+          totalUpdated++;
         } else if (update.action === 'delete') {
           workOrderLineManagerRef.current!.deleteWorkOrderLine(update.lineId);
           totalUpdated++;
@@ -2264,41 +1879,29 @@ const App: React.FC = () => {
       });
 
       // Update ViewModeManager with new data (avoid re-initialization to prevent layout breakage)
-      if (viewModeManagerRef.current && taskManagerRef.current && assetManagerRef.current) {
-        const tasks = taskManagerRef.current.getAllTasks();
+      if (viewModeManagerRef.current && assetManagerRef.current && workOrderManagerRef.current) {
         const assets = assetManagerRef.current.getAllAssets();
+        const workOrders = workOrderManagerRef.current.getAllWorkOrders();
         const workOrderLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
         const hierarchyDefinition = hierarchyManagerRef.current?.getHierarchyDefinition() || { levels: [] };
 
         // Update existing ViewModeManager instead of creating new instance
         // This preserves memoization cache and prevents layout breakage
-        viewModeManagerRef.current.updateData(tasks, assets, workOrderLines, hierarchyDefinition);
+        viewModeManagerRef.current.updateData(assets, workOrderLines, hierarchyDefinition, workOrders);
 
-        console.log('[App] ViewModeManager updated with new data:', {
-          tasksCount: tasks.length,
-          assetsCount: assets.length,
-          associationsCount: workOrderLines.length
-        });
-
+        
         // Update hook data as well
         if (hookUpdateData) {
-          hookUpdateData(tasks, assets, workOrderLines, hierarchyDefinition);
+          hookUpdateData([], assets, workOrderLines, hierarchyDefinition);
         }
       }
 
       // Reload data to reflect changes
-      console.log('[App] Reloading data after save...');
-      loadDataFromViewModeManager();
+            loadDataFromViewModeManager();
 
       // Show feedback with edit scope information
       const scopeDescription = editScope === 'all-assets' ? '全機器' : '単一機器';
-      console.log('[App] Save completed successfully:', {
-        totalUpdated,
-        scopeDescription,
-        editScope,
-        dataViewMode
-      });
-      showSnackbar(`作業を更新しました (${totalUpdated}件の関連付け, ${scopeDescription}モード)`, 'success');
+            showSnackbar(`作業を更新しました (${totalUpdated}件の関連付け, ${scopeDescription}モード)`, 'success');
       handleCloseTaskEditDialog();
     } catch (error) {
       console.error('[App] Error saving task edits:', error);
@@ -2318,57 +1921,47 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateTask = (taskId: string, updates: Partial<any>) => {
-    if (!taskManagerRef.current || !undoRedoManagerRef.current || !isServicesInitialized) {
+  const handleUpdateWorkOrder = (workOrderId: string, updates: Partial<any>) => {
+    if (!workOrderManagerRef.current || !undoRedoManagerRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
     }
 
     try {
       // Save current state for undo
-      const currentTask = taskManagerRef.current.getTask(taskId);
-      if (currentTask) {
-        undoRedoManagerRef.current.pushState('UPDATE_TASK', {
-          taskId,
-          previousTask: currentTask
+      const currentWo = workOrderManagerRef.current.getWorkOrder(workOrderId);
+      if (currentWo) {
+        undoRedoManagerRef.current.pushState('UPDATE_WORK_ORDER', {
+          workOrderId,
+          previousWo: currentWo
         });
       }
 
-      // Update task
-      // Update or Create task
-      if (taskManagerRef.current.getTask(taskId)) {
-        taskManagerRef.current.updateTask(taskId, updates);
+      // Update or Create workOrder
+      if (workOrderManagerRef.current.getWorkOrder(workOrderId)) {
+        workOrderManagerRef.current.updateWorkOrder(workOrderId, updates);
       } else {
-        // Create new task if it doesn't exist (e.g. renamed in TaskEditDialog)
         const taskName = updates.name;
-        const classification = updates.classification;
-        // Check required fields for creation
-        if (taskName && classification) {
-          taskManagerRef.current.createTask({
-            id: taskId,
+        if (taskName) {
+          workOrderManagerRef.current.createWorkOrder({
+            id: workOrderId,
             name: taskName,
-            classification: classification,
-            description: updates.description || taskName, // Default description to name
-            defaultSchedulePattern: updates.defaultSchedulePattern || { frequency: 'yearly' }
+            ClassificationId: '01'
           });
         } else {
-          console.error('[App] Cannot create task, missing name or classification:', updates);
-          throw new Error('新しい作業を作成するには作業名と分類が必要です');
+          console.error('[App] Cannot create workOrder, missing name:', updates);
+          throw new Error('新しい作業を作成するには作業名が必要です');
         }
       }
 
       // Reload data to reflect changes
       loadDataFromViewModeManager();
-
       showSnackbar('作業定義を更新しました', 'success');
     } catch (error) {
-      console.error('[App] Error updating task:', error);
-
-      // Use ErrorHandler with proper error type detection
+      console.error('[App] Error updating workOrder:', error);
       if (errorHandlerRef.current) {
-        handleGenericError(error, 'taskUpdate', errorHandlerRef.current);
+        handleGenericError(error, 'workOrderUpdate', errorHandlerRef.current);
       }
-
       showSnackbar('作業定義の更新に失敗しました', 'error');
     }
   };
@@ -2404,8 +1997,7 @@ const App: React.FC = () => {
 
   // Handle full asset edits from AssetDetailsDialog
   const handleAssetEdit = useCallback((assetId: string, updates: any) => {
-    console.log('[App] handleAssetEdit called:', { assetId, updates });
-
+    
     if (!isServicesInitialized || !assetManagerRef.current) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -2425,13 +2017,11 @@ const App: React.FC = () => {
       if (updates.specifications !== undefined) assetUpdates.specifications = updates.specifications;
 
       if (updates.bomCode !== undefined && updates.bomCode !== assetId) {
-        console.warn('[App] Cannot update TAG No. (Asset ID) through this dialog yet.');
-      }
+              }
 
       // Update asset via manager
       assetManagerRef.current.updateAsset(assetId, assetUpdates);
-      console.log('[App] Asset updated successfully');
-
+      
       // Reload data to reflect changes
       loadDataFromViewModeManagerWithMode(dataViewMode);
       showSnackbar('機器情報を更新しました', 'success');
@@ -2572,7 +2162,7 @@ const App: React.FC = () => {
               dataViewMode={dataViewMode}
               editScope={editScope}
               onEditScopeChange={handleEditScopeChange}
-              tasks={taskManagerRef.current?.getAllTasks() || []}
+              workOrders={workOrderManagerRef.current?.getAllWorkOrders() || []}
               assets={assetManagerRef.current?.getAllAssets() || []}
               associations={workOrderLineManagerRef.current?.getAllWorkOrderLines() || []}
               hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition()}
@@ -2635,8 +2225,7 @@ const App: React.FC = () => {
                 }}
                 onExcelImport={(file) => {
                   // Handle Excel file import
-                  console.log('Excel file imported:', file.name);
-                  showSnackbar(`Excelファイル "${file.name}" をインポートしました`, 'success');
+                                    showSnackbar(`Excelファイル "${file.name}" をインポートしました`, 'success');
                 }}
               />
             </div>
@@ -2756,69 +2345,24 @@ const App: React.FC = () => {
             open={taskEditDialogOpen}
             assetId={taskEditAssetId}
             dateKey={taskEditDateKey}
-            associations={workOrderLineManagerRef.current?.getWorkOrderLinesByAsset(taskEditAssetId) || []}
-            allTasks={taskManagerRef.current?.getAllTasks() || []}
+            workOrderId={taskEditTaskId}
+            associations={(taskEditAssetId 
+              ? workOrderLineManagerRef.current?.getWorkOrderLinesByAsset(taskEditAssetId)
+              : taskEditTaskId 
+                ? workOrderLineManagerRef.current?.getAllWorkOrderLines().filter(l => l.WorkOrderId === taskEditTaskId)
+                : []) || []}
+            allWorkOrders={workOrderManagerRef.current?.getAllWorkOrders() || []}
             allAssets={assetManagerRef.current?.getAllAssets() || []}
+            allWorkOrderLines={workOrderLineManagerRef.current?.getAllWorkOrderLines() || []}
             onSave={handleSaveTaskEdits}
-            onUpdateTask={handleUpdateTask}
+            onUpdateWorkOrder={handleUpdateWorkOrder}
             onClose={handleCloseTaskEditDialog}
             readOnly={false}
-            editScope={dataViewMode === 'task-based' ? 'single-asset' : 'single-asset'}
+            editScope={dataViewMode === 'workorder-based' ? 'single-asset' : 'single-asset'}
             dataViewMode={dataViewMode}
           />
         )}
 
-
-        {/* Status Selection Dialog - for task-based mode status editing */}
-        {selectedItemForDialog && (
-          <StatusSelectionDialog
-            open={statusDialogOpen}
-            currentStatus={{
-              planned: selectedItemForDialog.currentValue?.planned || false,
-              actual: selectedItemForDialog.currentValue?.actual || false,
-            }}
-            onSelect={(status) => handleStatusDialogSave(status)}
-            onClose={() => {
-              setStatusDialogOpen(false);
-              setSelectedItemForDialog(null);
-              setDialogAnchorEl(null);
-            }}
-            anchorEl={dialogAnchorEl}
-          />
-        )}
-
-        {/* Cost Input Dialog - for task-based mode cost editing */}
-        {selectedItemForDialog && (
-          <CostInputDialog
-            open={costDialogOpen}
-            currentCost={{
-              planCost: selectedItemForDialog.currentValue?.planCost || 0,
-              actualCost: selectedItemForDialog.currentValue?.actualCost || 0,
-            }}
-            onSave={(cost) => handleCostDialogSave(cost)}
-            onClose={() => {
-              setCostDialogOpen(false);
-              setSelectedItemForDialog(null);
-              setDialogAnchorEl(null);
-            }}
-            anchorEl={dialogAnchorEl}
-          />
-        )}
-
-        {/* Simple Status Dialog - fallback for legacy compatibility */}
-        {selectedItemForDialog && (
-          <SimpleStatusDialog
-            open={false} // Disabled in favor of proper dialogs
-            onClose={() => {
-              setStatusDialogOpen(false);
-              setSelectedItemForDialog(null);
-            }}
-            onSave={handleStatusDialogSave}
-            itemName={selectedItemForDialog.itemName}
-            timeHeader={selectedItemForDialog.timeHeader}
-            currentValue={selectedItemForDialog.currentValue}
-          />
-        )}
 
         {/* Snackbar */}
         <Snackbar

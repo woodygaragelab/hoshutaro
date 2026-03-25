@@ -5,7 +5,6 @@
 
 import {
   DataModel,
-  Task,
   Asset,
   WorkOrder,
   WorkOrderLine,
@@ -21,7 +20,6 @@ export interface IntegrityCheckResult {
   errors: IntegrityError[];
   warnings: IntegrityWarning[];
   summary: {
-    totalTasks: number;
     totalAssets: number;
     totalWorkOrders: number;
     totalWorkOrderLines: number;
@@ -38,7 +36,7 @@ export interface IntegrityCheckResult {
 export interface IntegrityError {
   type: 'ORPHANED_WORK_ORDER_LINE' | 'INVALID_REFERENCE' | 'DUPLICATE_ID' | 'INVALID_HIERARCHY_PATH';
   message: string;
-  entityType: 'task' | 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
+  entityType: 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
   entityId?: string;
   details?: any;
 }
@@ -49,7 +47,7 @@ export interface IntegrityError {
 export interface IntegrityWarning {
   type: 'MISSING_DATA' | 'INCONSISTENT_DATA' | 'DEPRECATED_FORMAT';
   message: string;
-  entityType: 'task' | 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
+  entityType: 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
   entityId?: string;
   details?: any;
 }
@@ -67,7 +65,6 @@ export class DataIntegrityChecker {
 
     // 各チェックを実行
     const orphanedErrors = this.checkOrphanedWorkOrderLines(
-      dataModel.tasks,
       dataModel.assets,
       dataModel.workOrders,
       dataModel.workOrderLines
@@ -75,7 +72,6 @@ export class DataIntegrityChecker {
     errors.push(...orphanedErrors);
 
     const referenceErrors = this.checkInvalidReferences(
-      dataModel.tasks,
       dataModel.assets,
       dataModel.workOrders,
       dataModel.workOrderLines
@@ -83,7 +79,6 @@ export class DataIntegrityChecker {
     errors.push(...referenceErrors);
 
     const duplicateErrors = this.checkDuplicateIds(
-      dataModel.tasks,
       dataModel.assets,
       dataModel.workOrders,
       dataModel.workOrderLines
@@ -105,7 +100,6 @@ export class DataIntegrityChecker {
       errors,
       warnings,
       summary: {
-        totalTasks: Object.keys(dataModel.tasks).length,
         totalAssets: Object.keys(dataModel.assets).length,
         totalWorkOrders: Object.keys(dataModel.workOrders).length,
         totalWorkOrderLines: Object.keys(dataModel.workOrderLines).length,
@@ -121,7 +115,6 @@ export class DataIntegrityChecker {
    * 孤立したWorkOrderLineをチェック
    */
   private checkOrphanedWorkOrderLines(
-    tasks: { [id: string]: Task },
     assets: { [id: string]: Asset },
     workOrders: { [id: string]: WorkOrder },
     workOrderLines: { [id: string]: WorkOrderLine }
@@ -129,36 +122,25 @@ export class DataIntegrityChecker {
     const errors: IntegrityError[] = [];
 
     for (const [lineId, line] of Object.entries(workOrderLines)) {
-      // 作業が存在するかチェック
-      if (!tasks[line.taskId]) {
-        errors.push({
-          type: 'ORPHANED_WORK_ORDER_LINE',
-          message: `WorkOrderLine ${lineId} が存在しない作業を参照しています: ${line.taskId}`,
-          entityType: 'workOrderLine',
-          entityId: lineId,
-          details: { taskId: line.taskId },
-        });
-      }
-
       // 機器が存在するかチェック
-      if (!assets[line.assetId]) {
+      if (!assets[line.AssetId]) {
         errors.push({
           type: 'ORPHANED_WORK_ORDER_LINE',
-          message: `WorkOrderLine ${lineId} が存在しない機器を参照しています: ${line.assetId}`,
+          message: `WorkOrderLine ${lineId} が存在しない機器を参照しています: ${line.AssetId}`,
           entityType: 'workOrderLine',
           entityId: lineId,
-          details: { assetId: line.assetId },
+          details: { assetId: line.AssetId },
         });
       }
 
       // WorkOrderが存在するかチェック
-      if (!workOrders[line.workOrderId]) {
+      if (!workOrders[line.WorkOrderId]) {
         errors.push({
           type: 'ORPHANED_WORK_ORDER_LINE',
-          message: `WorkOrderLine ${lineId} が存在しないWorkOrderを参照しています: ${line.workOrderId}`,
+          message: `WorkOrderLine ${lineId} が存在しないWorkOrderを参照しています: ${line.WorkOrderId}`,
           entityType: 'workOrderLine',
           entityId: lineId,
-          details: { workOrderId: line.workOrderId },
+          details: { workOrderId: line.WorkOrderId },
         });
       }
     }
@@ -170,24 +152,11 @@ export class DataIntegrityChecker {
    * 無効な参照をチェック
    */
   private checkInvalidReferences(
-    tasks: { [id: string]: Task },
     assets: { [id: string]: Asset },
     workOrders: { [id: string]: WorkOrder },
     workOrderLines: { [id: string]: WorkOrderLine }
   ): IntegrityError[] {
     const errors: IntegrityError[] = [];
-
-    // Task IDの形式チェック
-    for (const [id, task] of Object.entries(tasks)) {
-      if (task.id !== id) {
-        errors.push({
-          type: 'INVALID_REFERENCE',
-          message: `作業のIDがキーと一致しません: ${id} !== ${task.id}`,
-          entityType: 'task',
-          entityId: id,
-        });
-      }
-    }
 
     // Asset IDの形式チェック
     for (const [id, asset] of Object.entries(assets)) {
@@ -224,40 +193,22 @@ export class DataIntegrityChecker {
         });
       }
 
-      // スケジュールの形式チェック
-      if (line.schedule) {
-        for (const [dateKey, entry] of Object.entries(line.schedule)) {
-          // 日付キーの形式チェック (YYYY-MM)
-          if (!/^\d{4}-\d{2}$/.test(dateKey)) {
-            errors.push({
-              type: 'INVALID_REFERENCE',
-              message: `WorkOrderLine ${id} のスケジュール日付キーの形式が無効です: ${dateKey} (YYYY-MM)`,
-              entityType: 'workOrderLine',
-              entityId: id,
-              details: { dateKey },
-            });
-          }
-
-          // スケジュールエントリの形式チェック
-          if (entry) {
-            if (typeof entry.planned !== 'boolean') {
-              errors.push({
-                type: 'INVALID_REFERENCE',
-                message: `WorkOrderLine ${id} のスケジュール ${dateKey} のplannedがbooleamではありません`,
-                entityType: 'workOrderLine',
-                entityId: id,
-              });
-            }
-            if (typeof entry.actual !== 'boolean') {
-              errors.push({
-                type: 'INVALID_REFERENCE',
-                message: `WorkOrderLine ${id} のスケジュール ${dateKey} のactualがbooleanではありません`,
-                entityType: 'workOrderLine',
-                entityId: id,
-              });
-            }
-          }
-        }
+      // 予定などの形式チェック
+      if (typeof line.Planned !== 'boolean') {
+        errors.push({
+          type: 'INVALID_REFERENCE',
+          message: `WorkOrderLine ${id} のPlannedがbooleanではありません`,
+          entityType: 'workOrderLine',
+          entityId: id,
+        });
+      }
+      if (typeof line.Actual !== 'boolean') {
+        errors.push({
+          type: 'INVALID_REFERENCE',
+          message: `WorkOrderLine ${id} のActualがbooleanではありません`,
+          entityType: 'workOrderLine',
+          entityId: id,
+        });
       }
     }
 
@@ -268,7 +219,6 @@ export class DataIntegrityChecker {
    * 重複IDをチェック
    */
   private checkDuplicateIds(
-    tasks: { [id: string]: Task },
     assets: { [id: string]: Asset },
     workOrders: { [id: string]: WorkOrder },
     workOrderLines: { [id: string]: WorkOrderLine }
@@ -285,7 +235,6 @@ export class DataIntegrityChecker {
       }
     };
 
-    addIds(tasks, 'task');
     addIds(assets, 'asset');
     addIds(workOrders, 'workOrder');
     addIds(workOrderLines, 'workOrderLine');
@@ -360,26 +309,10 @@ export class DataIntegrityChecker {
   private checkDataConsistency(dataModel: DataModel): IntegrityWarning[] {
     const warnings: IntegrityWarning[] = [];
 
-    // 作業が存在するがWorkOrderLineに参照されていない
-    const referencedTaskIds = new Set<string>();
-    for (const line of Object.values(dataModel.workOrderLines)) {
-      referencedTaskIds.add(line.taskId);
-    }
-    for (const taskId of Object.keys(dataModel.tasks)) {
-      if (!referencedTaskIds.has(taskId)) {
-        warnings.push({
-          type: 'INCONSISTENT_DATA',
-          message: `作業 ${taskId} はどのWorkOrderLineからも参照されていません`,
-          entityType: 'task',
-          entityId: taskId,
-        });
-      }
-    }
-
     // 機器が存在するがWorkOrderLineに参照されていない
     const referencedAssetIds = new Set<string>();
     for (const line of Object.values(dataModel.workOrderLines)) {
-      referencedAssetIds.add(line.assetId);
+      referencedAssetIds.add(line.AssetId);
     }
     for (const assetId of Object.keys(dataModel.assets)) {
       if (!referencedAssetIds.has(assetId)) {
@@ -395,7 +328,7 @@ export class DataIntegrityChecker {
     // WorkOrderが存在するがWorkOrderLineに参照されていない
     const referencedWoIds = new Set<string>();
     for (const line of Object.values(dataModel.workOrderLines)) {
-      referencedWoIds.add(line.workOrderId);
+      referencedWoIds.add(line.WorkOrderId);
     }
     for (const woId of Object.keys(dataModel.workOrders)) {
       if (!referencedWoIds.has(woId)) {
@@ -409,17 +342,6 @@ export class DataIntegrityChecker {
     }
 
     // 名前が空のエンティティ
-    for (const [id, task] of Object.entries(dataModel.tasks)) {
-      if (!task.name || task.name.trim() === '') {
-        warnings.push({
-          type: 'MISSING_DATA',
-          message: `作業 ${id} の名前が空です`,
-          entityType: 'task',
-          entityId: id,
-        });
-      }
-    }
-
     for (const [id, asset] of Object.entries(dataModel.assets)) {
       if (!asset.name || asset.name.trim() === '') {
         warnings.push({
@@ -444,7 +366,6 @@ export class DataIntegrityChecker {
     lines.push(`状態: ${result.isValid ? '✅ 正常' : '❌ エラーあり'}`);
     lines.push('');
     lines.push('--- サマリー ---');
-    lines.push(`作業数: ${result.summary.totalTasks}`);
     lines.push(`機器数: ${result.summary.totalAssets}`);
     lines.push(`WorkOrder数: ${result.summary.totalWorkOrders}`);
     lines.push(`WorkOrderLine数: ${result.summary.totalWorkOrderLines}`);
