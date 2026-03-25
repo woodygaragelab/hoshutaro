@@ -20,8 +20,8 @@ import {
   Settings as SettingsIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion, AIAssistantPanelProps } from './types';
-import { MockAIService } from './services/MockAIService';
 import { LLMSettingsDialog } from './components/LLMSettingsDialog';
+import { startChatStream, SSEEvent } from '../../services/sseClient';
 import './AIAssistantPanel.css';
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
@@ -41,9 +41,9 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).substr(2, 9));
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const aiService = useRef(new MockAIService());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,7 +53,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!inputMessage.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
@@ -63,36 +63,62 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const assistantMsgId = (Date.now() + 1).toString();
+    const assistantMessage: ChatMessage = {
+      id: assistantMsgId,
+      type: 'assistant',
+      content: '',
+      timestamp: new Date()
+    };
+
     const currentInput = inputMessage;
+    const messageHistory = messages
+      .filter(m => m.type !== 'system')
+      .map(m => ({
+        role: m.type === 'assistant' ? 'assistant' : 'user',
+        content: m.content
+      }))
+      .concat([{ role: 'user', content: currentInput }]);
+
+    setMessages(prev => [...prev, userMessage, assistantMessage]);
     setInputMessage('');
     setIsLoading(true);
 
-    try {
-      // Use mock AI service for response generation
-      const aiResponse = await aiService.current.generateResponse(currentInput);
-      
-      const responseMessage: ChatMessage = {
-        id: Date.now().toString(),
-        type: 'assistant',
-        content: aiResponse.content,
-        timestamp: new Date(),
-        suggestions: aiResponse.suggestions
-      };
-
-      setMessages(prev => [...prev, responseMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString(),
-        type: 'assistant',
-        content: '申し訳ございません。エラーが発生しました。もう一度お試しください。',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
+    startChatStream(
+      sessionId,
+      messageHistory,
+      (event: SSEEvent) => {
+        if (event.type === 'text_delta' && event.delta) {
+          setMessages(prev => prev.map(m => {
+            if (m.id === assistantMsgId) {
+              return { ...m, content: m.content + event.delta! };
+            }
+            return m;
+          }));
+        } else if (event.type === 'suggestion' && event.suggestion) {
+          setMessages(prev => prev.map(m => {
+            if (m.id === assistantMsgId) {
+              const suggestions = m.suggestions ? [...m.suggestions] : [];
+              suggestions.push(event.suggestion);
+              return { ...m, suggestions };
+            }
+            return m;
+          }));
+        }
+      },
+      () => {
+        setIsLoading(false);
+      },
+      (err: string) => {
+        setMessages(prev => prev.map(m => {
+          if (m.id === assistantMsgId) {
+            return { ...m, content: m.content + `\n\n[システムエラー: ${err}]` };
+          }
+          return m;
+        }));
+        setIsLoading(false);
+      }
+    );
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
