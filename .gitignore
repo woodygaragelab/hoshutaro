@@ -30,3 +30,8 @@ node_modules
 .amplify
 amplify_outputs*
 amplifyconfiguration*
+
+# Backend environment
+backend/.env
+__pycache__
+*.pyc

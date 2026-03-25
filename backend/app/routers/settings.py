@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
@@ -7,6 +7,10 @@ from app.llm.factory import reset_llm_adapter
 
 router = APIRouter()
 
+# backend/ ディレクトリ基準で .env パスを解決
+_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+
+
 class LLMSettings(BaseModel):
     llm_adapter: str
     llm_base_url: str
@@ -14,6 +18,7 @@ class LLMSettings(BaseModel):
     llm_api_key: Optional[str] = None
     llm_temperature: float
     llm_max_tokens: int
+
 
 @router.get("/api/settings/llm")
 async def get_settings():
@@ -26,10 +31,9 @@ async def get_settings():
         "llm_max_tokens": settings.llm_max_tokens,
     }
 
+
 @router.put("/api/settings/llm")
 async def update_settings(new_settings: LLMSettings):
-    env_path = ".env"
-    
     keys_map = {
         "LLM_ADAPTER": new_settings.llm_adapter,
         "LLM_BASE_URL": new_settings.llm_base_url,
@@ -39,31 +43,36 @@ async def update_settings(new_settings: LLMSettings):
         "LLM_MAX_TOKENS": str(new_settings.llm_max_tokens),
         "SKILLS_PATH": settings.skills_path,
     }
-    
-    with open(env_path, "w", encoding="utf-8") as f:
+
+    with open(_ENV_PATH, "w", encoding="utf-8") as f:
         for k, v in keys_map.items():
             f.write(f"{k}={v}\n")
-            
+
+    # インメモリ設定も更新
     settings.llm_adapter = new_settings.llm_adapter
     settings.llm_base_url = new_settings.llm_base_url
     settings.llm_model = new_settings.llm_model
     settings.llm_api_key = new_settings.llm_api_key or "none"
     settings.llm_temperature = new_settings.llm_temperature
     settings.llm_max_tokens = new_settings.llm_max_tokens
-    
+
     reset_llm_adapter()
     return {"status": "ok"}
+
 
 class LLMTestRequest(BaseModel):
     base_url: str
     model: str
     api_key: Optional[str] = None
 
+
 @router.post("/api/settings/llm/test")
 async def test_llm_connection(req: LLMTestRequest):
     try:
         from app.llm.openai_compat import OpenAICompatAdapter
-        adapter = OpenAICompatAdapter(base_url=req.base_url, model=req.model, api_key=req.api_key or "none")
+        adapter = OpenAICompatAdapter(
+            base_url=req.base_url, model=req.model, api_key=req.api_key or "none"
+        )
         res = await adapter.ping()
         res["model_info"] = req.model
         return res

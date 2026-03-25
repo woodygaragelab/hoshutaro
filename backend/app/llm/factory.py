@@ -1,9 +1,11 @@
 import threading
 import logging
+from typing import Optional
 from app.llm.base import LLMAdapter
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
 
 def create_llm_adapter() -> LLMAdapter:
     adapter_type = settings.llm_adapter
@@ -17,10 +19,12 @@ def create_llm_adapter() -> LLMAdapter:
     else:
         raise ValueError(f"Unknown LLM Adapter type: {adapter_type}")
 
-_adapter: LLMAdapter | None = None
+
+_adapter: Optional[LLMAdapter] = None
 _adapter_lock = threading.Lock()
 _adapter_loading = False
-_adapter_error: str | None = None
+_adapter_error: Optional[str] = None
+
 
 def _init_adapter_background() -> None:
     global _adapter, _adapter_loading, _adapter_error
@@ -37,7 +41,12 @@ def _init_adapter_background() -> None:
             _adapter_error = str(e)
         logger.error("[LLM Factory] LLMアダプター初期化失敗: %s", e)
 
-def get_llm_adapter() -> LLMAdapter:
+
+def get_llm_adapter() -> Optional[LLMAdapter]:
+    """
+    LLMアダプターを取得する。
+    未ロードの場合はバックグラウンドでロードを開始し None を返す。
+    """
     global _adapter, _adapter_loading, _adapter_error
     with _adapter_lock:
         if _adapter is not None:
@@ -47,13 +56,12 @@ def get_llm_adapter() -> LLMAdapter:
             _adapter_error = None
             thread = threading.Thread(target=_init_adapter_background, daemon=True)
             thread.start()
-    raise RuntimeError(
-        "LLMモデルをロード中です。しばらくお待ちください。"
-        + (f" (エラー: {_adapter_error})" if _adapter_error else "")
-    )
+    return None
+
 
 def is_llm_ready() -> bool:
     return _adapter is not None
+
 
 def get_llm_loading_status() -> dict:
     return {
@@ -61,6 +69,7 @@ def get_llm_loading_status() -> dict:
         "loading": _adapter_loading,
         "error": _adapter_error,
     }
+
 
 def reset_llm_adapter() -> None:
     global _adapter, _adapter_loading, _adapter_error

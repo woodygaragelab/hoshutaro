@@ -9,6 +9,7 @@ from app.models.schemas import MaintenanceOperation
 
 logger = logging.getLogger(__name__)
 
+
 class OpenAICompatAdapter(LLMAdapter):
     def __init__(self, base_url: str, model: str, api_key: str = "none"):
         self.model = model
@@ -90,12 +91,11 @@ class OpenAICompatAdapter(LLMAdapter):
             yield operation_summary
 
     async def ping(self) -> dict:
+        """openai SDK の models.list() で接続確認 + レイテンシ計測"""
         start = time.monotonic()
         try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{self._base_url}/models")
-                ok = resp.status_code == 200
+            models = await self._client.models.list()
+            ok = True
         except Exception:
             ok = False
         latency_ms = round((time.monotonic() - start) * 1000, 2)

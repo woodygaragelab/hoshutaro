@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,7 +8,19 @@ from app.llm.factory import get_llm_adapter
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="HOSHUTARO AI Agent API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup: バックグラウンドでLLMアダプタの初期化を開始
+    try:
+        get_llm_adapter()
+    except RuntimeError:
+        pass  # ロード中の例外は無視して次に進める
+    yield
+    # shutdown: 必要に応じてクリーンアップ
+
+
+app = FastAPI(title="HOSHUTARO AI Agent API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,11 +32,3 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(settings.router)
-
-@app.on_event("startup")
-async def startup_event():
-    # バックグラウンドでLLMアダプタの非同期ロード（初期化）を開始
-    try:
-        get_llm_adapter()
-    except RuntimeError:
-        pass # ロード中の例外は無視して次に進める
