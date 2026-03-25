@@ -16,10 +16,12 @@ import {
   SmartToy as AIIcon,
   Person as PersonIcon,
   AttachFile as AttachFileIcon,
-  CheckCircle as CheckCircleIcon
+  CheckCircle as CheckCircleIcon,
+  Settings as SettingsIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion, AIAssistantPanelProps } from './types';
 import { MockAIService } from './services/MockAIService';
+import { LLMSettingsDialog } from './components/LLMSettingsDialog';
 import './AIAssistantPanel.css';
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
@@ -38,6 +40,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const aiService = useRef(new MockAIService());
@@ -225,9 +228,14 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         <Typography variant="h6" sx={{ color: '#ffffff' }}>
           AIアシスタント
         </Typography>
-        <IconButton onClick={onClose} sx={{ color: '#ffffff' }}>
-          <CloseIcon />
-        </IconButton>
+        <Box>
+          <IconButton onClick={() => setIsSettingsOpen(true)} sx={{ color: '#ffffff', mr: 1 }}>
+            <SettingsIcon />
+          </IconButton>
+          <IconButton onClick={onClose} sx={{ color: '#ffffff' }}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
       </div>
 
       <div className="ai-assistant-messages">
@@ -283,6 +291,11 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           </button>
         </div>
       </div>
+      
+      <LLMSettingsDialog 
+        open={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </div>
   );
 };

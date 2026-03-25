@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+openai
+httpx
+openpyxl
+langgraph
+langchain-core
