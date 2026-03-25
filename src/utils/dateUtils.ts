@@ -141,3 +141,39 @@ export const parseTimeKey = (key: string, timeScale: TimeScale): Date | null => 
     }
     return null;
 };
+
+/**
+ * Shifts a specific date by the exact logical offset between two time keys.
+ * Used for deep-copying WorkOrderLines between grid columns while preserving their relative sub-period timing.
+ */
+export const shiftDateByTimeScale = (
+    originalDate: Date, 
+    sourceKey: string, 
+    destKey: string, 
+    timeScale: TimeScale
+): Date => {
+    const sourceStart = parseTimeKey(sourceKey, timeScale);
+    const destStart = parseTimeKey(destKey, timeScale);
+    
+    if (!sourceStart || !destStart) return new Date(originalDate);
+
+    const newDate = new Date(originalDate);
+
+    if (timeScale === 'year') {
+        const diffYears = destStart.getUTCFullYear() - sourceStart.getUTCFullYear();
+        newDate.setUTCFullYear(newDate.getUTCFullYear() + diffYears);
+    } else if (timeScale === 'month') {
+        const diffMonths = (destStart.getUTCFullYear() - sourceStart.getUTCFullYear()) * 12 
+                         + (destStart.getUTCMonth() - sourceStart.getUTCMonth());
+        newDate.setUTCMonth(newDate.getUTCMonth() + diffMonths);
+    } else if (timeScale === 'day') {
+        const diffTime = destStart.getTime() - sourceStart.getTime();
+        newDate.setTime(newDate.getTime() + diffTime);
+    } else if (timeScale === 'week') {
+        const diffTime = destStart.getTime() - sourceStart.getTime();
+        const diffWeeks = Math.round(diffTime / (7 * 86400000));
+        newDate.setUTCDate(newDate.getUTCDate() + (diffWeeks * 7));
+    }
+
+    return newDate;
+};

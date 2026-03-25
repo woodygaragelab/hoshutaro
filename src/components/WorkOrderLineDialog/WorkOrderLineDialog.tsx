@@ -192,8 +192,6 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
 
       // Convert associations to maintenance records
       associations.forEach(assoc => {
-        if (assoc.WorkOrderId) uniqueWoIds.add(assoc.WorkOrderId);
-
         // In context mode, skip records not matching the context WorkOrder
         if (contextWorkOrderId && assoc.WorkOrderId !== contextWorkOrderId) return;
 
@@ -212,6 +210,8 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         if (!matchesDateKey(planStart) && !matchesDateKey(actualStart)) {
           return; // Skip if it doesn't match the cell's dateKey
         }
+
+        if (assoc.WorkOrderId) uniqueWoIds.add(assoc.WorkOrderId);
 
         records.push({
           id: assoc.id,
@@ -487,14 +487,6 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   const generateUpdates = useCallback(() => {
     const updates: WorkOrderLineUpdate[] = [];
 
-    // Generate a set of association IDs that were originally passed to us
-    const originalAssocIds = new Set<string>();
-    associations.forEach(a => {
-      // In context mode, only process deletions for the associations of THIS workOrder
-      if (contextWorkOrderId && a.WorkOrderId !== contextWorkOrderId) return;
-      originalAssocIds.add(a.id);
-    });
-    
     const processedAssocIds = new Set<string>();
 
     maintenanceRecords.forEach(record => {
@@ -539,15 +531,6 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         updates.push({ lineId: `assoc-${Date.now()}-${Math.random()}`, action: 'create', data: { ...lineData, CreatedAt: new Date(), UpdatedAt: new Date() } as any });
       }
     });
-
-    // Cleanup: any original association passed into this dialog that was NOT processed above
-    // indicates that all of its records were deleted or it was entirely orphaned.
-    originalAssocIds.forEach(assocId => {
-      if (!processedAssocIds.has(assocId)) {
-        updates.push({ lineId: assocId, action: 'delete' });
-      }
-    });
-
     return updates;
   }, [maintenanceRecords, assetId, dateKey, associations, contextWorkOrderId, workOrderDrafts]);
 

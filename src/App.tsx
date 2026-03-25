@@ -35,7 +35,7 @@ import ModernHeader from './components/ModernHeader';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
 import { HierarchyEditDialog } from './components/HierarchyEditDialog/HierarchyEditDialog';
 import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
-import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey } from './utils/dateUtils';
+import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
 import { transformData } from './utils/dataTransformer';
 import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
 import { darkTheme } from './theme/darkTheme';
@@ -1236,6 +1236,8 @@ const App: React.FC = () => {
     showSnackbar('機器仕様の列順序を変更しました', 'success');
   };
 
+  // Deep Copy Handlers relocated to the bottom of the component to fix initialization hoisting
+
   // Handle cell editing for EnhancedMaintenanceGrid
   // Requirements 4.2, 4.8, 5.7: Use EditHandlers for schedule editing with view mode awareness
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
@@ -2035,6 +2037,133 @@ const App: React.FC = () => {
     }
   }, [isServicesInitialized, dataViewMode]);
 
+  // --- Deep Copy & Paste Handlers ---
+  const [internalClipboard, setInternalClipboard] = useState<{
+    rowId: string;
+    columnId: string;
+    viewMode: 'status' | 'cost';
+  } | null>(null);
+
+  const handleCellCopy = useCallback((rowId: string, columnId: string, viewMode: 'status' | 'cost') => {
+    setInternalClipboard({ rowId, columnId, viewMode });
+  }, []);
+
+  const handleCellPaste = useCallback((rowId: string, columnId: string, viewMode: 'status' | 'cost') => {
+    if (!internalClipboard) {
+      showSnackbar('クリップボードにデータがありません', 'warning');
+      return;
+    }
+
+    if (!isServicesInitialized || !workOrderLineManagerRef.current || !workOrderManagerRef.current) {
+      showSnackbar('サービスが初期化されていません', 'error');
+      return;
+    }
+
+    if (!columnId.startsWith('time_') || !internalClipboard.columnId.startsWith('time_')) {
+      showSnackbar('計画・実績（タイムライン）のセルに対してのみペースト可能です', 'warning');
+      return;
+    }
+
+    try {
+      const sourceTimeKey = internalClipboard.columnId.replace('time_', '');
+      const targetTimeKey = columnId.replace('time_', '');
+
+      // Parse IDs from raw grid tags
+      const extractIds = (rawId: string) => {
+        let assetId = rawId;
+        let taskId: string | null = null;
+        if (rawId.startsWith('asset_')) {
+          assetId = rawId.replace('asset_', '');
+        } else if (rawId.startsWith('workOrder_')) {
+          const parts = rawId.split('_asset_');
+          if (parts.length === 2) {
+            taskId = parts[0].replace('workOrder_', '');
+            assetId = parts[1];
+          }
+        } else if (rawId.startsWith('task_')) {
+          const parts = rawId.split('_asset_');
+          if (parts.length === 2) {
+            taskId = parts[0].replace('task_', '');
+            assetId = parts[1].split('_wol_')[0];
+          }
+        }
+        return { assetId, taskId };
+      };
+
+      const source = extractIds(internalClipboard.rowId);
+      const target = extractIds(rowId);
+
+      // Extract raw event pool
+      const allLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
+      
+      const sourceLines = allLines.filter(line => {
+        if (line.AssetId !== source.assetId) return false;
+        const date = typeof line.PlanScheduleStart === 'string' 
+            ? new Date(line.PlanScheduleStart) 
+            : line.PlanScheduleStart;
+        if (isNaN(date.getTime())) return false;
+        
+        return getTimeKey(date, timeScale) === sourceTimeKey;
+      });
+
+      // Filter by specific task if copied from WorkOrder-based mode
+      const linesToCopy = source.taskId 
+        ? sourceLines.filter(l => l.WorkOrderId === source.taskId) 
+        : sourceLines;
+
+      if (linesToCopy.length === 0) {
+        showSnackbar('コピー元期間（' + sourceTimeKey + '）に複製可能な作業明細が存在しません', 'warning');
+        return;
+      }
+
+      // Deep Clone and Date Shift
+      let successCount = 0;
+      linesToCopy.forEach(line => {
+        const originalDate = new Date(line.PlanScheduleStart);
+        const shiftedStart = shiftDateByTimeScale(originalDate, sourceTimeKey, targetTimeKey, timeScale);
+        
+        const shiftedEnd = line.PlanScheduleEnd 
+            ? shiftDateByTimeScale(new Date(line.PlanScheduleEnd), sourceTimeKey, targetTimeKey, timeScale) 
+            : undefined;
+
+        let shiftedActualStart: Date | undefined;
+        let shiftedActualEnd: Date | undefined;
+
+        if (line.ActualScheduleStart) {
+          shiftedActualStart = shiftDateByTimeScale(new Date(line.ActualScheduleStart), sourceTimeKey, targetTimeKey, timeScale);
+        }
+        if (line.ActualScheduleEnd) {
+          shiftedActualEnd = shiftDateByTimeScale(new Date(line.ActualScheduleEnd), sourceTimeKey, targetTimeKey, timeScale);
+        }
+        
+        const newLine = {
+          ...line,
+          id: undefined, // Manager will assign fresh UUID
+          AssetId: target.assetId,
+          WorkOrderId: target.taskId || line.WorkOrderId,
+          PlanScheduleStart: shiftedStart.toISOString(),
+          PlanScheduleEnd: shiftedEnd ? shiftedEnd.toISOString() : undefined,
+          ActualScheduleStart: shiftedActualStart ? shiftedActualStart.toISOString() : undefined,
+          ActualScheduleEnd: shiftedActualEnd ? shiftedActualEnd.toISOString() : undefined
+        };
+        
+        workOrderLineManagerRef.current?.createWorkOrderLine(newLine as any);
+        successCount++;
+      });
+
+      if (successCount > 0) {
+        handleSaveData().then(() => {
+          loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+        });
+        showSnackbar(`スケジュールを${successCount}件複製しました`, 'success');
+      }
+
+    } catch (error) {
+      console.error('Deep copy paste failed:', error);
+      showSnackbar('ペースト処理中にエラーが発生しました', 'error');
+    }
+  }, [internalClipboard, isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, handleSaveData]);
+
   // Asset selection handlers
   const handleAssetSelectionChange = (assetIds: string[]) => {
     setSelectedAssets(assetIds);
@@ -2169,6 +2298,8 @@ const App: React.FC = () => {
               onHierarchyEdit={handleHierarchyEdit}
               selectedAssets={selectedAssets}
               onAssetEdit={handleAssetEdit}
+              onCellCopy={handleCellCopy}
+              onCellPaste={handleCellPaste}
               // Header props - restored to original structure
               onSearchChange={setSearchTerm}
               onViewModeChange={(mode) => setViewMode(mode)}

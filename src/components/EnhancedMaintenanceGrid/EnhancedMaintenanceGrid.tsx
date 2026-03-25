@@ -4,7 +4,6 @@ import { Box, Paper, Snackbar, Alert } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from '../ExcelLikeGrid/types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
-import { useCopyPaste } from './copyPasteManager';
 import { IntegratedToolbar } from '../ModernHeader/ModernHeader';
 import { WorkOrderLineDialog } from '../WorkOrderLineDialog/WorkOrderLineDialog';
 import { ViewModeManager } from '../../services/ViewModeManager';
@@ -95,6 +94,8 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onTimeScaleChange?: (scale: TimeScale) => void;
   currentYear?: number;
   onJumpToDate?: (year: number, month?: number, week?: number, day?: number) => void;
+  onCellCopy?: (rowId: string, columnId: string, viewMode: 'status' | 'cost') => void;
+  onCellPaste?: (rowId: string, columnId: string, viewMode: 'status' | 'cost') => void;
 }
 
 export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = ({
@@ -164,6 +165,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   isAIAssistantOpen = false,
   currentYear,
   onJumpToDate,
+  onCellCopy,
+  onCellPaste
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -724,11 +727,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
   }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode, isTaskBasedMode]);
 
-  // Initialize clipboard hook with real implementaton
-  const {
-    copySingleCell,
-    pasteSingleCell
-  } = useCopyPaste(processedData as any, processedColumns);
+
 
   const handleColumnResize = useCallback((columnId: string, width: number) => {
     updateColumnWidth(columnId, width);
@@ -767,43 +766,21 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const handleCopy = useCallback(async () => {
     if (!gridState.selectedCell) return;
 
-    const sourceArea = getCurrentDisplayArea();
-    try {
-      await copySingleCell(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
-      setClipboardMessage({ message: `${sourceArea === 'specifications' ? '機器仕様' : '計画実績'}エリアからコピーしました`, severity: 'success' });
-    } catch (error) {
-      setClipboardMessage({ message: 'コピーに失敗しました', severity: 'error' });
+    if (onCellCopy) {
+      onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
+      setClipboardMessage({ message: `コピーしました`, severity: 'success' });
     }
-  }, [gridState.selectedCell, getCurrentDisplayArea, copySingleCell, viewMode]);
+  }, [gridState.selectedCell, onCellCopy, viewMode]);
 
   // Handle paste operation with cross-area support
   const handlePaste = useCallback(async () => {
     if (!gridState.selectedCell || readOnly) return;
 
-    // Task-based and equipment-based modes are both handled unifiedly below
-    // through the copyPasteManager and App.tsx's handleCellEdit.
-
-    const targetArea = getCurrentDisplayArea();
-    try {
-      const result = await pasteSingleCell(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
-      
-      if (result.success && result.value !== undefined) {
-        // Fire the cell edit to update the data
-        handleCellEdit(gridState.selectedCell.rowId, gridState.selectedCell.columnId, result.value);
-        setClipboardMessage({
-          message: `${targetArea === 'specifications' ? '機器仕様' : '計画実績'}エリアにペーストしました`,
-          severity: 'success'
-        });
-      } else {
-        throw new Error(result.error || 'ペーストエラー');
-      }
-    } catch (error) {
-      setClipboardMessage({
-        message: error instanceof Error ? error.message : `ペーストに失敗しました`,
-        severity: 'error'
-      });
+    if (onCellPaste) {
+      onCellPaste(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
+      // Optional: notification will be triggered internally by App.tsx if successful
     }
-  }, [gridState.selectedCell, readOnly, getCurrentDisplayArea, pasteSingleCell, viewMode, handleCellEdit, processedData, associations, onTaskAssociationUpdate]);
+  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode]);
 
   // Handle delete operation
   const handleDelete = useCallback(() => {
