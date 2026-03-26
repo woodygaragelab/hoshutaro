@@ -3,6 +3,11 @@ export interface AIAssistantPanelProps {
   onClose: () => void;
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
+  dataContext?: {
+    assets: any[];
+    workOrders: any[];
+    workOrderLines: any[];
+  };
 }
 
 export interface ChatMessage {

@@ -15,6 +15,8 @@ def create_llm_adapter() -> LLMAdapter:
             base_url=settings.llm_base_url,
             model=settings.llm_model,
             api_key=settings.llm_api_key,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.llm_max_tokens,
         )
     else:
         raise ValueError(f"Unknown LLM Adapter type: {adapter_type}")
@@ -42,12 +44,15 @@ def _init_adapter_background() -> None:
         logger.error("[LLM Factory] LLMアダプター初期化失敗: %s", e)
 
 
-def get_llm_adapter() -> Optional[LLMAdapter]:
+import time
+
+def get_llm_adapter(wait_timeout: float = 0.0) -> Optional[LLMAdapter]:
     """
     LLMアダプターを取得する。
-    未ロードの場合はバックグラウンドでロードを開始し None を返す。
+    未ロードの場合はバックグラウンドでロードを開始し、wait_timeout秒まで待機する。
     """
     global _adapter, _adapter_loading, _adapter_error
+    
     with _adapter_lock:
         if _adapter is not None:
             return _adapter
@@ -56,6 +61,18 @@ def get_llm_adapter() -> Optional[LLMAdapter]:
             _adapter_error = None
             thread = threading.Thread(target=_init_adapter_background, daemon=True)
             thread.start()
+            
+    if wait_timeout > 0:
+        start_time = time.time()
+        while time.time() - start_time < wait_timeout:
+            with _adapter_lock:
+                if _adapter is not None:
+                    return _adapter
+                if _adapter_error is not None:
+                    logger.error(f"[LLM Factory] Init Error: {_adapter_error}")
+                    return None
+            time.sleep(0.1)
+            
     return None
 
 

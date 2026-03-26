@@ -39,6 +39,20 @@ export async function testLLMConnection(settings: LLMSettings): Promise<TestConn
       api_key: settings.llm_api_key,
     }),
   })
-  if (!res.ok) throw new Error('Failed to test connection')
   return res.json()
+}
+
+export async function getLLMModels(baseUrl: string, apiKey?: string): Promise<string[]> {
+  const res = await fetch('/api/settings/llm/models', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      base_url: baseUrl,
+      api_key: apiKey,
+    }),
+  })
+  if (!res.ok) throw new Error('Failed to fetch models')
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Unknown error fetching models')
+  return data.models || []
 }

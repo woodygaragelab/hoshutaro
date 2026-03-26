@@ -2342,6 +2342,11 @@ const App: React.FC = () => {
               <AIAssistantPanel
                 isOpen={isAIAssistantOpen}
                 onClose={handleAIAssistantClose}
+                dataContext={{
+                  assets: assetManagerRef.current?.getAllAssets() || [],
+                  workOrders: workOrderManagerRef.current?.getAllWorkOrders() || [],
+                  workOrderLines: workOrderLineManagerRef.current?.getAllWorkOrderLines() || [],
+                }}
                 onSuggestionApply={(suggestion) => {
                   // Apply AI suggestion to maintenance data
                   handleCellEdit(

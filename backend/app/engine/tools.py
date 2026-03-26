@@ -15,7 +15,7 @@ def execute_maintenance_operation(session_id: str, op: MaintenanceOperation) -> 
     
     applied_count = 0
     for target in op.targets:
-        if target.entity_type == "workOrderLines":
+        if target.entity_type in ["workOrderLine", "workOrderLines"]:
             if "workOrderLines" not in session.data_model:
                 session.data_model["workOrderLines"] = []
             

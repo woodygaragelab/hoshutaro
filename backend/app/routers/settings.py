@@ -78,3 +78,22 @@ async def test_llm_connection(req: LLMTestRequest):
         return res
     except Exception as e:
         return {"ok": False, "latency_ms": 0, "error": str(e)}
+
+class LLMModelsRequest(BaseModel):
+    base_url: str
+    api_key: Optional[str] = None
+
+@router.post("/api/settings/llm/models")
+async def get_llm_models(req: LLMModelsRequest):
+    """
+    指定されたbase_urlとapi_keyを用いて、利用可能なモデル一覧を取得する
+    """
+    try:
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(base_url=req.base_url, api_key=req.api_key or "none")
+        models_response = await client.models.list()
+        # idプロパティを持つモデルオブジェクトのリストからidのリストを抽出
+        model_ids = sorted([model.id for model in models_response.data])
+        return {"ok": True, "models": model_ids}
+    except Exception as e:
+        return {"ok": False, "models": [], "error": str(e)}

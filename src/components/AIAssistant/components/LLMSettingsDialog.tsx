@@ -15,6 +15,7 @@ import {
   Box,
   CircularProgress,
   IconButton,
+  Autocomplete,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import {
@@ -23,6 +24,7 @@ import {
   getLLMSettings,
   updateLLMSettings,
   testLLMConnection,
+  getLLMModels,
 } from '../../../services/api';
 
 interface LLMSettingsDialogProps {
@@ -45,6 +47,9 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
+  
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -60,6 +65,18 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
   const handleChange = (field: keyof LLMSettings, value: any) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
     setTestResult(null);
+  };
+
+  const handleFetchModels = async () => {
+    setFetchingModels(true);
+    try {
+      const models = await getLLMModels(settings.llm_base_url, settings.llm_api_key);
+      setAvailableModels(models);
+    } catch (e: any) {
+      alert('モデル一覧の取得に失敗しました: ' + e.message);
+    } finally {
+      setFetchingModels(false);
+    }
   };
 
   const handleTest = async () => {
@@ -125,14 +142,32 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
           onChange={(e) => handleChange('llm_base_url', e.target.value)}
         />
 
-        <TextField
-          label="モデル名"
-          fullWidth
-          size="small"
-          value={settings.llm_model}
-          onChange={(e) => handleChange('llm_model', e.target.value)}
-          helperText="Ollama / LocalAI / OpenAI などのモデルIDを入力"
-        />
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+          <Autocomplete
+            freeSolo
+            options={availableModels}
+            value={settings.llm_model}
+            onChange={(_, newValue) => handleChange('llm_model', newValue || '')}
+            onInputChange={(_, newInputValue) => handleChange('llm_model', newInputValue)}
+            sx={{ flexGrow: 1 }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="モデル名"
+                size="small"
+                helperText="Ollama / LocalAI / OpenAI 等のモデルIDを入力、または一覧取得から選択"
+              />
+            )}
+          />
+          <Button 
+            variant="outlined" 
+            onClick={handleFetchModels} 
+            disabled={fetchingModels || !settings.llm_base_url}
+            sx={{ mt: 0.5, whiteSpace: 'nowrap' }}
+          >
+            {fetchingModels ? '...' : '一覧取得'}
+          </Button>
+        </Box>
 
         <TextField
           label="APIキー (省略時は none)"

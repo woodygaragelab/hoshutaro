@@ -21,10 +21,10 @@ def analyze_periodicity(work_order_lines: List[Dict[str, Any]], target_asset_id:
     指定された条件（特定のAssetや全体の傾向）の完了済み履歴から、
     点検の間隔(日数)の平均・標準偏差を計算する。
     """
-    # 対象の抽出 (完了済みのもの)
     target_lines = []
     for line in work_order_lines:
-        if line.get("ActualCost") or line.get("Remarks") in ["実績", "済", "●", "◎"]:
+        # 実績（◎等）だけでなく、予定（○）も考慮してスケジュールの間隔を計算する
+        if line.get("Remarks") in ["実績", "済", "●", "◎", "○", "計画"] or line.get("ActualCost") or line.get("PlanScheduleStart"):
             if target_asset_id and line.get("AssetId") != target_asset_id:
                 continue
             target_lines.append(line)
@@ -32,16 +32,20 @@ def analyze_periodicity(work_order_lines: List[Dict[str, Any]], target_asset_id:
     # 日付でのソート
     dates = []
     for line in target_lines:
-        start_date = line.get("PlanScheduleStart")
-        if start_date:
-            parsed = parse_date(start_date)
+        # PlanScheduleStart もしくは ActualStart
+        d_str = line.get("ActualStart") or line.get("PlanScheduleStart")
+        if d_str:
+            parsed = parse_date(d_str)
             if parsed:
                 dates.append(parsed)
                 
     dates.sort()
     
-    if len(dates) < 2:
-        return {"intervals": [], "avg_days": 0, "std_dev": 0, "latest_date": dates[-1].strftime("%Y-%m-%d") if dates else None}
+    if len(dates) == 1:
+        # 1件しかデータがない場合、周期不明(-1)とする
+        return {"intervals": [], "avg_days": -1.0, "std_dev": 0, "latest_date": dates[0].strftime("%Y-%m-%d")}
+    elif len(dates) == 0:
+        return {"intervals": [], "avg_days": 0, "std_dev": 0, "latest_date": None}
         
     intervals = []
     for i in range(1, len(dates)):
@@ -71,14 +75,17 @@ async def generate_predictive_schedule(periodicity_data: Dict[str, Any], context
         return "LLMが初期化されていません。"
         
     system_prompt = (
-        "あなたは保全計画の専門アシスタントです。"
-        "提供された統計データ（平均間隔、標準偏差、最終実施日）をもとに、"
-        "次回の最適な保全日とその根拠を推論し、自然言語で短く的確に説明してください。"
+        "あなたは保全計画の専門アシスタントです。\n"
+        "回答ルール:\n"
+        "- 2〜3文で簡潔に答える。長い説明は不要。\n"
+        "- Markdown表や箇条書きは使わない。\n"
+        "- 「次回は○○頃が最適です」のように結論を先に述べる。\n"
+        "- 根拠は1文で添える程度にする。"
     )
-    
+
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"【コンテキスト】\n{context}\n\n【統計データ】\n{periodicity_data}\n\n今後の保全計画を提案してください。"}
+        {"role": "user", "content": f"統計データ: {periodicity_data}\nコンテキスト: {context}\n\n次回の保全日を簡潔に提案してください。"}
     ]
     
     try:

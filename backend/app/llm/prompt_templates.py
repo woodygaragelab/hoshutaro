@@ -49,3 +49,94 @@ def format_data_context(data_context: dict) -> str:
         else:
             summary_parts.append(f"{key}: {repr(value)[:100]}")
     return "[データサマリー] " + ", ".join(summary_parts)
+
+
+def format_conversational_context(data_context: dict) -> str:
+    """データを人間が読みやすいサマリーに変換（会話型Dispatcher向け）。
+
+    format_data_context() がLLM構造化入力向けなのに対し、
+    こちらはユーザー会話向けの自然言語サマリーを生成する。
+    """
+    import logging
+    _logger = logging.getLogger(__name__)
+    
+    if not data_context:
+        _logger.warning("format_conversational_context: data_context is empty/None")
+        return "データが読み込まれていません。"
+
+    _logger.info("format_conversational_context: keys=%s", list(data_context.keys()))
+
+    parts = []
+
+    # 機器一覧
+    assets = data_context.get("assets", [])
+    asset_map = {}  # id -> name
+    if assets:
+        for a in assets:
+            aid = a.get("id", "")
+            aname = a.get("name", "")
+            if aid:
+                asset_map[aid] = aname
+        ids = [f"{a.get('id', '?')}({a.get('name', '')})" for a in assets[:10]]
+        label = ", ".join(ids)
+        if len(assets) > 10:
+            label += f" 他{len(assets) - 10}件"
+        parts.append(f"登録機器: {len(assets)}件 — {label}")
+
+    # 作業種別一覧
+    wo = data_context.get("workOrders", [])
+    wo_map = {}  # id -> name
+    if wo:
+        for w in wo:
+            wid = w.get("id", "")
+            wname = w.get("name", "")
+            if wid:
+                wo_map[wid] = wname
+        names = list(set(w.get("name", "") for w in wo if w.get("name")))
+        if names:
+            parts.append(f"作業種別: {', '.join(names[:10])}")
+
+    # 作業明細 — 機器ごとにグループ化
+    wol = data_context.get("workOrderLines", [])
+    if wol:
+        parts.append(f"作業明細: 全{len(wol)}件")
+
+        # 機器ごとにグループ化して詳細表示
+        from collections import defaultdict
+        by_asset = defaultdict(list)
+        for line in wol:
+            aid = line.get("AssetId", "不明")
+            by_asset[aid].append(line)
+        
+        for aid in sorted(by_asset.keys())[:8]:  # 上位8機器まで
+            lines = by_asset[aid]
+            aname = asset_map.get(aid, "")
+            label = f"{aid}({aname})" if aname else aid
+            
+            # 各ラインの日付と作業名
+            details = []
+            for line in sorted(lines, key=lambda l: l.get("PlanScheduleStart", "") or "")[:5]:
+                plan = line.get("PlanScheduleStart", "")
+                actual = line.get("ActualScheduleStart", "") or line.get("ActualStart", "")
+                woid = line.get("WorkOrderId", "")
+                woname = wo_map.get(woid, woid)
+                
+                if plan:
+                    plan_str = plan[:10] if isinstance(plan, str) else str(plan)[:10]
+                else:
+                    plan_str = "未定"
+                
+                actual_str = ""
+                if actual:
+                    actual_str = f", 実績:{actual[:10] if isinstance(actual, str) else str(actual)[:10]}"
+                
+                details.append(f"  {woname}: 計画{plan_str}{actual_str}")
+            
+            parts.append(f"  {label} ({len(lines)}件):\n" + "\n".join(details))
+
+    if not parts:
+        return "データが読み込まれていますが、詳細情報はありません。"
+
+    summary = "現在のデータ:\n" + "\n".join(f"- {p}" for p in parts)
+    _logger.info("format_conversational_context output length: %d chars", len(summary))
+    return summary

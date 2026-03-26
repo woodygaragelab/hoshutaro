@@ -22,6 +22,16 @@ class Session:
             "planning_stats_cache": {}
         }
 
+    def append_message(self, role: str, content: str):
+        """会話メッセージを履歴に追加。40件超で古いものを切り捨て"""
+        self.chat_history.append({"role": role, "content": content})
+        if len(self.chat_history) > 40:
+            self.chat_history = self.chat_history[-30:]
+
+    def get_recent_history(self, n: int = 10) -> list[dict]:
+        """直近N件の会話履歴を返す"""
+        return self.chat_history[-n:]
+
 class SessionManager:
     def __init__(self):
         self.sessions: Dict[str, Session] = {}

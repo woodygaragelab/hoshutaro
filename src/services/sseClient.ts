@@ -10,7 +10,8 @@ export function startChatStream(
   messages: { role: string; content: string }[],
   onEvent: (event: SSEEvent) => void,
   onDone: () => void,
-  onError: (err: string) => void
+  onError: (err: string) => void,
+  dataContext?: { assets: any[]; workOrders: any[]; workOrderLines: any[] }
 ): () => void {
   const controller = new AbortController()
   let doneEmitted = false
@@ -31,6 +32,7 @@ export function startChatStream(
         body: JSON.stringify({
           session_id: sessionId,
           messages,
+          data_context: dataContext || undefined,
         }),
       })
 

@@ -13,7 +13,7 @@ import {
 import {
   Close as CloseIcon,
   Send as SendIcon,
-  SmartToy as AIIcon,
+  Star as AIIcon,
   Person as PersonIcon,
   AttachFile as AttachFileIcon,
   CheckCircle as CheckCircleIcon,
@@ -29,13 +29,14 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   isOpen,
   onClose,
   onSuggestionApply,
-  onExcelImport
+  onExcelImport,
+  dataContext
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       type: 'system',
-      content: 'AIアシスタントへようこそ！設備の保全計画や故障予測について何でもお聞きください。Excelファイルのアップロードも可能です。',
+      content: 'HOSHUTAROへようこそ！設備の保全計画や故障予測について何でもお聞きください。Excelファイルのアップロードも可能です。',
       timestamp: new Date()
     }
   ]);
@@ -118,7 +119,8 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           return m;
         }));
         setIsLoading(false);
-      }
+      },
+      dataContext
     );
   };
 
@@ -223,7 +225,8 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           return m;
         }));
         setIsLoading(false);
-      }
+      },
+      dataContext
     );
   };
 
@@ -250,7 +253,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       <div key={message.id} className={`ai-assistant-message ${message.type}`}>
         <div className={`message-bubble ${message.type}`}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: message.type === 'user' ? '#333333' : '#1e1e1e' }}>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: message.type === 'user' ? '#333333' : '#000000', color: '#ffffff' }}>
               {message.type === 'user' ? <PersonIcon /> : <AIIcon />}
             </Avatar>
             <div style={{ flex: 1 }}>
@@ -321,8 +324,9 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   return (
     <div className="ai-assistant-panel">
       <div className="ai-assistant-header">
-        <Typography variant="h6" sx={{ color: '#ffffff' }}>
-          AIアシスタント
+        <Typography variant="h6" sx={{ color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <AIIcon sx={{ color: '#ffffff' }} />
+          HOSHUTARO
         </Typography>
         <Box>
           <IconButton onClick={() => setIsSettingsOpen(true)} sx={{ color: '#ffffff', mr: 1 }}>
