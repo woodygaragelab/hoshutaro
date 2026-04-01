@@ -200,6 +200,48 @@ class OpenAICompatAdapter(LLMAdapter):
         )
         return completion.choices[0].message.content or ""
 
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 0,
+        retries: int = 2,
+    ) -> str:
+        """
+        構造化JSON出力用: system/user分離 + リトライ付き。
+        ローカルLLMで空レスポンスが返る場合に自動リトライする。
+        """
+        tok = max_tokens if max_tokens > 0 else self.max_tokens
+        params = self._structured_params()
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        for attempt in range(retries + 1):
+            try:
+                logger.info(
+                    "[generate_structured] attempt=%d, system=%d chars, user=%d chars, max_tokens=%d",
+                    attempt, len(system_prompt), len(user_prompt), tok,
+                )
+                completion = await self._client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=params["temperature"],
+                    max_tokens=tok,
+                )
+                result = completion.choices[0].message.content or ""
+                if result.strip():
+                    return result
+                logger.warning("[generate_structured] 空レスポンス (attempt %d/%d)", attempt, retries)
+            except Exception as e:
+                logger.error("[generate_structured] エラー (attempt %d/%d): %s", attempt, retries, e)
+                if attempt == retries:
+                    raise
+
+        return ""
+
     # ── 会話型ディスパッチャー用メソッド ──────────────────────────
 
     async def classify_intent(self, messages: list[dict], system_prompt: str) -> dict:

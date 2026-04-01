@@ -1,160 +1,931 @@
+"""
+Excel → DataModel 変換エンジン
+
+設計原則:
+  - LLMは「判断」だけ（構造検出 + 列の意味理解 = 2回のみ）
+  - 変換ロジックはすべて決定論的Pythonコード
+  - ヘッダーのパターンが不明でも処理できる
+  - 5万行でもチャンク処理で対応
+"""
 import logging
 import io
+import re
 import openpyxl
-from typing import Dict, Any, List, Optional
-from datetime import datetime
-from pydantic import BaseModel, Field
+from typing import Any, Optional
+from dataclasses import dataclass, field
 
 from app.llm.factory import get_llm_adapter
 
 logger = logging.getLogger(__name__)
 
-class ColumnMapping(BaseModel):
-    col_index: int = Field(description="列番号（0始まり）")
-    field_name: str = Field(description="DataModelのフィールド名（例: AssetId, WorkOrderName, ActualCost）")
-    is_date: bool = Field(default=False, description="この列が日付や月を表すか")
-    month: int = Field(default=None, description="日付列であればその月（4月なら4）")
 
-class ExcelAnalysisResult(BaseModel):
-    header_row_index: int = Field(description="ヘッダー行の行番号（0始まり）")
-    summary: str = Field(description="どのようなデータが格納されているかの説明")
-    mappings: List[ColumnMapping] = Field(description="抽出した列マッピングのリスト")
+# ═══════════════════════════════════════════════════════════════
+# データクラス定義
+# ═══════════════════════════════════════════════════════════════
 
-def expand_merged_cells(sheet):
-    """セル結合を解除し、左上の値を結合範囲全体にコピーする"""
-    merged_ranges = list(sheet.merged_cells.ranges)
-    for merged_range in merged_ranges:
-        min_col, min_row, max_col, max_row = merged_range.bounds
-        top_left_value = sheet.cell(row=min_row, column=min_col).value
-        sheet.unmerge_cells(str(merged_range))
-        for r in range(min_row, max_row + 1):
-            for c in range(min_col, max_col + 1):
-                sheet.cell(row=r, column=c, value=top_left_value)
+@dataclass
+class CellMergeInfo:
+    """結合セル情報"""
+    min_row: int
+    min_col: int
+    max_row: int
+    max_col: int
 
-def analyze_excel_structure(file_bytes: bytes) -> Dict[str, Any]:
-    """Phase 1: Excelファイルの展開と構造の一次解析 (プレビュー作成)"""
+
+@dataclass
+class PhysicalGrid:
+    """正規化済み物理グリッド"""
+    rows: list[list[str]]          # 全行データ（結合展開済み）
+    total_rows: int
+    sheet_name: str
+    merge_map: dict = field(default_factory=dict)  # (row,col) -> CellMergeInfo
+    bold_rows: set = field(default_factory=set)     # 太字の行番号集合
+    bg_rows: set = field(default_factory=set)       # 背景色のある行番号集合
+
+
+@dataclass
+class StructureInfo:
+    """LLMによる構造検出結果"""
+    header_start: int          # ヘッダー開始行（0-indexed）
+    header_end: int            # ヘッダー終了行（inclusive）
+    data_start: int            # データ開始行
+    blank_row_strategy: str    # "skip" | "group_separator"
+    key_column: int            # 機器ID列（0-indexed）
+    forward_fill_columns: list[int]  # 空白継承すべき列番号リスト
+    pattern: str               # "A"=機器仕様, "B"=星取表, "C"=混合
+    year_context: int          # 年度コンテキスト
+    implied_hierarchy: dict[str, str] = field(default_factory=dict) # 暗黙の階層推論
+
+@dataclass
+class ColumnDescriptor:
+    """列記述子: 各物理列の意味"""
+    col: int                   # 列番号（0-indexed）
+    field: str                 # "AssetId" | "AssetName" | "WorkOrderName" | "schedule" | "ignore" | etc.
+    month: Optional[int] = None  # scheduleの場合の月（1-12）
+    sub: Optional[str] = None    # "plan" | "actual" | "both" | None
+    label: str = ""              # 人間が読むラベル（「4月-計画」等）
+
+
+@dataclass
+class ValidationResult:
+    """マッピング検証結果"""
+    preview_records: list[dict]
+    warnings: list[str]
+    unmapped_columns: list[int]
+    symbol_stats: dict[str, int]
+    success: bool
+
+
+# ═══════════════════════════════════════════════════════════════
+# Step 1: 物理グリッド正規化（コードのみ）
+# ═══════════════════════════════════════════════════════════════
+
+def normalize_all_physical_grids(file_bytes: bytes) -> list[PhysicalGrid]:
+    """
+    Excelを読み込み、データが含まれるすべてのシートについて
+    LLMに渡せる正規化済みグリッドのリストを生成する。
+    """
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
-    sheet = wb.active
+    grids = []
     
-    # 結合セルの展開
-    expand_merged_cells(sheet)
-    
-    preview_data = []
-    total_rows = 0
-    for i, row in enumerate(sheet.iter_rows(values_only=True)):
-        total_rows += 1
-        if i < 15:
-            row_str = [str(cell) if cell is not None else "" for cell in row]
-            preview_data.append(row_str)
+    for sheet in wb.worksheets:
+        # 結合情報を記録
+        merge_map = {}
+        merged_ranges = list(sheet.merged_cells.ranges)
+        for merged_range in merged_ranges:
+            min_col, min_row, max_col, max_row = merged_range.bounds
+            info = CellMergeInfo(min_row - 1, min_col - 1, max_row - 1, max_col - 1)  # 0-indexed
+            for r in range(min_row - 1, max_row):
+                for c in range(min_col - 1, max_col):
+                    merge_map[(r, c)] = info
+        
+        # 書式情報を抽出（先頭30行）
+        bold_rows = set()
+        bg_rows = set()
+        for row_idx, row in enumerate(sheet.iter_rows(max_row=min(30, sheet.max_row))):
+            for cell in row:
+                if cell.font and cell.font.bold:
+                    bold_rows.add(row_idx)
+                if cell.fill and cell.fill.start_color and cell.fill.start_color.rgb and cell.fill.start_color.rgb != '00000000':
+                    bg_rows.add(row_idx)
+        
+        # 結合セルを展開
+        for merged_range in merged_ranges:
+            min_col, min_row, max_col, max_row = merged_range.bounds
+            top_left_value = sheet.cell(row=min_row, column=min_col).value
+            sheet.unmerge_cells(str(merged_range))
+            for r in range(min_row, max_row + 1):
+                for c in range(min_col, max_col + 1):
+                    sheet.cell(row=r, column=c, value=top_left_value)
+        
+        # 全行をテキスト化
+        rows = []
+        total_rows = 0
+        has_data = False
+        for row in sheet.iter_rows(values_only=True):
+            row_str = [str(cell).strip() if cell is not None else "" for cell in row]
+            if any(row_str):
+                has_data = True
+            rows.append(row_str)
+            total_rows += 1
             
-    return {
-        "preview_data": preview_data,
-        "total_rows": total_rows,
-        "sheet_name": sheet.title
-    }
+        if has_data:
+            grids.append(PhysicalGrid(
+                rows=rows,
+                total_rows=total_rows,
+                sheet_name=sheet.title,
+                merge_map=merge_map,
+                bold_rows=bold_rows,
+                bg_rows=bg_rows,
+            ))
+            
+    return grids
 
-async def infer_mapping_with_llm(filename: str, preview_data: List[List[str]]) -> ExcelAnalysisResult:
-    """Phase 2: プレビューデータに基づくLLMによるマッピング推論"""
+
+# ═══════════════════════════════════════════════════════════════
+# Step 2: 構造検出（LLM呼び出し #1）
+# ═══════════════════════════════════════════════════════════════
+
+def _format_preview_for_llm(grid: PhysicalGrid, max_rows: int = 20) -> str:
+    """LLMに渡すプレビューテキストを生成する（ユーザーメッセージ用）"""
+    lines = []
+    
+    # 行データ（先頭max_rows行、列は先頭15列に制限）
+    for i, row in enumerate(grid.rows[:max_rows]):
+        display_row = row[:15]
+        # 空セルを圧縮して可読性向上
+        compact = [c if c else "_" for c in display_row]
+        lines.append(f"Row{i}: {compact}")
+    
+    # 結合情報のサマリ（最大15件）
+    merge_summary = []
+    seen_merges = set()
+    for (r, c), info in grid.merge_map.items():
+        key = (info.min_row, info.min_col, info.max_row, info.max_col)
+        if key not in seen_merges and info.min_row < max_rows:
+            seen_merges.add(key)
+            val = grid.rows[info.min_row][info.min_col] if info.min_row < len(grid.rows) and info.min_col < len(grid.rows[info.min_row]) else ""
+            if val:  # 空値の結合は省略
+                if info.min_row == info.max_row:
+                    merge_summary.append(f"Row{info.min_row} Col{info.min_col}-{info.max_col} 横結合='{val}'")
+                elif info.min_col == info.max_col:
+                    merge_summary.append(f"Row{info.min_row}-{info.max_row} Col{info.min_col} 縦結合='{val}'")
+                else:
+                    merge_summary.append(f"Row{info.min_row}-{info.max_row} Col{info.min_col}-{info.max_col} 範囲結合='{val}'")
+    
+    # 書式情報
+    format_info = []
+    bold_in_range = sorted(grid.bold_rows & set(range(max_rows)))
+    bg_in_range = sorted(grid.bg_rows & set(range(max_rows)))
+    if bold_in_range:
+        format_info.append(f"太字行: {bold_in_range}")
+    if bg_in_range:
+        format_info.append(f"背景色行: {bg_in_range}")
+    
+    result = f"シート: {grid.sheet_name} ({grid.total_rows}行)\n"
+    result += "\n".join(lines)
+    if merge_summary:
+        result += "\n結合: " + "; ".join(merge_summary[:15])
+    if format_info:
+        result += "\n" + "; ".join(format_info)
+    
+    return result
+
+
+STRUCTURE_SYSTEM_PROMPT = """Excelの構造解析エキスパート。必ずJSONのみ出力。
+出力形式（これ以外の文字は出力禁止）:
+{"header_start": 行番号, "header_end": 行番号, "data_start": 行番号, "blank_row_strategy": "skip", "key_column": 列番号, "forward_fill_columns": [列番号], "pattern": "パターン名", "year_context": 年度, "implied_hierarchy": {"第1階層名": "値", "第2階層名": "値"}}
+
+各フィールド（全て0始まり）:
+- header_start/header_end: ヘッダー範囲（複数行ヘッダーは範囲指定、タイトル行は含めない）
+- data_start: データ開始行
+- key_column: 機器IDの列
+- forward_fill_columns: 空白を上の値で埋める列
+- pattern: データの種類を端的に表す文字列 (例: "Specs Only", "Schedule Matrix", "Mixed Data" 等)
+- year_context: 推定年度(不明なら0)
+- implied_hierarchy: シート名やファイル名、またはデータ全体から推測される上位階層（工場名、エリア名、装置名など）。推測できなければ空オブジェクト{}"""
+
+
+
+async def detect_structure(grid: PhysicalGrid, filename: str = "unknown.xlsx") -> StructureInfo:
+    """LLMに先頭20行を見せて構造を判定させる。system/user分離+リトライ付き。"""
     adapter = get_llm_adapter()
     if not adapter:
         raise Exception("LLM adapter not initialized")
-        
-    system_prompt = (
-        "あなたは保全システムのデータ取込みアシスタントです。"
-        "提供されるExcelの冒頭15行のテキスト配列から、ヘッダー行(header_row_index)を特定し、"
-        "各列がDataModelのどのフィールドに該当するか推論してください。\n"
-        "【主要フィールド】AssetId, WorkOrderName, PlanCost, ActualCost\n"
-        "※星取表（4月、5月...等の列）の場合は、列ごとに 'is_date': true, 'month': N 等を出力してください。\n"
-        "タイトル行等の不要行はヘッダーではないことに注意してください。\n\n"
-        "必ず以下のJSON形式のみを出力してください:\n"
-        '{"header_row_index": <int>, "summary": "<str>", "mappings": [{"col_index": <int>, "field_name": "<str>", "is_date": <bool>, "month": <int|null>}, ...]}'
-    )
     
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Filename: {filename}\nPreview Data:\n{preview_data}"}
-    ]
+    user_text = f"ファイル名: {filename}\nシート名: {grid.sheet_name}\n"
+    user_text += _format_preview_for_llm(grid, max_rows=20)
+    logger.info("[detect_structure] user prompt (%d chars):\n%s", len(user_text), user_text[:500])
     
     from app.llm.json_utils import extract_json_object
-    raw_text = await adapter.generate_text(
-        prompt=f"{system_prompt}\n\nFilename: {filename}\nPreview Data:\n{preview_data}",
-        max_tokens=1024
+    raw_text = await adapter.generate_structured(
+        system_prompt=STRUCTURE_SYSTEM_PROMPT,
+        user_prompt=f"以下のExcelシートの構造をJSON形式で判定してください。\n\n{user_text}",
+        max_tokens=512,
+        retries=2,
     )
-    data = extract_json_object(raw_text)
-    return ExcelAnalysisResult(**data)
+    logger.info("[detect_structure] LLM raw: %s", raw_text[:500])
+    
+    if not raw_text.strip():
+        logger.warning("[detect_structure] LLMが空レスポンス。ヒューリスティックフォールバック使用。")
+        return _heuristic_structure_detection(grid)
+    
+    try:
+        data = extract_json_object(raw_text)
+    except Exception as e:
+        logger.warning("[detect_structure] JSONパース失敗: %s。ヒューリスティックフォールバック使用。", e)
+        return _heuristic_structure_detection(grid)
+    
+    return StructureInfo(
+        header_start=data.get("header_start", 0),
+        header_end=data.get("header_end", 0),
+        data_start=data.get("data_start", 1),
+        blank_row_strategy=data.get("blank_row_strategy", "skip"),
+        key_column=data.get("key_column", 0),
+        forward_fill_columns=data.get("forward_fill_columns", [0]),
+        pattern=data.get("pattern", "A"),
+        year_context=data.get("year_context", 0),
+        implied_hierarchy=data.get("implied_hierarchy", {})
+    )
 
-def chunk_process_excel(file_bytes: bytes, analysis_dict: Dict[str, Any], chunk_size: int = 500, start_row: int = 0) -> Dict[str, Any]:
+
+def _heuristic_structure_detection(grid: PhysicalGrid) -> StructureInfo:
     """
-    Phase 3: 確定したマッピングに基づいてデータを変換 (ジェネレータ・チャンク用)
-    実際にはジェネレータではなく、指定した範囲(start_rowから+chunk_size)の変換済みリストを返す同期関数。
+    LLMが失敗した場合のヒューリスティックフォールバック。
+    太字/背景色行をヘッダー候補、その次の非空行をデータ開始とする。
     """
-    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
-    sheet = wb.active
-    expand_merged_cells(sheet) # チャンク単位で再読込するなら再度展開が必要
+    # ヘッダー候補: 太字+背景色のある行
+    header_candidates = sorted(grid.bold_rows & grid.bg_rows)
+    if not header_candidates:
+        header_candidates = sorted(grid.bold_rows | grid.bg_rows)
     
-    header_idx = analysis_dict.get("header_row_index", 0)
-    mappings = analysis_dict.get("mappings", [])
-    symbol_mapping = analysis_dict.get("symbol_mapping", {"○": "planned", "●": "actual", "◎": "completed"}) # とりあえずデフォルト
+    if header_candidates:
+        # 連続するヘッダー行を検出
+        header_start = header_candidates[0]
+        header_end = header_start
+        for h in header_candidates[1:]:
+            if h == header_end + 1:
+                header_end = h
+            else:
+                break
+        data_start = header_end + 1
+    else:
+        # 書式情報なし: 最初の行をヘッダーと仮定
+        header_start = 0
+        header_end = 0
+        data_start = 1
     
-    converted_lines = []
-    processed_count = 0
-    end_row = start_row + chunk_size
+    # key_column: 最初の非空列
+    key_column = 0
     
-    # イテレータ
-    for index, row in enumerate(sheet.iter_rows(min_row=start_row + 1, max_row=end_row, values_only=True)):
-        actual_row_idx = start_row + index
-        if actual_row_idx <= header_idx:
-            processed_count += 1
-            continue
-            
-        if all((cell is None or str(cell).strip() == "") for cell in row):
-            processed_count += 1
-            continue
-            
-        base_line = {}
-        monthly_flags = {}
+    # パターン判定: シンボルが含まれるか
+    symbols = set("○●◎△×☆★◇◆")
+    has_symbols = False
+    for i in range(data_start, min(data_start + 10, len(grid.rows))):
+        for cell in grid.rows[i]:
+            if cell.strip() in symbols:
+                has_symbols = True
+                break
+    
+    # 年度推定
+    year_context = 0
+    import re
+    for row in grid.rows[:5]:
+        for cell in row:
+            m = re.search(r'(20\d{2})', cell)
+            if m:
+                year_context = int(m.group(1))
+                break
+        if year_context:
+            break
+    
+    logger.info(
+        "[heuristic] header=%d-%d, data=%d, pattern=%s, year=%d",
+        header_start, header_end, data_start,
+        "B" if has_symbols else "A", year_context,
+    )
+    return StructureInfo(
+        header_start=header_start,
+        header_end=header_end,
+        data_start=data_start,
+        blank_row_strategy="skip",
+        key_column=key_column,
+        forward_fill_columns=[key_column],
+        pattern="Schedule Matrix" if has_symbols else "Specs Only",
+        year_context=year_context,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Step 3: 列記述子生成（LLM呼び出し #2）
+# ═══════════════════════════════════════════════════════════════
+
+COLUMN_DESCRIPTOR_SYSTEM = """列マッピングエキスパート。必ずJSON配列のみ出力。
+出力形式: [{"col": 列番号, "field": "フィールド名", "month": 月番号又はnull, "sub": "plan/actual/both/null", "label": "説明"}]
+
+field値:
+- AssetId: 機器ID/設備番号/TAG No.
+- AssetName: 機器名/設備名
+- WorkOrderName: 作業名/点検項目
+- Hierarchy1: 第1階層(工場名、対象プラント等)
+- Hierarchy2: 第2階層(エリア名、装置群等)
+- Hierarchy3: 第3階層(ユニット、機器分類等)
+- schedule: 月別データ(○●◎等) → monthとsubも指定
+- SectionHeader: セクション見出し行の列
+- Attribute: その他の仕様・属性(メーカー,設置年,電圧,備考など)。labelに元の列名。
+- ignore: 不要列(空の列等)
+
+scheduleの場合: month=1-12, sub="both"(計画実績同一セル)、"plan"(計画のみ)、"actual"(実績のみ)
+ヘッダーに年度(2021,2022等)がある場合: field="schedule", month=null, sub=null, labelに年度を記載"""
+
+
+async def generate_column_descriptors(
+    grid: PhysicalGrid,
+    structure: StructureInfo,
+) -> list[ColumnDescriptor]:
+    """LLMにヘッダー行+サンプルデータを見せて列記述子を生成させる。"""
+    adapter = get_llm_adapter()
+    if not adapter:
+        raise Exception("LLM adapter not initialized")
+    
+    # ヘッダー行を抽出
+    header_rows = grid.rows[structure.header_start : structure.header_end + 1]
+    # サンプルデータ行（先頭5行）
+    sample_rows = []
+    count = 0
+    for i in range(structure.data_start, min(structure.data_start + 20, len(grid.rows))):
+        row = grid.rows[i]
+        if any(cell.strip() for cell in row):
+            sample_rows.append(row)
+            count += 1
+            if count >= 5:
+                break
+    
+    max_cols = 20
+    header_display = [row[:max_cols] for row in header_rows]
+    sample_display = [row[:max_cols] for row in sample_rows]
+    
+    user_text = f"パターン: {structure.pattern}, 年度: {structure.year_context}\n\n"
+    user_text += "ヘッダー:\n"
+    for i, row in enumerate(header_display):
+        compact = [c if c else "_" for c in row]
+        user_text += f"H{structure.header_start + i}: {compact}\n"
+    user_text += "\nデータ:\n"
+    for i, row in enumerate(sample_display):
+        compact = [c if c else "_" for c in row]
+        user_text += f"D{i}: {compact}\n"
+    
+    logger.info("[generate_column_descriptors] user_text (%d chars):\n%s", len(user_text), user_text[:500])
+    
+    from app.llm.json_utils import extract_json_array
+    raw_text = await adapter.generate_structured(
+        system_prompt=COLUMN_DESCRIPTOR_SYSTEM,
+        user_prompt=f"各列の意味をJSON配列で出力してください。\n\n{user_text}",
+        retries=2,
+    )
+    logger.info("[generate_column_descriptors] LLM raw: %s", raw_text[:500])
+    
+    if not raw_text.strip():
+        logger.warning("[generate_column_descriptors] LLMが空レスポンス。ヒューリスティックフォールバック使用。")
+        return _heuristic_column_descriptors(grid, structure)
+    
+    try:
+        arr = extract_json_array(raw_text)
+    except Exception as e:
+        logger.warning("[generate_column_descriptors] JSONパース失敗: %s。ヒューリスティックフォールバック使用。", e)
+        return _heuristic_column_descriptors(grid, structure)
+    
+    descriptors = []
+    for item in arr:
+        descriptors.append(ColumnDescriptor(
+            col=item.get("col", 0),
+            field=item.get("field", "ignore"),
+            month=item.get("month"),
+            sub=item.get("sub"),
+            label=item.get("label", ""),
+        ))
+    
+    return descriptors
+
+
+def _heuristic_column_descriptors(
+    grid: PhysicalGrid,
+    structure: StructureInfo,
+) -> list[ColumnDescriptor]:
+    """
+    LLMが失敗した場合のヒューリスティック列記述子生成。
+    ヘッダー行の内容から列の意味を推定する。
+    """
+    import re
+    descriptors = []
+    header_rows = grid.rows[structure.header_start : structure.header_end + 1]
+    
+    if not header_rows:
+        return descriptors
+    
+    # 最後のヘッダー行を主キーにする
+    main_header = header_rows[-1] if len(header_rows) > 0 else []
+    
+    # 名称キーワード
+    id_keywords = ["番号", "No", "TAG", "ID", "コード", "機器番号"]
+    name_keywords = ["名", "名称", "機器台帳", "設備名"]
+    year_pattern = re.compile(r'20\d{2}')
+    month_pattern = re.compile(r'(\d{1,2})月')
+    
+    for col_idx in range(len(main_header)):
+        # 全ヘッダー行のこの列の値を収集
+        col_headers = []
+        for h_row in header_rows:
+            if col_idx < len(h_row) and h_row[col_idx].strip():
+                col_headers.append(h_row[col_idx].strip())
         
-        for mapping in mappings:
-            col_idx = mapping.get("col_index", 0)
-            if col_idx < len(row):
-                cell_val = row[col_idx]
-                if cell_val is None:
-                    continue
-                    
-                val_str = str(cell_val).strip()
-                if not val_str:
-                    continue
-                    
-                if mapping.get("is_date") and mapping.get("month") is not None:
-                    monthly_flags[mapping.get("month")] = val_str
-                else:
-                    base_line[mapping.get("field_name")] = val_str
-                    
-        # マッピングに基づくデータ分割展開
-        if monthly_flags:
-            year = analysis_dict.get("year_context", datetime.now().year)
-            for month, flag in monthly_flags.items():
-                copied = dict(base_line)
-                copied["PlanScheduleStart"] = f"{year}-{month:02d}-01"
-                copied["Remarks"] = flag
-                
-                # 簡単なシンボル解釈
-                meaning = symbol_mapping.get(flag, "")
-                if "planned" in meaning or flag in ["○", "◎"]:
-                    copied["Planned"] = True
-                if "actual" in meaning or "completed" in meaning or flag in ["●", "実績", "済", "◎"]:
-                    copied["ActualCost"] = copied.get("PlanCost", 1000)
-                    
-                converted_lines.append(copied)
+        header_text = " ".join(col_headers)
+        
+        if not header_text:
+            descriptors.append(ColumnDescriptor(col=col_idx, field="ignore", label="空ヘッダー"))
+            continue
+        
+        # ID列判定
+        if any(kw in header_text for kw in id_keywords):
+            descriptors.append(ColumnDescriptor(col=col_idx, field="AssetId", label=header_text))
+        # 名称列判定
+        elif any(kw in header_text for kw in name_keywords):
+            descriptors.append(ColumnDescriptor(col=col_idx, field="AssetName", label=header_text))
+        # 年度列判定（2021, 2022等）
+        elif year_pattern.search(header_text):
+            year_match = year_pattern.search(header_text)
+            descriptors.append(ColumnDescriptor(
+                col=col_idx, field="schedule", sub="both",
+                label=header_text,
+            ))
+        # 月列判定
+        elif month_pattern.search(header_text):
+            m = month_pattern.search(header_text)
+            descriptors.append(ColumnDescriptor(
+                col=col_idx, field="schedule", month=int(m.group(1)), sub="both",
+                label=header_text,
+            ))
         else:
-            if base_line:
-                converted_lines.append(base_line)
-                
+            descriptors.append(ColumnDescriptor(col=col_idx, field="Attribute", label=header_text))
+    
+    logger.info("[heuristic_columns] %d列の記述子を生成", len(descriptors))
+    return descriptors
+
+
+# ═══════════════════════════════════════════════════════════════
+# Step 4: 凡例検出（コードのみ）
+# ═══════════════════════════════════════════════════════════════
+
+# 保全業界の標準的なシンボルパターン
+DEFAULT_SYMBOL_MAPPING = {
+    "○": "planned",
+    "●": "actual",
+    "◎": "planned_and_actual",
+    "△": "partial",
+    "×": "cancelled",
+    "☆": "planned",
+    "★": "actual",
+}
+
+def detect_legend(grid: PhysicalGrid) -> dict[str, str]:
+    """
+    Excel内の凡例を探索する。見つからなければデフォルト値を返す。
+    """
+    legend_keywords = ["凡例", "記号", "マーク", "legend", "Legend", "記号説明"]
+    
+    for i, row in enumerate(grid.rows):
+        for j, cell in enumerate(row):
+            for keyword in legend_keywords:
+                if keyword in cell:
+                    # 凡例キーワードを見つけた → 周辺セルからマッピングを抽出
+                    mapping = _extract_legend_from_neighborhood(grid, i, j)
+                    if mapping:
+                        logger.info("[detect_legend] 凡例を検出: row=%d, col=%d, mapping=%s", i, j, mapping)
+                        return mapping
+    
+    logger.info("[detect_legend] 凡例未検出、デフォルト値を使用")
+    return dict(DEFAULT_SYMBOL_MAPPING)
+
+
+def _extract_legend_from_neighborhood(grid: PhysicalGrid, row: int, col: int) -> dict[str, str]:
+    """凡例キーワード周辺からシンボル→意味のマッピングを抽出する"""
+    mapping = {}
+    symbol_pattern = re.compile(r'^[○●◎△×☆★◇◆□■▲▼]$')
+    
+    # 下方向に探索（凡例は下に続くことが多い）
+    for r in range(row, min(row + 15, len(grid.rows))):
+        row_data = grid.rows[r]
+        for c in range(max(0, col - 2), min(len(row_data), col + 6)):
+            cell = row_data[c].strip()
+            if symbol_pattern.match(cell):
+                # 次のセルに意味がある
+                if c + 1 < len(row_data) and row_data[c + 1].strip():
+                    meaning = row_data[c + 1].strip()
+                    # 意味をDataModelのフラグに変換
+                    if any(k in meaning for k in ["計画", "予定", "plan"]):
+                        mapping[cell] = "planned"
+                    elif any(k in meaning for k in ["実施", "実績", "完了", "actual", "done"]):
+                        mapping[cell] = "actual"
+                    elif any(k in meaning for k in ["中止", "cancel"]):
+                        mapping[cell] = "cancelled"
+                    else:
+                        mapping[cell] = "planned"  # デフォルト
+    
+    return mapping if mapping else None
+
+
+# ═══════════════════════════════════════════════════════════════
+# Step 5: マッピング検証（コードのみ）
+# ═══════════════════════════════════════════════════════════════
+
+def validate_and_preview(
+    grid: PhysicalGrid,
+    structure: StructureInfo,
+    descriptors: list[ColumnDescriptor],
+    symbol_mapping: dict[str, str],
+) -> ValidationResult:
+    """サンプル行を使って変換結果をプレビューする"""
+    preview_records = []
+    warnings = []
+    symbol_stats = {}
+    
+    # 使われていない列を検出
+    used_cols = {d.col for d in descriptors if d.field != "ignore"}
+    total_cols = len(grid.rows[0]) if grid.rows else 0
+    unmapped_columns = [c for c in range(total_cols) if c not in used_cols and c < total_cols]
+    
+    # サンプル5行を変換
+    sample_count = 0
+    prev_key_value = ""
+    for i in range(structure.data_start, min(structure.data_start + 30, len(grid.rows))):
+        row = grid.rows[i]
+        if not any(cell.strip() for cell in row):
+            continue  # 空白行スキップ
+        
+        # forward fill
+        key_col = structure.key_column
+        if key_col < len(row):
+            if row[key_col].strip():
+                prev_key_value = row[key_col].strip()
+            else:
+                row = list(row)
+                row[key_col] = prev_key_value
+        
+        record = _convert_single_row(row, descriptors, symbol_mapping, structure.year_context)
+        if record:
+            preview_records.append(record)
+            # シンボル統計
+            for d in descriptors:
+                if d.field == "schedule" and d.col < len(row):
+                    sym = row[d.col].strip()
+                    if sym:
+                        symbol_stats[sym] = symbol_stats.get(sym, 0) + 1
+        
+        sample_count += 1
+        if sample_count >= 5:
+            break
+    
+    # 検証警告
+    if not preview_records:
+        warnings.append("サンプル行からレコードを生成できませんでした")
+    
+    asset_desc = [d for d in descriptors if d.field == "AssetId"]
+    if not asset_desc:
+        warnings.append("機器ID列が特定されていません")
+    
+    schedule_desc = [d for d in descriptors if d.field == "schedule"]
+    if "Schedule" in structure.pattern and not schedule_desc:
+        warnings.append("星取表パターンですが、スケジュール列が特定されていません")
+    
+    return ValidationResult(
+        preview_records=preview_records,
+        warnings=warnings,
+        unmapped_columns=unmapped_columns,
+        symbol_stats=symbol_stats,
+        success=len(warnings) == 0 or len(preview_records) > 0,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Step 6: チャンク変換（コードのみ）
+# ═══════════════════════════════════════════════════════════════
+
+def convert_chunk(
+    grid: PhysicalGrid,
+    structure: StructureInfo,
+    descriptors: list[ColumnDescriptor],
+    symbol_mapping: dict[str, str],
+    start_row: int,
+    chunk_size: int = 500,
+) -> dict[str, Any]:
+    """
+    確定済みの構造情報+列記述子+シンボルマッピングで
+    決定論的にDataModel JSONに変換する。LLM呼び出しゼロ。
+    """
+    assets = {}       # key: asset_id
+    work_orders = {}   # key: wo_name
+    wo_lines = []
+    
+    end_row = min(start_row + chunk_size, len(grid.rows))
+    processed_count = 0
+    error_rows = []
+    prev_key_values = {}  # col -> last non-empty value
+    
+    for i in range(start_row, end_row):
+        row = grid.rows[i]
         processed_count += 1
         
+        # ヘッダー行以前はスキップ
+        if i <= structure.header_end:
+            continue
+        
+        # 空白行処理
+        if not any(cell.strip() for cell in row):
+            if structure.blank_row_strategy == "skip":
+                continue
+            else:
+                # group_separator: forward_fill をリセット
+                prev_key_values.clear()
+                continue
+        
+        # forward fill
+        row = list(row)
+        for fcol in structure.forward_fill_columns:
+            if fcol < len(row):
+                if row[fcol].strip():
+                    prev_key_values[fcol] = row[fcol].strip()
+                elif fcol in prev_key_values:
+                    row[fcol] = prev_key_values[fcol]
+        
+        try:
+            record = _convert_single_row(
+                row, 
+                descriptors, 
+                symbol_mapping, 
+                structure.year_context, 
+                structure.implied_hierarchy
+            )
+            if record:
+                _merge_record_into_model(record, assets, work_orders, wo_lines)
+        except Exception as e:
+            error_rows.append({"row": i, "error": str(e)})
+    
     return {
-        "status": "success",
-        "extracted_data": converted_lines,
+        "assets": list(assets.values()),
+        "work_orders": list(work_orders.values()),
+        "work_order_lines": wo_lines,
         "processed_count": processed_count,
-        "is_done": processed_count < chunk_size  # chunk_sizeに満たないなら処理完了
+        "error_rows": error_rows,
+        "is_done": end_row >= len(grid.rows),
+    }
+
+
+def _convert_single_row(
+    row: list[str],
+    descriptors: list[ColumnDescriptor],
+    symbol_mapping: dict[str, str],
+    year_context: int,
+    implied_hierarchy: dict[str, str] = None,
+) -> dict | None:
+    """1行をDataModelレコードに変換する"""
+    record = {
+        "asset_id": "",
+        "asset_name": "",
+        "wo_name": "",
+        "classification": "",
+        "hierarchyPath": {},
+        "specs": {},
+        "schedule_entries": [],
+    }
+    
+    hierarchy_from_cols = {}
+    
+    for d in descriptors:
+        if d.col >= len(row) or d.field == "ignore":
+            continue
+        val = row[d.col].strip()
+        if not val:
+            continue
+        
+        if d.field == "AssetId":
+            record["asset_id"] = val
+        elif d.field == "AssetName":
+            record["asset_name"] = val
+        elif d.field == "WorkOrderName":
+            record["wo_name"] = val
+        elif d.field == "Classification":
+            record["classification"] = val
+        elif d.field == "Hierarchy1":
+            hierarchy_from_cols["第1階層"] = val
+        elif d.field == "Hierarchy2":
+            hierarchy_from_cols["第2階層"] = val
+        elif d.field == "Hierarchy3":
+            hierarchy_from_cols["第3階層"] = val
+        elif d.field == "Attribute" or d.field in ("Manufacturer", "Model", "Location", "Remarks"):
+            key = d.label if d.label else d.field.lower()
+            record["specs"][key] = val
+        elif d.field == "schedule" and d.month is not None:
+            meaning = symbol_mapping.get(val, "")
+            year = year_context if year_context > 0 else 2025
+            # 4月始まりの場合、1-3月は翌年
+            actual_year = year + 1 if d.month <= 3 else year
+            entry = {
+                "month": d.month,
+                "year": actual_year,
+                "symbol": val,
+                "meaning": meaning,
+                "date": f"{actual_year}-{d.month:02d}-01",
+                "sub": d.sub or "both",
+            }
+            record["schedule_entries"].append(entry)
+    
+    # HierarchyPathの適用
+    # 優先順位: 1. 列から抽出したもの 2. LLM推論のimplied_hierarchy 3. 無ければ "未設定"
+    if hierarchy_from_cols:
+        record["hierarchyPath"] = hierarchy_from_cols
+    elif implied_hierarchy and len(implied_hierarchy) > 0:
+        record["hierarchyPath"] = implied_hierarchy
+    else:
+        record["hierarchyPath"] = {"分類": "インポート未設定"}
+    
+    # 最低限のデータがなければスキップ
+    if not record["asset_id"] and not record["wo_name"]:
+        return None
+    
+    return record
+
+
+def _merge_record_into_model(
+    record: dict,
+    assets: dict,
+    work_orders: dict,
+    wo_lines: list,
+):
+    """変換済みレコードをDataModelに統合する"""
+    asset_id = record["asset_id"]
+    wo_name = record["wo_name"]
+    
+    # Asset
+    if asset_id:
+        if asset_id not in assets:
+            assets[asset_id] = {
+                "id": asset_id,
+                "name": record["asset_name"] or asset_id,
+                "hierarchyPath": dict(record["hierarchyPath"]),
+            }
+            # specsを追加
+            for k, v in record["specs"].items():
+                if v:
+                    assets[asset_id][k] = v
+        else:
+            # 既存のAssetにspecsをマージ
+            for k, v in record["specs"].items():
+                if v and k not in assets[asset_id]:
+                    assets[asset_id][k] = v
+    
+    # WorkOrder
+    if wo_name and wo_name not in work_orders:
+        wo_id = f"WO-{len(work_orders) + 1:04d}"
+        work_orders[wo_name] = {
+            "id": wo_id,
+            "name": wo_name,
+            "Classification": record["classification"] or "05",
+        }
+    
+    # WorkOrderLines (from schedule entries)
+    wo_id = work_orders.get(wo_name, {}).get("id", "")
+    for entry in record["schedule_entries"]:
+        is_planned = entry["meaning"] in ("planned", "planned_and_actual", "partial", "")
+        is_actual = entry["meaning"] in ("actual", "planned_and_actual")
+        
+        if entry["sub"] == "plan":
+            is_actual = False
+            is_planned = True
+        elif entry["sub"] == "actual":
+            is_planned = False
+            is_actual = True
+        
+        wol = {
+            "id": f"WOL-IMP-{len(wo_lines) + 1:06d}",
+            "AssetId": asset_id,
+            "WorkOrderId": wo_id,
+            "WorkOrderName": wo_name,
+            "PlanScheduleStart": entry["date"] if is_planned else "",
+            "ActualScheduleStart": entry["date"] if is_actual else "",
+            "Planned": is_planned,
+            "Symbol": entry["symbol"],
+        }
+        wo_lines.append(wol)
+
+
+# ═══════════════════════════════════════════════════════════════
+# 高レベルAPI（外部から呼ばれるエントリポイント）
+# ═══════════════════════════════════════════════════════════════
+
+async def analyze_excel_full(file_bytes: bytes, filename: str = "unknown.xlsx") -> list[dict[str, Any]]:
+    """
+    Phase 1-2: 構造解析 + マッピング生成 + 検証プレビュー
+    全シート（データがあるもの）に対して処理を行い、リストで返す。
+    """
+    logger.info("[analyze_excel_full] 開始: %s", filename)
+    
+    # Step 1: 物理グリッド正規化（複数シート）
+    grids = normalize_all_physical_grids(file_bytes)
+    logger.info("[analyze_excel_full] グリッド正規化完了: %dシート", len(grids))
+    
+    results = []
+    
+    for grid in grids:
+        logger.info("[analyze_excel_full] シート処理開始: %s (%d行)", grid.sheet_name, grid.total_rows)
+        
+        # Step 2: LLMによる構造検出
+        structure = await detect_structure(grid, filename)
+        logger.info(
+            "[analyze_excel_full] 構造検出完了: header=%d-%d, data_start=%d, pattern=%s",
+            structure.header_start, structure.header_end, structure.data_start, structure.pattern,
+        )
+        
+        # Step 3: LLMによる列記述子生成
+        descriptors = await generate_column_descriptors(grid, structure)
+        logger.info("[analyze_excel_full] 列記述子生成完了: %d列", len(descriptors))
+        
+        # Step 4: 凡例検出
+        symbol_mapping = detect_legend(grid)
+        
+        # Step 5: 検証プレビュー
+        validation = validate_and_preview(grid, structure, descriptors, symbol_mapping)
+        logger.info("[analyze_excel_full] 検証完了: records=%d", len(validation.preview_records))
+        
+        results.append({
+            "grid": grid,
+            "structure": structure,
+            "descriptors": descriptors,
+            "symbol_mapping": symbol_mapping,
+            "validation": validation,
+            "total_rows": grid.total_rows,
+            "sheet_name": grid.sheet_name,
+            "filename": filename,
+        })
+        
+    return results
+
+
+def execute_chunk_conversion(
+    analysis_results: list[dict[str, Any]],
+    chunk_size: int = 500,
+) -> dict[str, Any]:
+    """
+    Phase 3: チャンク変換。LLM呼び出しゼロ。複数シートを全て変換して統合する。
+    """
+    assets = {}
+    work_orders = {}
+    wo_lines = []
+    error_rows = []
+    processed_count = 0
+    
+    for analysis_result in analysis_results:
+        grid = analysis_result["grid"]
+        structure = analysis_result["structure"]
+        descriptors = analysis_result["descriptors"]
+        symbol_mapping = analysis_result["symbol_mapping"]
+        
+        # data_start以降から処理
+        actual_start = structure.data_start
+        
+        # シート単位のチャンク処理
+        total_rows = grid.total_rows
+        current_row = actual_start
+        while current_row < total_rows:
+            chunk_result = convert_chunk(
+                grid=grid,
+                structure=structure,
+                descriptors=descriptors,
+                symbol_mapping=symbol_mapping,
+                start_row=current_row,
+                chunk_size=chunk_size,
+            )
+            
+            for asset in chunk_result["assets"]:
+                aid = asset["id"]
+                if aid not in assets:
+                    assets[aid] = dict(asset)
+                else:
+                    # マージ
+                    for k, v in asset.items():
+                        if k not in ["id", "name", "hierarchyPath"] and v and k not in assets[aid]:
+                            assets[aid][k] = v
+            for wo in chunk_result["work_orders"]:
+                work_orders[wo["name"]] = wo
+            wo_lines.extend(chunk_result["work_order_lines"])
+            error_rows.extend([{"sheet": grid.sheet_name, **err} for err in chunk_result["error_rows"]])
+            processed_count += chunk_result["processed_count"]
+            current_row += chunk_size
+            
+    return {
+        "assets": list(assets.values()),
+        "work_orders": list(work_orders.values()),
+        "work_order_lines": wo_lines,
+        "processed_count": processed_count,
+        "error_rows": error_rows,
+        "is_done": True,
     }

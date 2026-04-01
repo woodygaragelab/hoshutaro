@@ -2361,7 +2361,46 @@ const App: React.FC = () => {
                 }}
                 onExcelImport={(file) => {
                   // Handle Excel file import
-                                    showSnackbar(`Excelファイル "${file.name}" をインポートしました`, 'success');
+                  showSnackbar(`Excelファイル "${file.name}" の解析を開始します`, 'info');
+                }}
+                onImportComplete={(dataModel) => {
+                  try {
+                    const loadedData = dataStoreRef.current?.loadData(dataModel);
+                    if (loadedData && assetManagerRef.current && workOrderManagerRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
+                      
+                      // 1. 各マネージャをクリア＆再生成
+                      assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
+                      Object.values(loadedData.assets).forEach(a => assetManagerRef.current!.createAsset(a));
+                      
+                      workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
+                      Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w as any));
+                      
+                      workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
+                      Object.values(loadedData.workOrderLines || {}).forEach(l => {
+                        try {
+                          workOrderLineManagerRef.current!.createWorkOrderLine(l as any);
+                        } catch (e) {
+                          console.error('Import Line Error:', e);
+                        }
+                      });
+                      
+                      hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || {levels:[]});
+                      
+                      // 2. ViewModeManagerを更新
+                      viewModeManagerRef.current?.updateData(
+                        assetManagerRef.current.getAllAssets(),
+                        workOrderLineManagerRef.current.getAllWorkOrderLines(),
+                        loadedData.hierarchy || {levels:[]},
+                        workOrderManagerRef.current.getAllWorkOrders()
+                      );
+                      
+                      // 3. Gridデータを再構築して画面更新
+                      loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+                      showSnackbar('データの取り込みが完了し、画面を更新しました', 'success');
+                    }
+                  } catch (err: any) {
+                    showSnackbar(`インポートしたデータの反映に失敗しました: ${err.message}`, 'error');
+                  }
                 }}
               />
             </div>

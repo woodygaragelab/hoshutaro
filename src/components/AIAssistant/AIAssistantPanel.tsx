@@ -22,7 +22,7 @@ import {
 import type { ChatMessage, MaintenanceSuggestion, AIAssistantPanelProps } from './types';
 import { LLMSettingsDialog } from './components/LLMSettingsDialog';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
-import { uploadExcelFile } from '../../services/ExcelProcessingService';
+import { uploadExcelFile, confirmExcelImport, formatMappingSummary } from '../../services/ExcelProcessingService';
 import './AIAssistantPanel.css';
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
@@ -30,6 +30,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   onClose,
   onSuggestionApply,
   onExcelImport,
+  onImportComplete,
   dataContext
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -44,6 +45,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).substr(2, 9));
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,16 +57,63 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
+    const currentInput = inputMessage;
+    const currentFile = pendingFile;
+
+    // ユーザーメッセージ表示（添付ファイルがある場合はそれも表示）
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputMessage,
-      timestamp: new Date()
+      content: currentInput,
+      timestamp: new Date(),
+      attachments: currentFile ? [{
+        name: currentFile.name,
+        size: currentFile.size,
+        type: currentFile.type
+      }] : undefined
     };
 
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setPendingFile(null);
+    setIsLoading(true);
+
+    // ── 添付ファイルがある場合: Excel解析 → 結果表示 ──
+    if (currentFile) {
+      try {
+        onExcelImport(currentFile);
+        const result = await uploadExcelFile(currentFile, sessionId);
+        const summaryText = formatMappingSummary(result);
+        
+        const aiResponse: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: summaryText,
+          timestamp: new Date(),
+          actions: [
+            { id: 'confirm_import', label: 'このマッピングでインポート実行', variant: 'confirm' },
+            { id: 'cancel_import', label: 'キャンセル', variant: 'cancel' },
+          ]
+        };
+        setMessages(prev => [...prev, aiResponse]);
+      } catch (error: any) {
+        const errorResponse: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: `[エラー]: ${error.message}`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorResponse]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // ── 通常メッセージ: SSEチャットストリーム ──
     const assistantMsgId = (Date.now() + 1).toString();
     const assistantMessage: ChatMessage = {
       id: assistantMsgId,
@@ -73,7 +122,6 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       timestamp: new Date()
     };
 
-    const currentInput = inputMessage;
     const messageHistory = messages
       .filter(m => m.type !== 'system')
       .map(m => ({
@@ -82,9 +130,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       }))
       .concat([{ role: 'user', content: currentInput }]);
 
-    setMessages(prev => [...prev, userMessage, assistantMessage]);
-    setInputMessage('');
-    setIsLoading(true);
+    setMessages(prev => [...prev, assistantMessage]);
 
     startChatStream(
       sessionId,
@@ -124,52 +170,84 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     );
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      onExcelImport(file);
+      setPendingFile(file);
       
-      const fileMessage: ChatMessage = {
-        id: Date.now().toString(),
-        type: 'user',
-        content: `Excelファイル "${file.name}" をアップロードしました。`,
-        timestamp: new Date(),
-        attachments: [{
-          name: file.name,
-          size: file.size,
-          type: file.type
-        }]
-      };
-
-      setMessages(prev => [...prev, fileMessage]);
-      setIsLoading(true);
-
-      try {
-        const result = await uploadExcelFile(file, sessionId);
-        
-        const aiResponse: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          type: 'assistant',
-          content: result.summary,
-          timestamp: new Date(),
-          suggestions: result.suggestions
-        };
-        
-        setMessages(prev => [...prev, aiResponse]);
-      } catch (error: any) {
-        const errorResponse: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          type: 'assistant',
-          content: `[システムエラー]: ${error.message}`,
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, errorResponse]);
-      } finally {
-        setIsLoading(false);
+      // 入力欄にヒントを表示
+      if (!inputMessage.trim()) {
+        setInputMessage('このExcelを読み込んでください');
       }
+      
+      // チャットにファイル添付の通知を表示
+      const fileNotice: ChatMessage = {
+        id: Date.now().toString(),
+        type: 'system',
+        content: `📎 "${file.name}" (${Math.round(file.size / 1024)}KB) を添付しました。メッセージを送信すると解析を開始します。`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, fileNotice]);
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAction = async (actionId: string, messageId: string) => {
+    // アクションボタンを消す（使用済みにする）
+    setMessages(prev => prev.map(m => {
+      if (m.id === messageId) {
+        return { ...m, actions: undefined };
+      }
+      return m;
+    }));
+
+    if (actionId === 'confirm_import') {
+      setIsLoading(true);
+      const statusMsg: ChatMessage = {
+        id: Date.now().toString(),
+        type: 'assistant',
+        content: 'インポートを実行中...',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, statusMsg]);
+
+      try {
+        const result = await confirmExcelImport(sessionId);
+        
+        setMessages(prev => prev.map(m => {
+          if (m.id === statusMsg.id) {
+            return {
+              ...m,
+              content: `✅ インポート完了！\n機器: ${result.imported_assets}件\n作業: ${result.imported_work_orders}件\n明細: ${result.imported_lines}件` 
+                + (result.error_count > 0 ? `\n⚠️ エラー: ${result.error_count}件` : '')
+            };
+          }
+          return m;
+        }));
+        
+        if (result.data_model && onImportComplete) {
+          onImportComplete(result.data_model);
+        }
+      } catch (error: any) {
+        setMessages(prev => prev.map(m => {
+          if (m.id === statusMsg.id) {
+            return { ...m, content: `[エラー]: ${error.message}` };
+          }
+          return m;
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (actionId === 'cancel_import') {
+      const cancelMsg: ChatMessage = {
+        id: Date.now().toString(),
+        type: 'assistant',
+        content: 'インポートをキャンセルしました。',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, cancelMsg]);
     }
   };
 
@@ -311,6 +389,31 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
                   ))}
                 </div>
               )}
+              {message.actions && message.actions.length > 0 && (
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {message.actions.map((action) => (
+                    <Button
+                      key={action.id}
+                      size="small"
+                      variant={action.variant === 'confirm' ? 'contained' : 'outlined'}
+                      onClick={() => handleAction(action.id, message.id)}
+                      disabled={isLoading}
+                      sx={{
+                        backgroundColor: action.variant === 'confirm' ? '#4caf50' : 'transparent',
+                        color: '#ffffff',
+                        borderColor: action.variant === 'cancel' ? '#666' : undefined,
+                        '&:hover': {
+                          backgroundColor: action.variant === 'confirm' ? '#45a049' : '#333',
+                        },
+                        textTransform: 'none',
+                      }}
+                    >
+                      {action.variant === 'confirm' && <CheckCircleIcon sx={{ mr: 0.5, fontSize: 18 }} />}
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
               <Typography variant="caption" className="message-timestamp" sx={{ color: '#b3b3b3' }}>
                 {message.timestamp.toLocaleTimeString()}
               </Typography>
@@ -368,6 +471,21 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             ファイル添付
           </button>
         </div>
+
+        {pendingFile && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '4px 12px', backgroundColor: '#1a3a1a', borderRadius: '4px',
+            margin: '0 8px 4px', fontSize: '12px', color: '#90caf9',
+          }}>
+            <AttachFileIcon sx={{ fontSize: 14 }} />
+            <span style={{ flex: 1 }}>{pendingFile.name}</span>
+            <button
+              onClick={() => { setPendingFile(null); setInputMessage(''); }}
+              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '14px' }}
+            >✕</button>
+          </div>
+        )}
 
         <div className="message-input-container">
           <textarea

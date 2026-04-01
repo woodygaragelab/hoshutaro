@@ -57,37 +57,8 @@ async def chat_completions(body: ChatRequest, request: Request):
                 session.append_message("user", user_msg)
 
                 # ── 特殊パス: Excelインポート待機中 ──
-                if hasattr(session, "import_state") and session.import_state and session.import_state.get("status") == "waiting_user":
-                    yield {"data": json.dumps({"type": "text_delta", "delta": "Excelインポートを開始します...\n"})}
-                    session.import_state["status"] = "process_chunks"
-                    
-                    from app.services.excel_converter import chunk_process_excel
-                    result = chunk_process_excel(
-                        session.import_state["file_bytes"],
-                        {
-                            "header_row_index": session.import_state["header_row_index"],
-                            "mappings": session.import_state["mappings"],
-                            "symbol_mapping": session.import_state.get("symbol_mapping", {})
-                        },
-                        chunk_size=10000,
-                        start_row=session.import_state.get("processed_rows", 0)
-                    )
-                    
-                    session.import_state = None
-                    
-                    extracted = result.get("extracted_data", [])
-                    if extracted:
-                        lines = session.data_model.setdefault("workOrderLines", [])
-                        for row in extracted:
-                            if "id" not in row:
-                                row["id"] = f"WOL-IMP-{len(lines)}"
-                            lines.append(row)
-                        
-                        yield {"data": json.dumps({"type": "text_delta", "delta": f"インポート完了: {len(extracted)}件のデータを取り込みました。\n"})}
-                        yield {"data": json.dumps({"type": "data_model_update", "data": session.data_model})}
-                    
-                    yield {"data": "[DONE]"}
-                    return
+                # ユーザーがまだ確認していない場合は通常の会話として処理
+                # Phase 3の実行は /api/data/import/confirm エンドポイント経由で行う
 
                 # ── 通常パス: 並列LLM呼び出し ──
                 yield {"data": json.dumps({"type": "status", "message": "AIが思考中..."})}
@@ -134,7 +105,7 @@ async def chat_completions(body: ChatRequest, request: Request):
                                 early_result = intent_task.result()
                                 early_intent = early_result.get("intent", "converse")
                                 early_confidence = early_result.get("confidence", 0.0)
-                                if early_intent != "converse" and early_confidence >= 0.7:
+                                if early_intent != "converse" and early_confidence >= 0.5:
                                     logger.info(
                                         "Early agent launch: intent=%s, confidence=%.2f (during conv stream)",
                                         early_intent, early_confidence
@@ -168,7 +139,7 @@ async def chat_completions(body: ChatRequest, request: Request):
                     intent, confidence, parameters
                 )
 
-                if intent == "converse" or confidence < 0.7:
+                if intent == "converse" or confidence < 0.5:
                     # 会話のみで終了（Call B の応答が最終回答）
                     # 先行起動したエージェントがあればキャンセル
                     if agent_task is not None:

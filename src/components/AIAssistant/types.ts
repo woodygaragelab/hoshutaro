@@ -3,11 +3,19 @@ export interface AIAssistantPanelProps {
   onClose: () => void;
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
+  onImportComplete?: (dataModel: any) => void;
   dataContext?: {
     assets: any[];
     workOrders: any[];
     workOrderLines: any[];
   };
+}
+
+export interface ChatAction {
+  id: string;
+  label: string;
+  variant: 'confirm' | 'cancel' | 'info';
+  payload?: Record<string, any>;
 }
 
 export interface ChatMessage {
@@ -17,6 +25,7 @@ export interface ChatMessage {
   timestamp: Date;
   attachments?: FileAttachment[];
   suggestions?: MaintenanceSuggestion[];
+  actions?: ChatAction[];
 }
 
 export interface MaintenanceSuggestion {

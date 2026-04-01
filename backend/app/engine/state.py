@@ -11,22 +11,27 @@ class AgentState(TypedDict):
     thinking_iterations: int # 現在の推論試行回数
     error_message: str    # リトライ時のエラーフィードバック
 
-class ColumnMappingDict(TypedDict):
-    col_index: int
-    field_name: str
-    is_date: bool
-    month: Optional[int]
-
 class ExcelImportState(TypedDict):
     session_id: str
     filename: str
     file_bytes: bytes
-    status: str             # "pending", "analyzing", "waiting_user", "processing", "done", "error"
+    status: str               # "pending" | "analyzing" | "waiting_user" | "processing" | "done" | "error"
     error_message: str
-    header_row_index: int
+    
+    # Phase 1-2 の解析結果（analyze_excel_full()の戻り値リストを保持）
+    analysis_results: Optional[list[dict]]  # 各シートごとの grid, structure, descriptors, symbol_mapping, validation
+    
+    # サマリー情報（フロントエンドに返す全シート統合分）
     summary: str
-    mappings: list[ColumnMappingDict]
-    symbol_mapping: dict    # "○" -> "planned" 等
     total_rows: int
+    
+    # 解析された各シートの情報（フロントエンド送信用）
+    sheets: list[dict]
+
+    
+    # チャンク処理の進捗
     processed_rows: int
-    extracted_data: list[dict]
+    extracted_assets: list[dict]
+    extracted_work_orders: list[dict]
+    extracted_wo_lines: list[dict]
+    error_rows: list[dict]

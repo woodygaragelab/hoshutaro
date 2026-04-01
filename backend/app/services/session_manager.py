@@ -10,9 +10,11 @@ class Session:
         # DataModel v3.0.0 準拠のルート構造。必要に応じてエンティティが追加される
         self.data_model: Dict[str, Any] = {
             "version": "3.0.0", 
-            "assets": [], 
-            "workOrders": [], 
-            "workOrderLines": []
+            "assets": {}, 
+            "workOrders": {}, 
+            "workOrderLines": {},
+            "hierarchy": {"levels": []},
+            "metadata": {"lastModified": "2026-03-31T00:00:00.000Z", "createdBy": "system"}
         }
         self.chat_history: list = []
         self.snapshots: list = []

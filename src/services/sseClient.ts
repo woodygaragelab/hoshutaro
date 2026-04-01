@@ -66,7 +66,10 @@ export function startChatStream(
             const raw = line.slice(6).trim()
             if (raw === '[DONE]') {
               emitDone()
-              continue
+              // SSE ping keepalive がストリームを開いたままにするため、
+              // 明示的にreaderをキャンセルして接続を閉じる
+              reader.cancel()
+              return
             }
             if (!raw) continue
             try {
