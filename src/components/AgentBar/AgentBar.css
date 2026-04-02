@@ -5,8 +5,9 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  max-width: 650px;
+  width: fit-content;
+  min-width: 600px;
+  max-width: 95vw;
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -79,6 +80,7 @@
 
 .agent-input-wrapper {
   flex-grow: 1;
+  width: 450px;
   display: flex;
   align-items: center;
   background-color: rgba(0, 0, 0, 0.4);
