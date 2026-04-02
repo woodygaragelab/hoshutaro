@@ -4,7 +4,7 @@ import './App.css';
 import './styles/responsive.css';
 import './styles/grid-text-fix.css';
 import './styles/performance.css';
-import rawData from './data/equipments.json';
+const rawData = { version: '3.0.0', assets: {}, workOrders: {}, workOrderLines: {}, hierarchy: { levels: [] } };
 import { HierarchicalData, RawEquipment } from './types';
 import { usePerformanceMonitor } from './utils/performanceMonitor';
 import { useAccessibility } from './utils/accessibility';
@@ -30,8 +30,8 @@ import { dataIndexManager } from './utils/dataIndexing';
 import { useViewModeTransition } from './hooks/useViewModeTransition';
 
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
-import AIAssistantPanel from './components/AIAssistant/AIAssistantPanel';
-import ModernHeader from './components/ModernHeader';
+import { AgentBar } from './components/AgentBar/AgentBar';
+import { EmptyState } from './components/EmptyState';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
 import { HierarchyEditDialog } from './components/HierarchyEditDialog/HierarchyEditDialog';
 import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
@@ -75,6 +75,11 @@ const App: React.FC = () => {
   const [timeScale, setTimeScale] = useState<'year' | 'month' | 'week' | 'day'>('year');
   const [viewMode, setViewMode] = useState<'status' | 'cost'>('status');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  
+  // Spreadsheet-style checkbox filters
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [selectedBomCodes, setSelectedBomCodes] = useState<string[]>([]);
+
 
   // Data view mode state - Requirements 6.1, 6.2, 6.5
   const [dataViewMode, setDataViewMode] = useState<'asset-based' | 'workorder-based'>('asset-based');
@@ -159,11 +164,7 @@ const App: React.FC = () => {
   const [showBomCode, setShowBomCode] = useState(true);
 
   // Display area mode for EnhancedMaintenanceGrid
-  const [displayMode, setDisplayMode] = useState<'specifications' | 'maintenance' | 'both'>('both');
-
-  // AI Assistant states
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
-  const [aiAssistantWidth] = useState(400);
+  const [displayMode, setDisplayMode] = useState<'specifications' | 'maintenance' | 'both'>('maintenance');
 
   // Handle cell double click - proper dialog routing based on view mode
   const handleCellDoubleClick = (item: any, header: string, event: React.MouseEvent<HTMLElement>) => {
@@ -199,6 +200,9 @@ const App: React.FC = () => {
   // AssetReassignDialog states - Requirements 3.2, 3.6
   const [assetReassignDialogOpen, setAssetReassignDialogOpen] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+
+  // HierarchyEditDialog state
+  const [hierarchyEditDialogOpen, setHierarchyEditDialogOpen] = useState(false);
 
 
   // Initialize all services on mount
@@ -599,6 +603,9 @@ const App: React.FC = () => {
           // Requirements 10.1, 10.2, 10.3: Memoized transformation for performance
           const transformedData = transformEquipmentData(equipmentData);
 
+          // DEBUG: Expose data to window for headless inspection
+          (window as any).__DEBUG_EQUIPMENT = equipmentData;
+          (window as any).__DEBUG_TRANS = transformedData;
           
           setMaintenanceData(transformedData);
 
@@ -740,13 +747,15 @@ const App: React.FC = () => {
   const level2Options = level1Filter !== 'all' && hierarchyFilterTree ? Object.keys(hierarchyFilterTree.children[level1Filter]?.children || {}) : [];
   const level3Options = level1Filter !== 'all' && level2Filter !== 'all' && hierarchyFilterTree ? Object.keys(hierarchyFilterTree.children[level1Filter]?.children[level2Filter]?.children || {}) : [];
 
-  const handleLevel1FilterChange = (event: SelectChangeEvent) => {
-    setLevel1Filter(event.target.value);
+  const handleLevel1FilterChange = (value: string | SelectChangeEvent) => {
+    const val = typeof value === 'string' ? value : value.target.value;
+    setLevel1Filter(val);
     setLevel2Filter('all');
     setLevel3Filter('all');
   };
-  const handleLevel2FilterChange = (event: SelectChangeEvent) => {
-    setLevel2Filter(event.target.value);
+  const handleLevel2FilterChange = (value: string | SelectChangeEvent) => {
+    const val = typeof value === 'string' ? value : value.target.value;
+    setLevel2Filter(val);
     setLevel3Filter('all');
   };
 
@@ -805,6 +814,23 @@ const App: React.FC = () => {
       setSnackbarOpen(true);
     }
   };
+
+  // Extract unique values for spreadsheet-style checkbox filtering
+  const { uniqueTasks, uniqueBomCodes } = useMemo(() => {
+    const tasks = new Set<string>();
+    const bomCodes = new Set<string>();
+    maintenanceData.forEach(item => {
+      if (item.isGroupHeader) return; // Do not include hierarchy strings in the checkbox filter
+      
+      // Avoid inserting blank strings as checkbox options if they logically don't have this property in UI
+      if (item.task) tasks.add(item.task);
+      if (item.bomCode) bomCodes.add(item.bomCode);
+    });
+    return {
+      uniqueTasks: Array.from(tasks).sort(),
+      uniqueBomCodes: Array.from(bomCodes).sort()
+    };
+  }, [maintenanceData]);
 
   // Optimized filtering using data indexing - Requirements 10.1, 10.2, 10.3
   const displayedMaintenanceData = useMemo(() => {
@@ -942,8 +968,42 @@ const App: React.FC = () => {
       }
     }
 
+    // Apply spreadsheet-style checkbox filtering
+    if (selectedTasks.length > 0) {
+      const taskSet = new Set(selectedTasks);
+      filteredData = filteredData.filter(item => taskSet.has(item.task) || item.isGroupHeader);
+    }
+    
+    if (selectedBomCodes.length > 0) {
+      const bomCodeSet = new Set(selectedBomCodes);
+      filteredData = filteredData.filter(item => (item.bomCode && bomCodeSet.has(item.bomCode)) || item.isGroupHeader);
+    }
+
+    // Cleanup: Remove any empty group headers (headers that have no corresponding child data rows left)
+    const survivingHierarchyPaths = new Set<string>();
+    filteredData.forEach(item => {
+      if (!item.isGroupHeader && item.hierarchyPath) {
+        // Splitting into partial paths so parent hierarchy bands survive
+        const parts = item.hierarchyPath.split(' > ');
+        let currentPath = '';
+        parts.forEach(part => {
+          if (currentPath) currentPath += ' > ';
+          currentPath += part;
+          survivingHierarchyPaths.add(currentPath);
+        });
+      }
+    });
+
+    filteredData = filteredData.filter(item => {
+      if (item.isGroupHeader) {
+        // A group header row stores its exact path natively in 'task'
+        return survivingHierarchyPaths.has(item.task); 
+      }
+      return true;
+    });
+
     return filteredData;
-  }, [maintenanceData, searchTerm, level1Filter, level2Filter, level3Filter, isServicesInitialized]);
+  }, [maintenanceData, searchTerm, level1Filter, level2Filter, level3Filter, isServicesInitialized, selectedTasks, selectedBomCodes]);
 
   // Group data for rendering
   const groupedData = useMemo(() => {
@@ -1566,17 +1626,21 @@ const App: React.FC = () => {
       }, {} as any);
 
       const workOrderLinesObj = workOrderLines.reduce((acc, wol) => {
-        acc[wol.id] = wol;
+        const cleanWol = { ...wol };
+        // Strip V3 nested properties to strictly adhere to flat equipments.json format
+        delete cleanWol.schedule;
+        delete (cleanWol as any).__workOrderDraft;
+        acc[wol.id] = cleanWol;
         return acc;
       }, {} as any);
 
-      // Include taskClassifications and assetClassification from source data
-      const sourceTaskClassifications = (rawData as any)?.taskClassifications || [];
+      // Include workOrderClassifications and assetClassification from source data
+      const sourceWorkOrderClassifications = (rawData as any)?.workOrderClassifications || (rawData as any)?.taskClassifications || [];
       const sourceAssetClassification = (rawData as any)?.assetClassification || { levels: [] };
 
       const dataToExport = {
         version: '3.0.0',
-        taskClassifications: sourceTaskClassifications,
+        workOrderClassifications: sourceWorkOrderClassifications,
         assetClassification: sourceAssetClassification,
         assets: assetsObj,
         workOrders: workOrdersObj,
@@ -1739,7 +1803,8 @@ const App: React.FC = () => {
         });
         const sortedYears = Array.from(years).sort((a, b) => a - b);
         setTimeHeaders(sortedYears.map(y => y.toString()));
-
+        // Update the GUI
+        loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
         
         showSnackbar(`v3.0.0データをインポートしました（機器:${existingAssets.length}件, 作業指示:${existingWorkOrders.length}件）`, 'success');
       } else {
@@ -2172,7 +2237,7 @@ const App: React.FC = () => {
 
   // Desktop-only layout calculations
   const containerPadding = 12;
-  const mainContentWidth = isAIAssistantOpen ? `calc(100% - ${aiAssistantWidth}px)` : '100%';
+  const mainContentWidth = '100%';
 
   // Performance measurement removed - was causing infinite loop
   // TODO: Re-implement with proper memoization if needed
@@ -2249,6 +2314,9 @@ const App: React.FC = () => {
           }}
         >
           {/* Enhanced Maintenance Grid */}
+          {displayedMaintenanceData.length === 0 ? (
+            <EmptyState onImportClick={handleImportDataClick} />
+          ) : (
           <div
             ref={gridRef}
             className="grid-container-responsive grid-performance"
@@ -2302,6 +2370,12 @@ const App: React.FC = () => {
               onCellPaste={handleCellPaste}
               // Header props - restored to original structure
               onSearchChange={setSearchTerm}
+              uniqueTasks={uniqueTasks}
+              selectedTasks={selectedTasks}
+              onSelectedTasksChange={setSelectedTasks}
+              uniqueBomCodes={uniqueBomCodes}
+              selectedBomCodes={selectedBomCodes}
+              onSelectedBomCodesChange={setSelectedBomCodes}
               onViewModeChange={(mode) => setViewMode(mode)}
               onDataViewModeChange={handleDataViewModeChange}
               onTimeScaleChange={(scale) => {
@@ -2313,7 +2387,10 @@ const App: React.FC = () => {
               level3Filter={level3Filter}
               onLevel1FilterChange={handleLevel1FilterChange}
               onLevel2FilterChange={handleLevel2FilterChange}
-              onLevel3FilterChange={(event) => setLevel3Filter(event.target.value)}
+              onLevel3FilterChange={(value) => {
+                const val = typeof value === 'string' ? value : (value as any).target?.value;
+                setLevel3Filter(val);
+              }}
               hierarchyFilterTree={hierarchyFilterTree}
               level2Options={level2Options}
               level3Options={level3Options}
@@ -2322,90 +2399,73 @@ const App: React.FC = () => {
               onExportData={handleExportData}
               onImportData={handleImportDataClick}
               onResetData={handleResetDataClick}
-              onAIAssistantToggle={handleAIAssistantToggle}
-              isAIAssistantOpen={isAIAssistantOpen}
               onShowBomCodeChange={setShowBomCode}
               onDisplayModeChange={setDisplayMode}
             />
           </div>
-
-          {/* AI Assistant Panel - Desktop only */}
-          {isAIAssistantOpen && (
-            <div
-              style={{
-                width: aiAssistantWidth,
-                height: '100%',
-                borderLeft: '1px solid #333333',
-                backgroundColor: '#000000',
-              }}
-            >
-              <AIAssistantPanel
-                isOpen={isAIAssistantOpen}
-                onClose={handleAIAssistantClose}
-                dataContext={{
-                  assets: assetManagerRef.current?.getAllAssets() || [],
-                  workOrders: workOrderManagerRef.current?.getAllWorkOrders() || [],
-                  workOrderLines: workOrderLineManagerRef.current?.getAllWorkOrderLines() || [],
-                }}
-                onSuggestionApply={(suggestion) => {
-                  // Apply AI suggestion to maintenance data
-                  handleCellEdit(
-                    suggestion.equipmentId,
-                    `time_${suggestion.timeHeader}`,
-                    suggestion.suggestedAction === 'plan'
-                      ? { planned: true, actual: false }
-                      : suggestion.suggestedAction === 'actual'
-                        ? { planned: false, actual: true }
-                        : { planned: true, actual: true }
-                  );
-                }}
-                onExcelImport={(file) => {
-                  // Handle Excel file import
-                  showSnackbar(`Excelファイル "${file.name}" の解析を開始します`, 'info');
-                }}
-                onImportComplete={(dataModel) => {
-                  try {
-                    const loadedData = dataStoreRef.current?.loadData(dataModel);
-                    if (loadedData && assetManagerRef.current && workOrderManagerRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
-                      
-                      // 1. 各マネージャをクリア＆再生成
-                      assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
-                      Object.values(loadedData.assets).forEach(a => assetManagerRef.current!.createAsset(a));
-                      
-                      workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
-                      Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w as any));
-                      
-                      workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
-                      Object.values(loadedData.workOrderLines || {}).forEach(l => {
-                        try {
-                          workOrderLineManagerRef.current!.createWorkOrderLine(l as any);
-                        } catch (e) {
-                          console.error('Import Line Error:', e);
-                        }
-                      });
-                      
-                      hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || {levels:[]});
-                      
-                      // 2. ViewModeManagerを更新
-                      viewModeManagerRef.current?.updateData(
-                        assetManagerRef.current.getAllAssets(),
-                        workOrderLineManagerRef.current.getAllWorkOrderLines(),
-                        loadedData.hierarchy || {levels:[]},
-                        workOrderManagerRef.current.getAllWorkOrders()
-                      );
-                      
-                      // 3. Gridデータを再構築して画面更新
-                      loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
-                      showSnackbar('データの取り込みが完了し、画面を更新しました', 'success');
-                    }
-                  } catch (err: any) {
-                    showSnackbar(`インポートしたデータの反映に失敗しました: ${err.message}`, 'error');
-                  }
-                }}
-              />
-            </div>
           )}
         </div>
+
+        {/* Global Floating Agent Bar */}
+        <AgentBar
+          onTimeScaleChange={(scale) => {
+            setTimeScale(scale);
+            loadDataFromViewModeManager(scale);
+          }}
+          timeScale={timeScale}
+          onDisplayModeChange={setDisplayMode}
+          displayMode={displayMode}
+          onDataViewModeChange={handleDataViewModeChange}
+          dataViewMode={dataViewMode}
+          onImportData={handleImportDataClick}
+          onExportData={handleExportData}
+          onHierarchyEdit={() => setHierarchyEditDialogOpen(true)}
+          onSuggestionApply={(suggestion) => {
+            handleCellEdit(
+              suggestion.equipmentId,
+              `time_${suggestion.timeHeader}`,
+              suggestion.suggestedAction === 'plan'
+                ? { planned: true, actual: false }
+                : suggestion.suggestedAction === 'actual'
+                  ? { planned: false, actual: true }
+                  : { planned: true, actual: true }
+            );
+          }}
+          onExcelImport={(file) => {
+            showSnackbar(`Excelファイル "${file.name}" の解析を開始します`, 'info');
+          }}
+          onImportComplete={(dataModel) => {
+            try {
+              const loadedData = dataStoreRef.current?.loadData(dataModel);
+              if (loadedData && assetManagerRef.current && workOrderManagerRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
+                assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
+                Object.values(loadedData.assets).forEach(a => assetManagerRef.current!.createAsset(a));
+                workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
+                Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w as any));
+                workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
+                Object.values(loadedData.workOrderLines || {}).forEach(l => {
+                  try { workOrderLineManagerRef.current!.createWorkOrderLine(l as any); } catch (e) { console.error('Import Line Error:', e); }
+                });
+                hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || {levels:[]});
+                viewModeManagerRef.current?.updateData(
+                  assetManagerRef.current.getAllAssets(),
+                  workOrderLineManagerRef.current.getAllWorkOrderLines(),
+                  loadedData.hierarchy || {levels:[]},
+                  workOrderManagerRef.current.getAllWorkOrders()
+                );
+                loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+                showSnackbar('データの取り込みが完了し、画面を更新しました', 'success');
+              }
+            } catch (err: any) {
+              showSnackbar(`インポートしたデータの反映に失敗しました: ${err.message}`, 'error');
+            }
+          }}
+          dataContext={{
+            assets: assetManagerRef.current?.getAllAssets() || [],
+            workOrders: workOrderManagerRef.current?.getAllWorkOrders() || [],
+            workOrderLines: workOrderLineManagerRef.current?.getAllWorkOrderLines() || [],
+          }}
+        />
 
         {/* Add Year Dialog */}
         <Dialog open={addYearDialogOpen} onClose={() => setAddYearDialogOpen(false)}>
@@ -2538,12 +2598,25 @@ const App: React.FC = () => {
           />
         )}
 
-
+        {/* Hierarchy Edit Dialog */}
+        <HierarchyEditDialog
+          open={hierarchyEditDialogOpen}
+          onClose={() => setHierarchyEditDialogOpen(false)}
+          hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition() || { levels: [] }}
+          onSave={(newHierarchy) => {
+            if (hierarchyManagerRef.current) {
+              hierarchyManagerRef.current.updateHierarchyDefinition(newHierarchy.levels);
+              // Trigger a basic re-load of hierarchy visuals
+              loadDataFromViewModeManager(timeScale);
+            }
+          }}
+        />
         {/* Snackbar */}
         <Snackbar
           open={snackbarOpen}
           autoHideDuration={6000}
           onClose={() => handleSnackbarClose()}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert
             onClose={() => handleSnackbarClose()}

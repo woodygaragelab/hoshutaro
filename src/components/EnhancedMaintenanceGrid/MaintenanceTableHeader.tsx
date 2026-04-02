@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
-import { Box, Typography } from '@mui/material';
-import { DragIndicator as DragIcon } from '@mui/icons-material';
+import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, InputLabel, FormControl, Checkbox, FormGroup, FormControlLabel, List, ListItem, Divider } from '@mui/material';
+import { DragIndicator as DragIcon, FilterList as FilterIcon, Search as SearchIcon } from '@mui/icons-material';
 import { GridColumn, GridState } from '../ExcelLikeGrid/types';
 import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
 
@@ -13,7 +13,26 @@ interface MaintenanceTableHeaderProps {
   enableVirtualScrolling?: boolean;
   containerWidth?: number;
   scrollLeft?: number;
-
+  
+  // Filter props
+  searchTerm?: string;
+  onSearchChange?: (value: string) => void;
+  level1Filter?: string;
+  level2Filter?: string;
+  level3Filter?: string;
+  onLevel1FilterChange?: (event: any) => void;
+  onLevel2FilterChange?: (event: any) => void;
+  onLevel3FilterChange?: (event: any) => void;
+  hierarchyFilterTree?: any;
+  level2Options?: string[];
+  level3Options?: string[];
+  uniqueTasks?: string[];
+  selectedTasks?: string[];
+  onSelectedTasksChange?: (tasks: string[]) => void;
+  uniqueBomCodes?: string[];
+  selectedBomCodes?: string[];
+  onSelectedBomCodesChange?: (bomCodes: string[]) => void;
+  isTaskBasedMode?: boolean;
 }
 
 const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = ({
@@ -25,9 +44,67 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
   enableVirtualScrolling = false,
   containerWidth = 1920,
   scrollLeft = 0,
+  searchTerm = '',
+  onSearchChange,
+  level1Filter = 'all',
+  level2Filter = 'all',
+  level3Filter = 'all',
+  onLevel1FilterChange,
+  onLevel2FilterChange,
+  onLevel3FilterChange,
+  hierarchyFilterTree,
+  level2Options = [],
+  level3Options = [],
+  uniqueTasks = [],
+  selectedTasks = [],
+  onSelectedTasksChange,
+  uniqueBomCodes = [],
+  selectedBomCodes = [],
+  onSelectedBomCodesChange,
+  isTaskBasedMode = false,
 }) => {
   const [resizing, setResizing] = useState<{ columnId: string; startX: number; startWidth: number } | null>(null);
   
+  // Filter popover state
+  const [filterAnchorEl, setFilterAnchorEl] = useState<{ [columnId: string]: HTMLElement | null }>({});
+  const taskButtonRef = useRef<HTMLButtonElement | null>(null);
+  const bomCodeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleFilterClick = (event: React.MouseEvent<HTMLElement>, columnId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const btnRef = columnId === 'task' ? taskButtonRef.current : columnId === 'bomCode' ? bomCodeButtonRef.current : event.currentTarget;
+    setFilterAnchorEl(prev => ({ ...prev, [columnId]: btnRef || event.currentTarget }));
+  };
+
+  const handleFilterClose = (columnId: string) => {
+    setFilterAnchorEl(prev => ({ ...prev, [columnId]: null }));
+  };
+
+  const handleTaskToggle = (task: string) => {
+    if (!onSelectedTasksChange) return;
+    const currentIndex = selectedTasks.indexOf(task);
+    const newSelected = [...selectedTasks];
+    if (currentIndex === -1) {
+      newSelected.push(task);
+    } else {
+      newSelected.splice(currentIndex, 1);
+    }
+    onSelectedTasksChange(newSelected);
+  };
+
+  const handleBomCodeToggle = (bomCode: string) => {
+    if (!onSelectedBomCodesChange) return;
+    const currentIndex = selectedBomCodes.indexOf(bomCode);
+    const newSelected = [...selectedBomCodes];
+    if (currentIndex === -1) {
+      newSelected.push(bomCode);
+    } else {
+      newSelected.splice(currentIndex, 1);
+    }
+    onSelectedBomCodesChange(newSelected);
+  };
+
   // ドラッグ&ドロップの状態管理
   const [dragState, setDragState] = useState<{
     draggedIndex: number | null;
@@ -354,21 +431,43 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
               />
             )}
             
-            <Typography
-              variant="subtitle2"
-              sx={{
-                fontWeight: 600,
-                textAlign: 'center',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: '0.875rem',
-                color: '#ffffff'
-              }}
-              title={`Header: ${column.header} (${column.id})${isSpecColumn ? ' - 長押しで並び替え' : ''}`}
-            >
-              {column.header}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, minWidth: 0, justifyContent: 'center' }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  color: '#ffffff',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  textAlign: 'center'
+                }}
+              >
+                {column.header}
+              </Typography>
+
+              {/* Filter Tooltip Icons for task and bomCode */}
+              {(column.id === 'task' || column.id === 'bomCode') && (
+                <IconButton
+                  ref={column.id === 'task' ? taskButtonRef : bomCodeButtonRef}
+                  size="small"
+                  className="filter-icon-button"
+                  onMouseDown={(e) => handleFilterClick(e, column.id)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  sx={{ 
+                    ml: 0.5, 
+                    p: 0.25, 
+                    color: filterAnchorEl[column.id] || (column.id === 'task' && selectedTasks?.length) || (column.id === 'bomCode' && selectedBomCodes?.length) || searchTerm 
+                      ? '#90caf9' 
+                      : 'rgba(255, 255, 255, 0.5)',
+                    '&:hover': { color: '#ffffff' }
+                  }}
+                >
+                  <FilterIcon fontSize="inherit" sx={{ fontSize: '1rem', pointerEvents: 'none' }} />
+                </IconButton>
+              )}
+            </Box>
             
             {/* Resize handle */}
             {column.resizable && (
@@ -393,6 +492,166 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
           </Box>
         );
       })}
+
+      {/* Task Filter Popover */}
+      <Popover
+        open={Boolean(filterAnchorEl['task'])}
+        anchorEl={filterAnchorEl['task']}
+        onClose={() => handleFilterClose('task')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { bgcolor: '#242424', color: 'white', border: '1px solid #333' } }}
+      >
+        <Box sx={{ p: 2, minWidth: 280, maxWidth: 350, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 500 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>テキスト検索</Typography>
+          <TextField
+            size="small"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> }}
+            sx={{ '& .MuiInputBase-root': { color: 'white', bgcolor: '#1e1e1e' } }}
+          />
+
+          {!isTaskBasedMode && (
+            <>
+              <Divider sx={{ borderColor: '#333' }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>階層フィルタ</Typography>
+              <Select
+                size="small"
+                value={level1Filter}
+                onChange={onLevel1FilterChange}
+                displayEmpty
+                sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
+              >
+                <MenuItem value="all"><em>すべての機器分類</em></MenuItem>
+                {hierarchyFilterTree && hierarchyFilterTree.children && Object.keys(hierarchyFilterTree.children).map((l1) => (
+                  <MenuItem key={l1} value={l1}>{l1}</MenuItem>
+                ))}
+              </Select>
+              
+              <Select
+                size="small"
+                value={level2Filter}
+                onChange={onLevel2FilterChange}
+                displayEmpty
+                disabled={level1Filter === 'all'}
+                sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
+              >
+                <MenuItem value="all"><em>すべての大分類</em></MenuItem>
+                {level2Options.map((l2) => (
+                  <MenuItem key={l2} value={l2}>{l2}</MenuItem>
+                ))}
+              </Select>
+              
+              <Select
+                size="small"
+                value={level3Filter}
+                onChange={onLevel3FilterChange}
+                displayEmpty
+                disabled={level1Filter === 'all' || level2Filter === 'all'}
+                sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
+              >
+                <MenuItem value="all"><em>すべての詳細分類</em></MenuItem>
+                {level3Options.map((l3) => (
+                  <MenuItem key={l3} value={l3}>{l3}</MenuItem>
+                ))}
+              </Select>
+            </>
+          )}
+
+          <Divider sx={{ borderColor: '#333' }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>リスト選択フィルタ</Typography>
+          <List
+            dense
+            sx={{ 
+              flexGrow: 1, 
+              overflowY: 'auto', 
+              maxHeight: 200, 
+              bgcolor: '#1e1e1e', 
+              border: '1px solid #333',
+              borderRadius: 1
+            }}
+          >
+            {uniqueTasks.length === 0 && (
+               <ListItem><Typography variant="body2" sx={{ color: '#888' }}>データがありません</Typography></ListItem>
+            )}
+            {uniqueTasks.map((taskStr) => (
+              <ListItem key={taskStr} sx={{ p: 0 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={selectedTasks.indexOf(taskStr) !== -1}
+                      onChange={() => handleTaskToggle(taskStr)}
+                      sx={{ color: 'rgba(255,255,255,0.7)', '&.Mui-checked': { color: '#90caf9' } }}
+                    />
+                  }
+                  label={<Typography variant="body2">{taskStr}</Typography>}
+                  sx={{ width: '100%', m: 0, pl: 1 }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      </Popover>
+
+      {/* BomCode Filter Popover */}
+      <Popover
+        open={Boolean(filterAnchorEl['bomCode'])}
+        anchorEl={filterAnchorEl['bomCode']}
+        onClose={() => handleFilterClose('bomCode')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { bgcolor: '#242424', color: 'white', border: '1px solid #333' } }}
+      >
+        <Box sx={{ p: 2, minWidth: 280, maxWidth: 350, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 500 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>テキスト検索</Typography>
+          <TextField
+            size="small"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> }}
+            sx={{ '& .MuiInputBase-root': { color: 'white', bgcolor: '#1e1e1e' } }}
+          />
+
+          <Divider sx={{ borderColor: '#333' }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>リスト選択フィルタ</Typography>
+          <List
+            dense
+            sx={{ 
+              flexGrow: 1, 
+              overflowY: 'auto', 
+              maxHeight: 250, 
+              bgcolor: '#1e1e1e', 
+              border: '1px solid #333',
+              borderRadius: 1
+            }}
+          >
+            {uniqueBomCodes.length === 0 && (
+               <ListItem><Typography variant="body2" sx={{ color: '#888' }}>データがありません</Typography></ListItem>
+            )}
+            {uniqueBomCodes.map((bomCodeStr) => (
+              <ListItem key={bomCodeStr} sx={{ p: 0 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={selectedBomCodes.indexOf(bomCodeStr) !== -1}
+                      onChange={() => handleBomCodeToggle(bomCodeStr)}
+                      sx={{ color: 'rgba(255,255,255,0.7)', '&.Mui-checked': { color: '#90caf9' } }}
+                    />
+                  }
+                  label={<Typography variant="body2">{bomCodeStr}</Typography>}
+                  sx={{ width: '100%', m: 0, pl: 1 }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      </Popover>
+
     </Box>
   );
 };

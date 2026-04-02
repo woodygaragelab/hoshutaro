@@ -5,6 +5,7 @@ import { GridColumn, GridState, DisplayAreaConfig } from '../ExcelLikeGrid/types
 import Resizer from './Resizer';
 // CommonEditLogic removed - not used as JSX component
 import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
+import SpecificationEditDialog from '../SpecificationEditDialog/SpecificationEditDialog';
 import { StatusValue, CostValue } from '../CommonEdit/types';
 import { useKeyboardNavigation } from './keyboardNavigation';
 import './MaintenanceGridLayout.css';
@@ -40,6 +41,24 @@ interface MaintenanceGridLayoutProps {
   onPaste?: () => void;
   enableHorizontalVirtualScrolling?: boolean;
   onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent<any>) => void;
+  // Filter props
+  searchTerm?: string;
+  onSearchChange?: (value: string) => void;
+  level1Filter?: string;
+  level2Filter?: string;
+  level3Filter?: string;
+  onLevel1FilterChange?: (event: any) => void;
+  onLevel2FilterChange?: (event: any) => void;
+  onLevel3FilterChange?: (event: any) => void;
+  hierarchyFilterTree?: any;
+  level2Options?: string[];
+  level3Options?: string[];
+  uniqueTasks?: string[];
+  selectedTasks?: string[];
+  onSelectedTasksChange?: (tasks: string[]) => void;
+  uniqueBomCodes?: string[];
+  selectedBomCodes?: string[];
+  onSelectedBomCodesChange?: (bomCodes: string[]) => void;
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -71,6 +90,24 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   isTaskBasedMode = false,
   expandedWorkOrders = new Set(),
   onToggleWorkOrderExpanded,
+  // Filter props
+  searchTerm,
+  onSearchChange,
+  level1Filter,
+  level2Filter,
+  level3Filter,
+  onLevel1FilterChange,
+  onLevel2FilterChange,
+  onLevel3FilterChange,
+  hierarchyFilterTree,
+  level2Options,
+  level3Options,
+  uniqueTasks,
+  selectedTasks,
+  onSelectedTasksChange,
+  uniqueBomCodes,
+  selectedBomCodes,
+  onSelectedBomCodesChange,
 }) => {
     // Container width for horizontal virtual scrolling
   const [containerWidth, setContainerWidth] = useState(1920);
@@ -757,6 +794,25 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               onDragStateChange={handleColumnDragStateChange}
               enableVirtualScrolling={false}
               containerWidth={containerWidth}
+              // Filter props
+              searchTerm={searchTerm}
+              onSearchChange={onSearchChange}
+              level1Filter={level1Filter}
+              level2Filter={level2Filter}
+              level3Filter={level3Filter}
+              onLevel1FilterChange={onLevel1FilterChange}
+              onLevel2FilterChange={onLevel2FilterChange}
+              onLevel3FilterChange={onLevel3FilterChange}
+              hierarchyFilterTree={hierarchyFilterTree}
+              level2Options={level2Options}
+              level3Options={level3Options}
+              uniqueTasks={uniqueTasks}
+              selectedTasks={selectedTasks}
+              onSelectedTasksChange={onSelectedTasksChange}
+              uniqueBomCodes={uniqueBomCodes}
+              selectedBomCodes={selectedBomCodes}
+              onSelectedBomCodesChange={onSelectedBomCodesChange}
+              isTaskBasedMode={isTaskBasedMode}
             />
           </Box>
           <Box
@@ -1258,6 +1314,17 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
           tagNo={editDialogState.currentValue}
           onSave={handleDialogSave}
           onClose={handleDialogClose}
+          readOnly={readOnly}
+        />
+      )}
+
+      {editDialogState.type === 'assetDetails' && (
+        <SpecificationEditDialog
+          open={editDialogState.open}
+          specifications={editDialogState.currentValue?.specifications || []}
+          onSave={(specs) => handleDialogSave({ specifications: specs })}
+          onClose={handleDialogClose}
+          anchorEl={editDialogState.anchorEl}
           readOnly={readOnly}
         />
       )}

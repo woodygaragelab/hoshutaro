@@ -4,7 +4,7 @@ import { Box, Paper, Snackbar, Alert } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from '../ExcelLikeGrid/types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
-import { IntegratedToolbar } from '../ModernHeader/ModernHeader';
+import { GridFilterBar } from './GridFilterBar';
 import { WorkOrderLineDialog } from '../WorkOrderLineDialog/WorkOrderLineDialog';
 import { ViewModeManager } from '../../services/ViewModeManager';
 import {
@@ -71,6 +71,12 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   groupedData?: { [key: string]: any[] };
   searchTerm?: string;
   onSearchChange?: (value: string) => void;
+  uniqueTasks?: string[];
+  selectedTasks?: string[];
+  onSelectedTasksChange?: (tasks: string[]) => void;
+  uniqueBomCodes?: string[];
+  selectedBomCodes?: string[];
+  onSelectedBomCodesChange?: (bomCodes: string[]) => void;
   level1Filter?: string;
   level2Filter?: string;
   level3Filter?: string;
@@ -166,7 +172,13 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   currentYear,
   onJumpToDate,
   onCellCopy,
-  onCellPaste
+  onCellPaste,
+  uniqueTasks,
+  selectedTasks,
+  onSelectedTasksChange,
+  uniqueBomCodes,
+  selectedBomCodes,
+  onSelectedBomCodesChange
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -1023,6 +1035,38 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
 
 
+  // Stable callback handlers to prevent infinite re-renders
+  const handleLevel1FilterChange = useCallback((e: any) => {
+    onLevel1FilterChange?.(e.target.value);
+  }, [onLevel1FilterChange]);
+
+  const handleLevel2FilterChange = useCallback((e: any) => {
+    onLevel2FilterChange?.(e.target.value);
+  }, [onLevel2FilterChange]);
+
+  const handleLevel3FilterChange = useCallback((e: any) => {
+    onLevel3FilterChange?.(e.target.value);
+  }, [onLevel3FilterChange]);
+
+  const handleViewModeChange = useCallback((e: any) => {
+    onViewModeChange?.(e.target.checked ? 'cost' : 'status');
+  }, [onViewModeChange]);
+
+  const handleTimeScaleChange = useCallback((e: any) => {
+    onTimeScaleChange?.(e.target.value as TimeScale);
+  }, [onTimeScaleChange]);
+
+  // Stable empty function references with useMemo to prevent re-creation
+  const stableOnSearchChange = useMemo(() => onSearchChange || (() => { }), [onSearchChange]);
+  const stableOnShowBomCodeChange = useMemo(() => onShowBomCodeChange || (() => { }), [onShowBomCodeChange]);
+  const stableOnDisplayModeChange = useMemo(() => onDisplayModeChange || (() => { }), [onDisplayModeChange]);
+  const stableOnAddYear = useMemo(() => onAddYear || (() => { }), [onAddYear]);
+  const stableOnDeleteYear = useMemo(() => onDeleteYear || (() => { }), [onDeleteYear]);
+  const stableOnExportData = useMemo(() => onExportData || (() => { }), [onExportData]);
+  const stableOnImportData = useMemo(() => onImportData || (() => { }), [onImportData]);
+  const stableOnResetData = useMemo(() => onResetData || (() => { }), [onResetData]);
+  const stableOnAIAssistantToggle = useMemo(() => onAIAssistantToggle || (() => { }), [onAIAssistantToggle]);
+
   // Desktop-only view
   const renderGridView = useMemo(() => {
     return (
@@ -1056,48 +1100,39 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         // WorkOrder expansion props
         expandedWorkOrders={expandedWorkOrders}
         onToggleWorkOrderExpanded={toggleWorkOrderExpanded}
+        // Filter props for MaintenanceTableHeader
+        searchTerm={searchTerm}
+        onSearchChange={stableOnSearchChange}
+        level1Filter={level1Filter}
+        level2Filter={level2Filter}
+        level3Filter={level3Filter}
+        onLevel1FilterChange={handleLevel1FilterChange}
+        onLevel2FilterChange={handleLevel2FilterChange}
+        onLevel3FilterChange={handleLevel3FilterChange}
+        hierarchyFilterTree={hierarchyFilterTree}
+        level2Options={level2Options}
+        level3Options={level3Options}
+        uniqueTasks={uniqueTasks}
+        selectedTasks={selectedTasks}
+        onSelectedTasksChange={onSelectedTasksChange}
+        uniqueBomCodes={uniqueBomCodes}
+        selectedBomCodes={selectedBomCodes}
+        onSelectedBomCodesChange={onSelectedBomCodesChange}
       />
     );
   }, [
     processedData, processedColumns, currentDisplayAreaConfig, displayAreaConfig,
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
     onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
-    setSelectedRange, onUpdateItem, virtualScrolling, shouldUseVirtualScrolling, readOnly,
     handleCopy, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
-    expandedWorkOrders, toggleWorkOrderExpanded
+    expandedWorkOrders, toggleWorkOrderExpanded,
+    searchTerm, stableOnSearchChange, level1Filter, level2Filter, level3Filter,
+    handleLevel1FilterChange, handleLevel2FilterChange, handleLevel3FilterChange,
+    hierarchyFilterTree, level2Options, level3Options, uniqueTasks, selectedTasks,
+    onSelectedTasksChange, uniqueBomCodes, selectedBomCodes, onSelectedBomCodesChange
   ]);
 
-  // Stable callback handlers to prevent infinite re-renders
-  const handleLevel1FilterChange = useCallback((e: any) => {
-    onLevel1FilterChange?.(e.target.value);
-  }, [onLevel1FilterChange]);
 
-  const handleLevel2FilterChange = useCallback((e: any) => {
-    onLevel2FilterChange?.(e.target.value);
-  }, [onLevel2FilterChange]);
-
-  const handleLevel3FilterChange = useCallback((e: any) => {
-    onLevel3FilterChange?.(e.target.value);
-  }, [onLevel3FilterChange]);
-
-  const handleViewModeChange = useCallback((e: any) => {
-    onViewModeChange?.(e.target.checked ? 'cost' : 'status');
-  }, [onViewModeChange]);
-
-  const handleTimeScaleChange = useCallback((e: any) => {
-    onTimeScaleChange?.(e.target.value as TimeScale);
-  }, [onTimeScaleChange]);
-
-  // Stable empty function references with useMemo to prevent re-creation
-  const stableOnSearchChange = useMemo(() => onSearchChange || (() => { }), [onSearchChange]);
-  const stableOnShowBomCodeChange = useMemo(() => onShowBomCodeChange || (() => { }), [onShowBomCodeChange]);
-  const stableOnDisplayModeChange = useMemo(() => onDisplayModeChange || (() => { }), [onDisplayModeChange]);
-  const stableOnAddYear = useMemo(() => onAddYear || (() => { }), [onAddYear]);
-  const stableOnDeleteYear = useMemo(() => onDeleteYear || (() => { }), [onDeleteYear]);
-  const stableOnExportData = useMemo(() => onExportData || (() => { }), [onExportData]);
-  const stableOnImportData = useMemo(() => onImportData || (() => { }), [onImportData]);
-  const stableOnResetData = useMemo(() => onResetData || (() => { }), [onResetData]);
-  const stableOnAIAssistantToggle = useMemo(() => onAIAssistantToggle || (() => { }), [onAIAssistantToggle]);
 
   // Desktop-only className
   const paperClassName = useMemo(() => {
@@ -1126,61 +1161,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Integrated Toolbar - Re-enabled with stable props */}
-          <Box
-            key="integrated-toolbar"
-            sx={{
-              flexShrink: 0,
-              zIndex: 10,
-              position: 'relative'
-            }}
-          >
-            <IntegratedToolbar
-              searchTerm={searchTerm}
-              onSearchChange={stableOnSearchChange}
-              level1Filter={level1Filter}
-              level2Filter={level2Filter}
-              level3Filter={level3Filter}
-              onLevel1FilterChange={handleLevel1FilterChange}
-              onLevel2FilterChange={handleLevel2FilterChange}
-              onLevel3FilterChange={handleLevel3FilterChange}
-              hierarchyFilterTree={hierarchyFilterTree}
-              level2Options={level2Options || []}
-              level3Options={level3Options || []}
-              viewMode={viewMode}
-              onViewModeChange={handleViewModeChange}
-              timeScale={timeScale}
-              onTimeScaleChange={handleTimeScaleChange}
-              dataViewMode={dataViewMode}
-              onDataViewModeChange={onDataViewModeChange}
-              editScope={editScope}
-              onEditScopeChange={onEditScopeChange}
-              showBomCode={showBomCode}
-              onShowBomCodeChange={stableOnShowBomCodeChange}
-              displayMode={displayMode}
-              onDisplayModeChange={stableOnDisplayModeChange}
-              onAddYear={stableOnAddYear}
-              onDeleteYear={stableOnDeleteYear}
-              onExportData={stableOnExportData}
-              onImportData={stableOnImportData}
-              onResetData={stableOnResetData}
-              onAIAssistantToggle={stableOnAIAssistantToggle}
-              isAIAssistantOpen={isAIAssistantOpen}
-              currentYear={currentYear}
-              onJumpToDate={onJumpToDate}
-              hierarchy={hierarchy}
-              assets={assets || []}
-              selectedAssets={selectedAssets || []}
-              onAssetSelectionChange={onAssetSelectionChange}
-              onHierarchyEdit={onHierarchyEdit}
-              onOpenAssetReassignDialog={onOpenAssetReassignDialog}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={onUndo}
-              onRedo={onRedo}
-            />
-          </Box>
-
           {/* Desktop Grid Layout */}
           <Box
             sx={{
