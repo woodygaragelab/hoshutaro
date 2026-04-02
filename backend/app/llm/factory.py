@@ -89,8 +89,22 @@ def get_llm_loading_status() -> dict:
 
 
 def reset_llm_adapter() -> None:
+    """設定変更時にアダプターを再生成する。既存参照も新設定で即時反映。"""
     global _adapter, _adapter_loading, _adapter_error
     with _adapter_lock:
+        if _adapter is not None:
+            # 進行中の処理が持つ旧adapter参照にも即反映（ホットスワップ）
+            from openai import AsyncOpenAI
+            _adapter.model = settings.llm_model
+            _adapter._base_url = settings.llm_base_url
+            _adapter._api_key = settings.llm_api_key
+            _adapter._client = AsyncOpenAI(
+                base_url=settings.llm_base_url, api_key=settings.llm_api_key,
+            )
+            _adapter.temperature = settings.llm_temperature
+            _adapter.max_tokens = settings.llm_max_tokens
+            logger.info("[LLM Factory] アダプター設定をホットスワップ: model=%s", settings.llm_model)
+        # 次回get_llm_adapter()で新設定のアダプターを再生成させる
         _adapter = None
         _adapter_loading = False
         _adapter_error = None

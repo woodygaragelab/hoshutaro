@@ -5,11 +5,15 @@
   POST /api/data/import/excel     - Excel解析（Phase 1-2）
   POST /api/data/import/confirm   - ユーザー確認後のチャンク変換（Phase 3）
 """
+import difflib
+import json
 import logging
+import os
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.config import settings
 from app.services.session_manager import session_manager
 from app.services.excel_converter import analyze_excel_full, execute_chunk_conversion
 from app.engine.state import ExcelImportState
@@ -42,14 +46,12 @@ async def import_excel(
             file_bytes=file_bytes,
             status="pending",
             error_message="",
-            analysis_result=None,
+            analysis_results=None,
             summary="",
             total_rows=0,
-            structure_info=None,
-            descriptors_info=None,
-            symbol_mapping={},
-            preview_records=[],
-            warnings=[],
+            sheets=[],
+            _retry_count=0,
+            _validation_errors=[],
             processed_rows=0,
             extracted_assets=[],
             extracted_work_orders=[],
@@ -135,21 +137,23 @@ async def confirm_import(body: ConfirmImportRequest):
         dm = session.data_model
         
         existing_assets = dm.setdefault("assets", {})
-        import difflib
-        
+
         for new_asset in all_assets_dict.values():
             matched_existing = None
-            
+
             # 1. 完全一致チェック
             if new_asset["id"] in existing_assets:
                 matched_existing = existing_assets[new_asset["id"]]
             else:
-                # 2. difflib による類似度マッチング（閾値0.8以上なら同一とみなす）
+                # 2. difflib による類似度マッチング（最高スコアのマッチを採用）
+                best_match = None
+                best_score = 0.8  # 閾値
                 for ext_asset in existing_assets.values():
-                    name_similarity = difflib.SequenceMatcher(None, new_asset["name"], ext_asset["name"]).ratio()
-                    if name_similarity > 0.8:
-                        matched_existing = ext_asset
-                        break
+                    score = difflib.SequenceMatcher(None, new_asset["name"], ext_asset["name"]).ratio()
+                    if score > best_score:
+                        best_score = score
+                        best_match = ext_asset
+                matched_existing = best_match
             
             if matched_existing:
                 # マージ: 既存の階層は維持し、スペックを統合する
@@ -185,11 +189,11 @@ async def confirm_import(body: ConfirmImportRequest):
         
         hierarchy_dict["levels"] = levels
         
-        # jsonバックアップ
-        import json, os
-        debug_path = os.path.join(os.getcwd(), "data_model_debug.json")
-        with open(debug_path, "w", encoding="utf-8") as f:
-            json.dump(dm, f, ensure_ascii=False, indent=2)
+        # jsonバックアップ（デバッグモード時のみ）
+        if settings.debug_mode:
+            debug_path = os.path.join(os.getcwd(), "data_model_debug.json")
+            with open(debug_path, "w", encoding="utf-8") as f:
+                json.dump(dm, f, ensure_ascii=False, indent=2)
             
         # import_stateをクリア
         session.import_state = None

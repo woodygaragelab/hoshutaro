@@ -29,6 +29,10 @@ class ExcelImportState(TypedDict):
     sheets: list[dict]
 
     
+    # バリデーション用
+    _retry_count: int
+    _validation_errors: list[str]
+
     # チャンク処理の進捗
     processed_rows: int
     extracted_assets: list[dict]
