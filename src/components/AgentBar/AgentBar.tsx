@@ -317,7 +317,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
         <div className="agent-bar-surface shadow-bar">
           
           {/* Controls Cluster */}
-          <div className="agent-bar-controls">
+          <div className="agent-bar-controls" style={{ position: 'relative' }}>
             
             <IconButton 
               className={`tb-icon ${isToolsExpanded ? 'active' : ''}`}
@@ -327,7 +327,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               <ToolsIcon fontSize="small" />
             </IconButton>
 
-            <div className={`expandable-tools ${isToolsExpanded ? 'expanded' : ''}`}>
+            <div className={`expandable-tools-pill ${isToolsExpanded ? 'expanded' : ''}`}>
               {/* Display Mode Toggle */}
               <div 
                 className="control-hover-group"

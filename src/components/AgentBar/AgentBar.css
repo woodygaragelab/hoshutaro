@@ -5,9 +5,8 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  width: fit-content;
-  min-width: 600px;
-  max-width: 95vw;
+  width: 100%;
+  max-width: 650px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -38,22 +37,36 @@
   gap: 8px;
 }
 
-.expandable-tools {
+.expandable-tools-pill {
+  position: absolute;
+  right: 100%;
+  margin-right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  
+  background-color: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  
   display: flex;
   align-items: center;
+  flex-direction: row-reverse;
+  gap: 8px;
+  
   max-width: 0;
   opacity: 0;
-  transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, gap 0.3s ease, margin-left 0.3s ease;
-  white-space: nowrap;
-  gap: 0;
+  padding: 8px 0;
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
 }
 
-.expandable-tools.expanded {
+.expandable-tools-pill.expanded {
   max-width: 300px;
   opacity: 1;
-  gap: 8px;
-  margin-left: 8px;
+  padding: 8px 12px;
   overflow: visible;
 }
 
@@ -80,7 +93,6 @@
 
 .agent-input-wrapper {
   flex-grow: 1;
-  width: 450px;
   display: flex;
   align-items: center;
   background-color: rgba(0, 0, 0, 0.4);
