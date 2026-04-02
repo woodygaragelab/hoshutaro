@@ -266,7 +266,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
         {isChatExpanded && (
           <div className="agent-chat-window animate-float-up">
             <div className="agent-chat-header">
-              <span className="agent-chat-title"><AIIcon sx={{ fontSize: 18, mr: 1}}/> AI Assistant</span>
+              <span className="agent-chat-title"><AIIcon sx={{ fontSize: 18, mr: 1}}/> HOSHUTARO</span>
               <IconButton size="small" sx={{color: '#999'}} onClick={() => setIsChatExpanded(false)}>
                 <CloseIcon fontSize="small"/>
               </IconButton>
