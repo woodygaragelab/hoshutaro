@@ -16,7 +16,8 @@ import {
   AccountTree as HierarchyIcon,
   ImportExport as SyncIcon,
   FileUpload as UploadFileIcon,
-  FileDownload as DownloadFileIcon
+  FileDownload as DownloadFileIcon,
+  ChatBubbleOutline as ChatIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
@@ -441,6 +442,13 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                  </div>
                )}
              </div>
+             <IconButton 
+               className={`tb-icon ${isChatExpanded ? 'active' : ''}`}
+               onClick={() => setIsChatExpanded(!isChatExpanded)} 
+               title="AIチャット履歴の表示切替"
+             >
+               <ChatIcon fontSize="small"/>
+             </IconButton>
              <IconButton className="tb-icon" onClick={() => setIsSettingsOpen(true)} title="LLM設定">
                <SettingsIcon fontSize="small"/>
              </IconButton>
