@@ -10,57 +10,68 @@ class ParseError(ValueError):
         super().__init__(message)
         self.raw = raw
 
+
+def _extract_by_depth(text: str, open_ch: str, close_ch: str):
+    """Brace/bracket depth-tracking で最初の完全なブロックを抽出する。"""
+    start = text.find(open_ch)
+    if start == -1:
+        return None
+    depth = 0
+    in_string = False
+    escape = False
+    for i, ch in enumerate(text[start:], start=start):
+        if escape:
+            escape = False
+            continue
+        if ch == "\\" and in_string:
+            escape = True
+            continue
+        if ch == '"' and not escape:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == open_ch:
+            depth += 1
+        elif ch == close_ch:
+            depth -= 1
+            if depth == 0:
+                candidate = text[start : i + 1]
+                try:
+                    return json.loads(candidate)
+                except json.JSONDecodeError:
+                    return None
+    return None
+
+
 def extract_json_object(text: str) -> dict:
     """
     LLM の出力テキストから JSON オブジェクトを抽出してパースする。
+    Strategy順: depth-tracking → ```jsonブロック → ```ブロック → ベースパース
     """
     original = text
     text = text.strip()
 
-    # 1. ```json ... ``` ブロック
-    m = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+    # 1. Depth-tracking（最も堅牢）
+    result = _extract_by_depth(text, "{", "}")
+    if result is not None and isinstance(result, dict):
+        return result
+
+    # 2. ```json ... ``` ブロック
+    m = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", text)
     if m:
         try:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
 
-    # 2. ``` ... ``` ブロック
-    m = re.search(r"```\s*(\{.*?\})\s*```", text, re.DOTALL)
+    # 3. ``` ... ``` ブロック
+    m = re.search(r"```\s*(\{[\s\S]*?\})\s*```", text)
     if m:
         try:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
-
-    # 3. 最初の { ... } ブロックを探す
-    start = text.find("{")
-    if start != -1:
-        depth = 0
-        in_string = False
-        escape = False
-        for i, ch in enumerate(text[start:], start=start):
-            if escape:
-                escape = False
-                continue
-            if ch == "\\" and in_string:
-                escape = True
-                continue
-            if ch == '"' and not escape:
-                in_string = not in_string
-                continue
-            if in_string:
-                continue
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = text[start : i + 1]
-                    try:
-                        return json.loads(candidate)
-                    except json.JSONDecodeError:
-                        break
 
     # 4. ベースパース
     try:
@@ -74,54 +85,31 @@ def extract_json_object(text: str) -> dict:
 def extract_json_array(text: str) -> list:
     """
     LLM の出力テキストから JSON 配列を抽出してパースする。
+    Strategy順: depth-tracking → ```jsonブロック → ```ブロック → ベースパース
     """
     original = text
     text = text.strip()
 
-    # 1. ```json ... ``` ブロック
-    m = re.search(r"```json\s*(\[.*?\])\s*```", text, re.DOTALL)
+    # 1. Depth-tracking（最も堅牢）
+    result = _extract_by_depth(text, "[", "]")
+    if result is not None and isinstance(result, list):
+        return result
+
+    # 2. ```json ... ``` ブロック
+    m = re.search(r"```json\s*(\[[\s\S]*?\])\s*```", text)
     if m:
         try:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
 
-    # 2. ``` ... ``` ブロック
-    m = re.search(r"```\s*(\[.*?\])\s*```", text, re.DOTALL)
+    # 3. ``` ... ``` ブロック
+    m = re.search(r"```\s*(\[[\s\S]*?\])\s*```", text)
     if m:
         try:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
-
-    # 3. 最初の [ ... ] ブロックを探す
-    start = text.find("[")
-    if start != -1:
-        depth = 0
-        in_string = False
-        escape = False
-        for i, ch in enumerate(text[start:], start=start):
-            if escape:
-                escape = False
-                continue
-            if ch == "\\" and in_string:
-                escape = True
-                continue
-            if ch == '"' and not escape:
-                in_string = not in_string
-                continue
-            if in_string:
-                continue
-            if ch == "[":
-                depth += 1
-            elif ch == "]":
-                depth -= 1
-                if depth == 0:
-                    candidate = text[start : i + 1]
-                    try:
-                        return json.loads(candidate)
-                    except json.JSONDecodeError:
-                        break
 
     # 4. ベースパース
     try:

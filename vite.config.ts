@@ -39,7 +39,7 @@ export default defineConfig({
   },
   // Development server optimizations
   server: {
-    port: 5555,
+    port: 5173,
     open: 'chrome',
     hmr: {
       overlay: false, // Disable error overlay for better performance
