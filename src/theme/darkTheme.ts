@@ -317,11 +317,26 @@ export const darkTheme = createTheme({
         },
       },
     },
+    MuiBackdrop: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+        },
+      },
+    },
     MuiDialog: {
       styleOverrides: {
         paper: {
-          backgroundColor: '#1e1e1e',
+          backgroundColor: 'rgba(25, 25, 25, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           color: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
+          backgroundImage: 'none',
         },
       },
     },
@@ -329,13 +344,17 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           color: '#ffffff',
+          fontWeight: 400,
+          letterSpacing: '0.5px',
+          padding: '24px 24px 16px',
         },
       },
     },
     MuiDialogContent: {
       styleOverrides: {
         root: {
-          color: '#ffffff',
+          color: '#e0e0e0',
+          padding: '8px 24px 24px',
         },
       },
     },
@@ -343,6 +362,28 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           color: '#b3b3b3',
+          lineHeight: 1.6,
+        },
+      },
+    },
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          padding: '16px 24px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: 'rgba(25, 25, 25, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+          backgroundImage: 'none',
         },
       },
     },
@@ -350,9 +391,13 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiAlert-root': {
-            backgroundColor: '#1e1e1e',
+            backgroundColor: 'rgba(25, 25, 25, 0.9)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
             color: '#ffffff',
-            border: '1px solid #333333',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
           },
         },
       },
