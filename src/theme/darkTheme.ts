@@ -234,7 +234,7 @@ export const darkTheme = createTheme({
     MuiTable: {
       styleOverrides: {
         root: {
-          backgroundColor: '#000000',
+          backgroundColor: 'transparent',
           color: '#ffffff',
         },
       },
@@ -242,12 +242,16 @@ export const darkTheme = createTheme({
     MuiTableHead: {
       styleOverrides: {
         root: {
-          backgroundColor: '#1e1e1e',
+          backgroundColor: 'rgba(20, 20, 20, 0.95)',
+          backdropFilter: 'blur(8px)',
           '& .MuiTableCell-head': {
-            backgroundColor: '#1e1e1e',
+            backgroundColor: 'transparent',
             color: '#ffffff',
             fontWeight: 600,
-            borderBottom: '2px solid #333333',
+            borderBottom: '2px solid rgba(255, 255, 255, 0.1)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            fontSize: '13px',
           },
         },
       },
@@ -256,17 +260,18 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiTableRow-root': {
-            backgroundColor: '#000000',
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            transition: 'background-color 0.2s ease',
             '&:nth-of-type(odd)': {
-              backgroundColor: '#0a0a0a',
+              backgroundColor: 'rgba(255, 255, 255, 0.02)',
             },
             '&:hover': {
-              backgroundColor: '#1e1e1e',
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
             },
           },
           '& .MuiTableCell-body': {
-            color: '#ffffff',
-            borderBottom: '1px solid #333333',
+            color: '#e0e0e0',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
           },
         },
       },
@@ -275,20 +280,20 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           color: '#ffffff',
-          backgroundColor: '#000000',
-          borderBottom: '1px solid #333333',
+          backgroundColor: 'transparent',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
           fontSize: '14px',
           fontWeight: 400,
         },
         head: {
           color: '#ffffff',
-          backgroundColor: '#1e1e1e',
+          backgroundColor: 'transparent',
           fontWeight: 600,
-          fontSize: '14px',
+          fontSize: '13px',
         },
         body: {
-          color: '#ffffff',
-          backgroundColor: '#000000',
+          color: '#e0e0e0',
+          backgroundColor: 'transparent',
           fontSize: '14px',
         },
       },
@@ -481,29 +486,33 @@ export const darkTheme = createTheme({
 export const darkThemeStyles = {
   // グリッドセル用のスタイル
   gridCell: {
-    backgroundColor: '#000000',
-    color: '#ffffff',
-    border: '1px solid #333333',
+    backgroundColor: 'transparent',
+    color: '#e0e0e0',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRight: '1px solid rgba(255, 255, 255, 0.02)',
+    transition: 'background-color 0.2s ease',
     '&:hover': {
-      backgroundColor: '#1e1e1e',
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
     },
     '&.selected': {
-      backgroundColor: '#333333',
+      backgroundColor: 'rgba(33, 150, 243, 0.15)',
     },
   },
   
   // ヘッダー用のスタイル
   header: {
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(20, 20, 20, 0.95)',
+    backdropFilter: 'blur(8px)',
     color: '#ffffff',
-    borderBottom: '2px solid #333333',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
   },
   
   // サイドバー用のスタイル
   sidebar: {
-    backgroundColor: '#121212',
+    backgroundColor: 'rgba(15, 15, 15, 0.85)',
+    backdropFilter: 'blur(12px)',
     color: '#ffffff',
-    borderRight: '1px solid #333333',
+    borderRight: '1px solid rgba(255, 255, 255, 0.05)',
   },
   
   // AIアシスタント用のスタイル

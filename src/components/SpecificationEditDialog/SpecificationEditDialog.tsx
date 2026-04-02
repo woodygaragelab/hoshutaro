@@ -551,9 +551,9 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
         }}
         onKeyDown={handleKeyDown}
       >
-        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
           {renderContent()}
-        </Paper>
+        </Box>
       </Popover>
     );
   }
