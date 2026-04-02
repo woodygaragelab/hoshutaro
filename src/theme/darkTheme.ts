@@ -59,6 +59,9 @@ export const darkTheme = createTheme({
       dark: '#388e3c',
     },
   },
+  shape: {
+    borderRadius: 16,
+  },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", "Noto Sans JP", sans-serif',
     fontSize: 14,
@@ -118,27 +121,32 @@ export const darkTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#000000',
+          backgroundColor: 'transparent',
           color: '#ffffff',
-          borderBottom: '1px solid #333333',
+          borderBottom: 'none',
+          boxShadow: 'none',
+          backgroundImage: 'none',
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: '#121212',
+          backgroundColor: 'rgba(18, 18, 18, 0.7)',
           color: '#ffffff',
-          border: '1px solid #333333',
+          border: 'none',
+          backgroundImage: 'none',
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: '#1e1e1e',
+          backgroundColor: 'rgba(30, 30, 30, 0.6)',
           color: '#ffffff',
-          border: '1px solid #333333',
+          border: 'none',
+          backgroundImage: 'none',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
         },
       },
     },
@@ -173,16 +181,17 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            backgroundColor: '#1e1e1e',
+            backgroundColor: 'rgba(30, 30, 30, 0.4)',
             color: '#ffffff',
+            borderRadius: '12px',
             '& fieldset': {
-              borderColor: '#666666',
+              border: 'none',
             },
             '&:hover fieldset': {
-              borderColor: '#ffffff',
+              border: 'none',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
             },
           },
           '& .MuiInputLabel-root': {
@@ -248,7 +257,7 @@ export const darkTheme = createTheme({
             backgroundColor: 'transparent',
             color: '#ffffff',
             fontWeight: 600,
-            borderBottom: '2px solid rgba(255, 255, 255, 0.1)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             fontSize: '13px',
@@ -271,7 +280,7 @@ export const darkTheme = createTheme({
           },
           '& .MuiTableCell-body': {
             color: '#e0e0e0',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            borderBottom: 'none',
           },
         },
       },
@@ -281,7 +290,7 @@ export const darkTheme = createTheme({
         root: {
           color: '#ffffff',
           backgroundColor: 'transparent',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+          borderBottom: 'none',
           fontSize: '14px',
           fontWeight: 400,
         },
@@ -338,8 +347,7 @@ export const darkTheme = createTheme({
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           color: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: 'none',
           boxShadow: '0 24px 64px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
           backgroundImage: 'none',
         },
@@ -375,7 +383,7 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           padding: '16px 24px',
-          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          borderTop: 'none',
         },
       },
     },
@@ -385,9 +393,8 @@ export const darkTheme = createTheme({
           backgroundColor: 'rgba(25, 25, 25, 0.85)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+          border: 'none',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
           backgroundImage: 'none',
         },
       },
@@ -400,9 +407,8 @@ export const darkTheme = createTheme({
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
             color: '#ffffff',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '12px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+            border: 'none',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
           },
         },
       },
@@ -488,8 +494,8 @@ export const darkThemeStyles = {
   gridCell: {
     backgroundColor: 'transparent',
     color: '#e0e0e0',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-    borderRight: '1px solid rgba(255, 255, 255, 0.02)',
+    borderBottom: 'none',
+    borderRight: 'none',
     transition: 'background-color 0.2s ease',
     '&:hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -504,7 +510,7 @@ export const darkThemeStyles = {
     backgroundColor: 'rgba(20, 20, 20, 0.95)',
     backdropFilter: 'blur(8px)',
     color: '#ffffff',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    borderBottom: 'none',
   },
   
   // サイドバー用のスタイル
@@ -512,7 +518,7 @@ export const darkThemeStyles = {
     backgroundColor: 'rgba(15, 15, 15, 0.85)',
     backdropFilter: 'blur(12px)',
     color: '#ffffff',
-    borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRight: 'none',
   },
   
   // AIアシスタント用のスタイル
