@@ -17,7 +17,8 @@ import {
   ImportExport as SyncIcon,
   FileUpload as UploadFileIcon,
   FileDownload as DownloadFileIcon,
-  ChatBubbleOutline as ChatIcon
+  ChatBubbleOutline as ChatIcon,
+  Apps as ToolsIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
@@ -71,6 +72,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const [isToolsExpanded, setIsToolsExpanded] = useState(false);
 
   // --- Hover Menu States ---
   const [showTimeScaleMenu, setShowTimeScaleMenu] = useState(false);
@@ -317,51 +319,93 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           {/* Controls Cluster */}
           <div className="agent-bar-controls">
             
-            {/* Display Mode Toggle */}
-            <div 
-              className="control-hover-group"
-              onMouseEnter={() => setShowDisplayModeMenu(true)}
-              onMouseLeave={() => setShowDisplayModeMenu(false)}
-            >
-              <IconButton className={`tb-icon ${showDisplayModeMenu ? 'active' : ''}`} title="表示モード">
-                <DisplayModeIcon fontSize="small" />
-              </IconButton>
-              {showDisplayModeMenu && (
-                <div className="hover-menu-vertical">
-                  <div className={`menu-item ${displayMode === 'maintenance' ? 'selected' : ''}`} onClick={() => onDisplayModeChange('maintenance')}>星取表</div>
-                  <div className={`menu-item ${displayMode === 'specifications' ? 'selected' : ''}`} onClick={() => onDisplayModeChange('specifications')}>機器仕様</div>
-                  <div className={`menu-item ${displayMode === 'both' ? 'selected' : ''}`} onClick={() => onDisplayModeChange('both')}>両方</div>
-                </div>
-              )}
-            </div>
-
-            {/* Time Scale Toggle */}
-            <div 
-              className="control-hover-group"
-              onMouseEnter={() => setShowTimeScaleMenu(true)}
-              onMouseLeave={() => setShowTimeScaleMenu(false)}
-            >
-              <IconButton className={`tb-icon ${showTimeScaleMenu ? 'active' : ''}`} title="時間スケール">
-                <CalendarIcon fontSize="small" />
-              </IconButton>
-              {showTimeScaleMenu && (
-                <div className="hover-menu-vertical">
-                  <div className={`menu-item ${timeScale === 'day' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('day')}>日</div>
-                  <div className={`menu-item ${timeScale === 'week' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('week')}>週</div>
-                  <div className={`menu-item ${timeScale === 'month' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('month')}>月</div>
-                  <div className={`menu-item ${timeScale === 'year' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('year')}>年</div>
-                </div>
-              )}
-            </div>
-
-            {/* View Mode Toggle */}
             <IconButton 
-              className="tb-icon" 
-              onClick={() => onDataViewModeChange(dataViewMode === 'asset-based' ? 'workorder-based' : 'asset-based')}
-              title={dataViewMode === 'asset-based' ? '現在：機器ベース (クリックで作業ベースへ)' : '現在：作業ベース (クリックで機器ベースへ)'}
+              className={`tb-icon ${isToolsExpanded ? 'active' : ''}`}
+              onClick={() => setIsToolsExpanded(!isToolsExpanded)}
+              title="グリッドツール"
             >
-              <ViewModeIcon fontSize="small" />
+              <ToolsIcon fontSize="small" />
             </IconButton>
+
+            <div className={`expandable-tools ${isToolsExpanded ? 'expanded' : ''}`}>
+              {/* Display Mode Toggle */}
+              <div 
+                className="control-hover-group"
+                onMouseEnter={() => setShowDisplayModeMenu(true)}
+                onMouseLeave={() => setShowDisplayModeMenu(false)}
+              >
+                <IconButton className={`tb-icon ${showDisplayModeMenu ? 'active' : ''}`} title="表示モード">
+                  <DisplayModeIcon fontSize="small" />
+                </IconButton>
+                {showDisplayModeMenu && (
+                  <div className="hover-menu-vertical">
+                    <div className={`menu-item ${displayMode === 'maintenance' ? 'selected' : ''}`} onClick={() => onDisplayModeChange('maintenance')}>星取表</div>
+                    <div className={`menu-item ${displayMode === 'specifications' ? 'selected' : ''}`} onClick={() => onDisplayModeChange('specifications')}>機器仕様</div>
+                    <div className={`menu-item ${displayMode === 'both' ? 'selected' : ''}`} onClick={() => onDisplayModeChange('both')}>両方</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Time Scale Toggle */}
+              <div 
+                className="control-hover-group"
+                onMouseEnter={() => setShowTimeScaleMenu(true)}
+                onMouseLeave={() => setShowTimeScaleMenu(false)}
+              >
+                <IconButton className={`tb-icon ${showTimeScaleMenu ? 'active' : ''}`} title="時間スケール">
+                  <CalendarIcon fontSize="small" />
+                </IconButton>
+                {showTimeScaleMenu && (
+                  <div className="hover-menu-vertical">
+                    <div className={`menu-item ${timeScale === 'day' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('day')}>日</div>
+                    <div className={`menu-item ${timeScale === 'week' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('week')}>週</div>
+                    <div className={`menu-item ${timeScale === 'month' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('month')}>月</div>
+                    <div className={`menu-item ${timeScale === 'year' ? 'selected' : ''}`} onClick={() => onTimeScaleChange('year')}>年</div>
+                  </div>
+                )}
+              </div>
+
+              {/* View Mode Toggle */}
+              <IconButton 
+                className="tb-icon" 
+                onClick={() => onDataViewModeChange(dataViewMode === 'asset-based' ? 'workorder-based' : 'asset-based')}
+                title={dataViewMode === 'asset-based' ? '現在：機器ベース (クリックで作業ベースへ)' : '現在：作業ベース (クリックで機器ベースへ)'}
+              >
+                <ViewModeIcon fontSize="small" />
+              </IconButton>
+
+              {/* Hierarchy Edit Toggle */}
+              {onHierarchyEdit && (
+                <IconButton 
+                  className="tb-icon" 
+                  onClick={onHierarchyEdit}
+                  title="機器階層設定"
+                >
+                  <HierarchyIcon fontSize="small" />
+                </IconButton>
+              )}
+
+              {/* Data Sync Toggle */}
+              <div 
+                className="control-hover-group"
+                onMouseEnter={() => setShowDataSyncMenu(true)}
+                onMouseLeave={() => setShowDataSyncMenu(false)}
+              >
+                <IconButton className={`tb-icon ${showDataSyncMenu ? 'active' : ''}`} title="データ入出力">
+                  <SyncIcon fontSize="small"/>
+                </IconButton>
+                {showDataSyncMenu && (
+                  <div className="hover-menu-vertical">
+                    <div className="menu-item" onClick={onImportData} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <UploadFileIcon fontSize="small" sx={{mr: 1}}/> アップロード
+                    </div>
+                    <div className="menu-item" onClick={onExportData} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <DownloadFileIcon fontSize="small" sx={{mr: 1}}/> ダウンロード
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="divider"></div>
@@ -411,37 +455,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
           <div className="divider"></div>
 
-          {/* Global Operations */}
+          {/* Right Controls */}
           <div className="agent-bar-right">
-             {/* Hierarchy Edit Toggle */}
-             {onHierarchyEdit && (
-               <IconButton 
-                 className="tb-icon" 
-                 onClick={onHierarchyEdit}
-                 title="機器階層設定"
-               >
-                 <HierarchyIcon fontSize="small" />
-               </IconButton>
-             )}
-             <div 
-               className="control-hover-group"
-               onMouseEnter={() => setShowDataSyncMenu(true)}
-               onMouseLeave={() => setShowDataSyncMenu(false)}
-             >
-               <IconButton className={`tb-icon ${showDataSyncMenu ? 'active' : ''}`} title="データ入出力">
-                 <SyncIcon fontSize="small"/>
-               </IconButton>
-               {showDataSyncMenu && (
-                 <div className="hover-menu-vertical">
-                   <div className="menu-item" onClick={onImportData} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                     <UploadFileIcon fontSize="small" sx={{mr: 1}}/> アップロード
-                   </div>
-                   <div className="menu-item" onClick={onExportData} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                     <DownloadFileIcon fontSize="small" sx={{mr: 1}}/> ダウンロード
-                   </div>
-                 </div>
-               )}
-             </div>
              <IconButton 
                className={`tb-icon ${isChatExpanded ? 'active' : ''}`}
                onClick={() => setIsChatExpanded(!isChatExpanded)} 
