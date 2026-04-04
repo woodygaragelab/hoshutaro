@@ -73,10 +73,10 @@ export const generateTimeRange = (startDate: Date, endDate: Date, timeScale: Tim
     // For week, we ideally start on Monday, but the getTimeKey handles random dates correctly anyway.
 
     // Iterate until we pass the end date
-    // We use a safe loop limit to prevent UI freezes (React stack explosion)
-    // 200 columns is usually the maximum comprehensible grid width for users.
+    // We use a safe loop limit to prevent memory spikes, but react-data-grid is virtualized.
+    // 5000 allows for ~13 years of day view, ~100 years of week, and ~400 years of month views.
     let safetyCounter = 0;
-    const LIMIT = 300;
+    const LIMIT = 5000;
 
     while (current <= endDate && safetyCounter < LIMIT) {
         keys.push(getTimeKey(current, timeScale));

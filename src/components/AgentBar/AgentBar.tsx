@@ -18,12 +18,14 @@ import {
   FileUpload as UploadFileIcon,
   FileDownload as DownloadFileIcon,
   ChatBubbleOutline as ChatIcon,
-  Apps as ToolsIcon
+  Apps as ToolsIcon,
+  Event as DateRangeIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
 import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelImport } from '../../services/ExcelProcessingService';
 import { LLMSettingsDialog } from '../AIAssistant/components/LLMSettingsDialog';
+import DateJumpDialog from '../DateJumpDialog/DateJumpDialog';
 import './AgentBar.css';
 
 interface AgentBarProps {
@@ -45,6 +47,8 @@ interface AgentBarProps {
   onExcelImport: (file: File) => void;
   onImportComplete: (dataModel: any) => void;
   dataContext: any;
+  timeHeaders?: string[];
+  activeTimeHeaders?: string[];
 }
 
 export const AgentBar: React.FC<AgentBarProps> = ({
@@ -60,7 +64,9 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   onSuggestionApply,
   onExcelImport,
   onImportComplete,
-  dataContext
+  dataContext,
+  timeHeaders = [],
+  activeTimeHeaders = []
 }) => {
   // --- AI Assistant State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -79,6 +85,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const [showTimeScaleMenu, setShowTimeScaleMenu] = useState(false);
   const [showDisplayModeMenu, setShowDisplayModeMenu] = useState(false);
   const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
+  const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
+  const [lastJumpDate, setLastJumpDate] = useState<string | undefined>();
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -442,6 +450,36 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Date Jump Toggle (Hidden in Year mode) */}
+            {timeScale !== 'year' && (
+              <div 
+                className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''} control-hover-group`}
+                onMouseEnter={() => setShowDateJumpMenu(true)}
+                onMouseLeave={() => setShowDateJumpMenu(false)}
+              >
+                <IconButton 
+                  className={`tb-icon ${showDateJumpMenu ? 'active' : ''}`}
+                  title="指定日付へジャンプ"
+                >
+                  <DateRangeIcon fontSize="small" />
+                </IconButton>
+                {showDateJumpMenu && (
+                  <DateJumpDialog
+                    currentDate={lastJumpDate}
+                    timeScale={timeScale}
+                    timeHeaders={timeHeaders}
+                    activeTimeHeaders={activeTimeHeaders}
+                    onJump={(dateStr) => {
+                      setLastJumpDate(dateStr);
+                      const event = new CustomEvent('jumpToColumn', { detail: { header: dateStr } });
+                      window.dispatchEvent(event);
+                      setShowDateJumpMenu(false);
+                    }}
+                  />
+                )}
+              </div>
+            )}
 
             {/* View Mode Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>

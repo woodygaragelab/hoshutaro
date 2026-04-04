@@ -63,6 +63,7 @@ const App: React.FC = () => {
 
   // Data states
   const [maintenanceData, setMaintenanceData] = useState<HierarchicalData[]>([]);
+  const [activeTimeHeaders, setActiveTimeHeaders] = useState<string[]>([]);
   const [timeHeaders, setTimeHeaders] = useState<string[]>(() => {
     // Initialize with basic time headers to prevent "ヘッダーが見つかりません" error
     const currentYear = new Date().getFullYear();
@@ -607,6 +608,18 @@ const App: React.FC = () => {
           (window as any).__DEBUG_EQUIPMENT = equipmentData;
           (window as any).__DEBUG_TRANS = transformedData;
           
+          const newActiveHeaders = new Set<string>();
+          transformedData.forEach(item => {
+            if (item.results) {
+              Object.keys(item.results).forEach(k => {
+                if (item.results![k].planned || item.results![k].actual) {
+                   newActiveHeaders.add(k);
+                }
+              });
+            }
+          });
+          setActiveTimeHeaders(Array.from(newActiveHeaders));
+
           setMaintenanceData(transformedData);
 
           // Generate time headers with full range
@@ -680,11 +693,24 @@ const App: React.FC = () => {
             }
           });
           
+          const newActiveHeaders = new Set<string>();
+          transformedData.forEach(item => {
+            if (item.results) {
+              Object.keys(item.results).forEach(k => {
+                if (item.results![k].planned || item.results![k].actual) {
+                   newActiveHeaders.add(k);
+                }
+              });
+            }
+          });
+          setActiveTimeHeaders(Array.from(newActiveHeaders));
+          
           setMaintenanceData(transformedData);
 
           // Generate time headers dynamically based on the transformed data
           const generatedHeaders = generateTimeHeadersFromData(transformedData);
           
+
           // Use standard unique filtering before pushing to state
           const uniqueHeaders = Array.from(new Set(generatedHeaders)).sort();
           
@@ -2408,6 +2434,8 @@ const App: React.FC = () => {
 
         {/* Global Floating Agent Bar */}
         <AgentBar
+          timeHeaders={timeHeaders}
+          activeTimeHeaders={activeTimeHeaders}
           onTimeScaleChange={(scale) => {
             setTimeScale(scale);
             loadDataFromViewModeManager(scale);
