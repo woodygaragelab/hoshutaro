@@ -69,6 +69,27 @@ export async function confirmExcelImport(sessionId: string): Promise<any> {
   return res.json();
 }
 
+export async function cancelExcelImport(sessionId: string): Promise<any> {
+  const res = await fetch('/api/data/import/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+
+  if (!res.ok) {
+    let errorDetail = res.statusText;
+    try {
+      const errorResponse = await res.json();
+      errorDetail = errorResponse.detail || errorDetail;
+    } catch {
+      // ignore
+    }
+    throw new Error(`キャンセル失敗: ${errorDetail}`);
+  }
+
+  return res.json();
+}
+
 /**
  * マッピング結果を人間が読めるサマリに変換する
  */

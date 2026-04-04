@@ -1,5 +1,5 @@
 import logging
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, START, END
 from app.engine.state import AgentState
 from app.engine.agent import routing_node, reasoning_node
 from app.engine.tools import execute_maintenance_operation
@@ -55,7 +55,7 @@ def create_maintenance_graph():
     workflow.add_node("tools", tool_execution_node)
     
     # エッジ追加
-    workflow.set_entry_point("routing")
+    workflow.add_edge(START, "routing")
     workflow.add_edge("routing", "reasoning")
     
     workflow.add_conditional_edges(

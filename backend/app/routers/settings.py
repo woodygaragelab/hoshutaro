@@ -18,6 +18,10 @@ class LLMSettings(BaseModel):
     llm_api_key: Optional[str] = None
     llm_temperature: float
     llm_max_tokens: int
+    openvino_models_dir: str = r"C:\Users\kazuh\OpenVINO_Models"
+    openvino_model_path: str = ""
+    openvino_device: str = "AUTO"
+    openvino_performance_mode: str = "LATENCY"
 
 
 @router.get("/api/settings/llm")
@@ -29,6 +33,10 @@ async def get_settings():
         "llm_api_key": settings.llm_api_key if settings.llm_api_key else "none",
         "llm_temperature": settings.llm_temperature,
         "llm_max_tokens": settings.llm_max_tokens,
+        "openvino_models_dir": getattr(settings, "openvino_models_dir", r"C:\Users\kazuh\OpenVINO_Models"),
+        "openvino_model_path": getattr(settings, "openvino_model_path", ""),
+        "openvino_device": getattr(settings, "openvino_device", "AUTO"),
+        "openvino_performance_mode": getattr(settings, "openvino_performance_mode", "LATENCY"),
     }
 
 
@@ -42,6 +50,10 @@ async def update_settings(new_settings: LLMSettings):
         "LLM_TEMPERATURE": str(new_settings.llm_temperature),
         "LLM_MAX_TOKENS": str(new_settings.llm_max_tokens),
         "SKILLS_PATH": settings.skills_path,
+        "OPENVINO_MODELS_DIR": new_settings.openvino_models_dir,
+        "OPENVINO_MODEL_PATH": new_settings.openvino_model_path,
+        "OPENVINO_DEVICE": new_settings.openvino_device,
+        "OPENVINO_PERFORMANCE_MODE": new_settings.openvino_performance_mode,
     }
 
     with open(_ENV_PATH, "w", encoding="utf-8") as f:
@@ -55,27 +67,36 @@ async def update_settings(new_settings: LLMSettings):
     settings.llm_api_key = new_settings.llm_api_key or "none"
     settings.llm_temperature = new_settings.llm_temperature
     settings.llm_max_tokens = new_settings.llm_max_tokens
+    settings.openvino_models_dir = new_settings.openvino_models_dir
+    settings.openvino_model_path = new_settings.openvino_model_path
+    settings.openvino_device = new_settings.openvino_device
+    settings.openvino_performance_mode = new_settings.openvino_performance_mode
 
     reset_llm_adapter()
     return {"status": "ok"}
 
 
-class LLMTestRequest(BaseModel):
-    base_url: str
-    model: str
-    api_key: Optional[str] = None
-
-
 @router.post("/api/settings/llm/test")
-async def test_llm_connection(req: LLMTestRequest):
+async def test_llm_connection(req: LLMSettings):
     try:
-        from app.llm.openai_compat import OpenAICompatAdapter
-        adapter = OpenAICompatAdapter(
-            base_url=req.base_url, model=req.model, api_key=req.api_key or "none"
-        )
-        res = await adapter.ping()
-        res["model_info"] = req.model
-        return res
+        if req.llm_adapter == "openvino_genai":
+            from app.llm.openvino_genai import OpenVINOGenAIAdapter
+            adapter = OpenVINOGenAIAdapter(
+                model_path=req.openvino_model_path,
+                device=req.openvino_device,
+                performance_mode=req.openvino_performance_mode
+            )
+            res = await adapter.ping()
+            res["model_info"] = req.openvino_model_path
+            return res
+        else:
+            from app.llm.openai_compat import OpenAICompatAdapter
+            adapter = OpenAICompatAdapter(
+                base_url=req.llm_base_url, model=req.llm_model, api_key=req.llm_api_key or "none"
+            )
+            res = await adapter.ping()
+            res["model_info"] = req.llm_model
+            return res
     except Exception as e:
         return {"ok": False, "latency_ms": 0, "error": str(e)}
 
@@ -95,5 +116,29 @@ async def get_llm_models(req: LLMModelsRequest):
         # idプロパティを持つモデルオブジェクトのリストからidのリストを抽出
         model_ids = sorted([model.id for model in models_response.data])
         return {"ok": True, "models": model_ids}
+    except Exception as e:
+        return {"ok": False, "models": [], "error": str(e)}
+
+@router.get("/api/settings/local_models")
+async def get_local_models(base_dir: Optional[str] = None):
+    """
+    ローカルの共通モデルディレクトリから利用可能なモデル一覧を取得する
+    """
+    import os
+    if not base_dir:
+        base_dir = getattr(settings, "openvino_models_dir", r"C:\Users\kazuh\OpenVINO_Models")
+        
+    if not os.path.exists(base_dir):
+        return {"ok": True, "models": []}
+    
+    models = []
+    try:
+        for entry in os.scandir(base_dir):
+            if entry.is_dir():
+                models.append({
+                    "name": entry.name,
+                    "path": entry.path.replace("\\", "/")  # JS連携のためスラッシュに
+                })
+        return {"ok": True, "models": models}
     except Exception as e:
         return {"ok": False, "models": [], "error": str(e)}

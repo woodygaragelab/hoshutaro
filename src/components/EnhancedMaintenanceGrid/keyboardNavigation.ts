@@ -148,7 +148,7 @@ export class KeyboardNavigationManager {
   ): NavigationResult {
     const { rowIndex, columnIndex } = this.getCurrentCellIndex(currentRowId, currentColumnId);
     
-    let nextRowIndex = rowIndex + (shiftKey ? -1 : 1);
+    const nextRowIndex = rowIndex + (shiftKey ? -1 : 1);
     
     // 同じ列で次の行に移動
     if (nextRowIndex >= 0 && nextRowIndex < this.data.length) {

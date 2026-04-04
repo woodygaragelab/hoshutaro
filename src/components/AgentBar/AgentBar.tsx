@@ -22,7 +22,7 @@ import {
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
-import { uploadExcelFile, confirmExcelImport, formatMappingSummary } from '../../services/ExcelProcessingService';
+import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelImport } from '../../services/ExcelProcessingService';
 import { LLMSettingsDialog } from '../AIAssistant/components/LLMSettingsDialog';
 import './AgentBar.css';
 
@@ -305,7 +305,29 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               {isLoading && (
                  <div className="agent-msg-row assistant">
                    <Avatar sx={{ width: 24, height: 24, bgcolor: '#111', mr: 1 }}><AIIcon fontSize="small"/></Avatar>
-                   <CircularProgress size={16} sx={{color: '#999', mt: 0.5}} />
+                   <CircularProgress size={16} sx={{color: '#999', mt: 0.5, mr: 1}} />
+                   <Button 
+                      size="small" 
+                      variant="outlined" 
+                      color="error"
+                      onClick={async () => {
+                        try {
+                          await cancelExcelImport(sessionId);
+                          setMessages(prev => [...prev, {
+                            id: Date.now().toString(),
+                            type: 'system',
+                            content: '処理を中止しました。',
+                            timestamp: new Date()
+                          }]);
+                        } catch(e) {
+                          console.error(e);
+                        }
+                        setIsLoading(false);
+                      }}
+                      sx={{ textTransform: 'none', fontSize: '11px', p: '2px 8px', borderColor: '#444', color: '#ffaaaa' }}
+                    >
+                      🛑 中止
+                    </Button>
                  </div>
               )}
               <div ref={messagesEndRef} />

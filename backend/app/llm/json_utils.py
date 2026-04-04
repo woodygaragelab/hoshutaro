@@ -51,6 +51,9 @@ def extract_json_object(text: str) -> dict:
     """
     original = text
     text = text.strip()
+    
+    # DeepSeek等の推論モデルが出力する <think>...</think> ブロックを除去（途切れた場合も考慮）
+    text = re.sub(r"<think>.*?(?:</think>|$)", "", text, flags=re.DOTALL).strip()
 
     # 1. Depth-tracking（最も堅牢）
     result = _extract_by_depth(text, "{", "}")
@@ -89,6 +92,9 @@ def extract_json_array(text: str) -> list:
     """
     original = text
     text = text.strip()
+    
+    # DeepSeek等の推論モデルが出力する <think>...</think> ブロックを除去（途切れた場合も考慮）
+    text = re.sub(r"<think>.*?(?:</think>|$)", "", text, flags=re.DOTALL).strip()
 
     # 1. Depth-tracking（最も堅牢）
     result = _extract_by_depth(text, "[", "]")

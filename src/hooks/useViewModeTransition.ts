@@ -208,7 +208,7 @@ export function useViewModeTransition({
     ) => {
       // Create a fresh manager with exactly matching arguments
       // Note: Data is not explicitly copied here since ViewModeManager handles its own references internally 
-      let newManager = new ViewModeManager(newAssets, newAssociations, newHierarchy, newWorkOrders);
+      const newManager = new ViewModeManager(newAssets, newAssociations, newHierarchy, newWorkOrders);
       viewModeManager.updateData(newAssets, newAssociations, newHierarchy, newWorkOrders);
       const newState = viewModeManager.getCurrentState();
       setCurrentState(newState);

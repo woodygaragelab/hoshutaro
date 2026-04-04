@@ -207,25 +207,32 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
 
         // Check prefix match for aggregated periods against either start date
         const matchesDateKey = (dateStr: string) => dateStr === dateKey || dateStr.startsWith(dateKey + '-');
-        if (!matchesDateKey(planStart) && !matchesDateKey(actualStart)) {
+        const hasDateMatch = matchesDateKey(planStart) || matchesDateKey(actualStart);
+
+        if (!hasDateMatch) {
           return; // Skip if it doesn't match the cell's dateKey
         }
 
         if (assoc.WorkOrderId) uniqueWoIds.add(assoc.WorkOrderId);
+
+        const mergedPlanned = !!assoc.Planned;
+        const mergedActual = !!assoc.Actual;
+        const mergedPlanCost = assoc.PlanCost || 0;
+        const mergedActualCost = assoc.ActualCost || 0;
 
         records.push({
           id: assoc.id,
           workOrderId: assoc.WorkOrderId || '',
           assetId: assoc.AssetId,
           lineName: assoc.name || '',
-          planned: !!assoc.Planned,
+          planned: mergedPlanned,
           planStartDate: planStart,
           planEndDate: formatDate(assoc.PlanScheduleEnd) || planStart,
-          planCost: assoc.PlanCost || 0,
-          actual: !!assoc.Actual,
+          planCost: mergedPlanCost,
+          actual: mergedActual,
           actualStartDate: actualStart,
           actualEndDate: formatDate(assoc.ActualScheduleEnd) || actualStart,
-          actualCost: assoc.ActualCost || 0,
+          actualCost: mergedActualCost,
           isNew: false,
           isDeleted: false,
           isModified: false,
@@ -273,7 +280,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
       setMaintenanceRecords(records);
       setHasChanges(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, assetId, dateKey, contextWorkOrderId, associations, allWorkOrders]);
 
   // Handle adding a new maintenance record
@@ -389,8 +396,8 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
     }
 
     // Apply default options
-    let defaultPlanned = false;
-    let defaultPlanCost = 0;
+    const defaultPlanned = false;
+    const defaultPlanCost = 0;
 
     const newItem: TaskEditItem = {
       associationId: `new-${Date.now()}`,

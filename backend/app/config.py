@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/ ディレクトリの .env を基準にする
@@ -20,6 +21,12 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 2048
     skills_path: str = "./skills/SKILLS.md"
     debug_mode: bool = False
+    
+    # OpenVINO specific
+    openvino_models_dir: str = r"C:\Users\kazuh\OpenVINO_Models"
+    openvino_model_path: str = ""
+    openvino_device: str = "AUTO"
+    openvino_performance_mode: Literal["LATENCY", "THROUGHPUT", "POWER_SAVING", "AUTO"] = "LATENCY"
 
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),

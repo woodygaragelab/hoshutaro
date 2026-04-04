@@ -194,21 +194,33 @@ export class DataIntegrityChecker {
       }
 
       // 予定などの形式チェック
+      // Relax strict typeof check to handle cases where it was natively a string or number, 
+      // but gracefully normalize it behind the scenes
       if (typeof line.Planned !== 'boolean') {
-        errors.push({
-          type: 'INVALID_REFERENCE',
-          message: `WorkOrderLine ${id} のPlannedがbooleanではありません`,
-          entityType: 'workOrderLine',
-          entityId: id,
-        });
+        const pval = (line as any).Planned;
+        if (pval === 'true' || pval === 'false' || pval === 1 || pval === 0 || pval === undefined) {
+           (line as any).Planned = pval === 'true' || pval === 1;
+        } else {
+           errors.push({
+             type: 'INVALID_REFERENCE',
+             message: `WorkOrderLine ${id} のPlannedがbooleanではありません (値: ${pval})`,
+             entityType: 'workOrderLine',
+             entityId: id,
+           });
+        }
       }
       if (typeof line.Actual !== 'boolean') {
-        errors.push({
-          type: 'INVALID_REFERENCE',
-          message: `WorkOrderLine ${id} のActualがbooleanではありません`,
-          entityType: 'workOrderLine',
-          entityId: id,
-        });
+        const aval = (line as any).Actual;
+        if (aval === 'true' || aval === 'false' || aval === 1 || aval === 0 || aval === undefined) {
+           (line as any).Actual = aval === 'true' || aval === 1;
+        } else {
+           errors.push({
+             type: 'INVALID_REFERENCE',
+             message: `WorkOrderLine ${id} のActualがbooleanではありません (値: ${aval})`,
+             entityType: 'workOrderLine',
+             entityId: id,
+           });
+        }
       }
     }
 

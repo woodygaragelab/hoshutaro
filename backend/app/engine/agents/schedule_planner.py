@@ -1,14 +1,12 @@
 import logging
-from typing import Dict, Any, TypedDict, List, Optional
-from langgraph.graph import StateGraph, END
+from typing import Dict, Any, TypedDict, Optional
+from langgraph.graph import StateGraph, START, END
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 
-from app.engine.state import AgentState
 from app.services.planning_engine import analyze_periodicity, generate_predictive_schedule
 from app.engine.graph import tool_execution_node
 from app.llm.factory import get_llm_adapter
-from app.llm.json_utils import extract_json_object, ParseError
 from app.services.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -217,7 +215,6 @@ async def evaluate_tools_result_node(state: PlannerState) -> Dict[str, Any]:
     成功 → final_responseに反映。失敗 → error_messageにフィードバックしretry_countを加算。
     """
     logger.info("Planner: Evaluating tools result")
-    ops = state.get("operations", [])
     final_res = state.get("final_response", "")
     retry_count = state.get("retry_count", 0)
 
@@ -279,7 +276,7 @@ def create_schedule_planner_graph():
     workflow.add_node("tools", tool_execution_node)
     workflow.add_node("evaluate", evaluate_tools_result_node)
 
-    workflow.set_entry_point("extract")
+    workflow.add_edge(START, "extract")
 
     # extract → [target_id?] → analyze or END (clarification)
     workflow.add_conditional_edges(

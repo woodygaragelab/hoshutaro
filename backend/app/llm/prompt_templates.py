@@ -115,7 +115,7 @@ def format_conversational_context(data_context: dict) -> str:
             
             # 各ラインの日付と作業名
             details = []
-            for line in sorted(lines, key=lambda l: l.get("PlanScheduleStart", "") or "")[:5]:
+            for line in sorted(lines, key=lambda ln: ln.get("PlanScheduleStart", "") or "")[:5]:
                 plan = line.get("PlanScheduleStart", "")
                 actual = line.get("ActualScheduleStart", "") or line.get("ActualStart", "")
                 woid = line.get("WorkOrderId", "")

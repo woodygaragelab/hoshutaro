@@ -3,8 +3,7 @@ from typing import Dict, Any, Optional, AsyncGenerator
 import asyncio
 
 from app.engine.state import AgentState
-from app.engine.graph import maintenance_engine, tool_execution_node
-from app.engine.agents.excel_import import excel_import_engine
+from app.engine.graph import maintenance_engine
 from app.engine.agents.schedule_planner import schedule_planner_engine
 from app.engine.conversational_dispatcher import create_parallel_dispatch
 from app.services.skill_loader import skill_loader

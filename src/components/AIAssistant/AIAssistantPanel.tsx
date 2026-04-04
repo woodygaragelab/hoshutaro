@@ -22,7 +22,7 @@ import {
 import type { ChatMessage, MaintenanceSuggestion, AIAssistantPanelProps } from './types';
 import { LLMSettingsDialog } from './components/LLMSettingsDialog';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
-import { uploadExcelFile, confirmExcelImport, formatMappingSummary } from '../../services/ExcelProcessingService';
+import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelImport } from '../../services/ExcelProcessingService';
 import './AIAssistantPanel.css';
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
@@ -444,11 +444,33 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       <div className="ai-assistant-messages">
         {messages.map(renderMessage)}
         {isLoading && (
-          <div className="loading-indicator">
-            <CircularProgress size={20} sx={{ color: '#ffffff' }} />
-            <Typography variant="body2" sx={{ color: '#b3b3b3' }}>
-              AIが回答を生成中...
+          <div className="loading-indicator" style={{ display: 'flex', alignItems: 'center' }}>
+            <CircularProgress size={20} sx={{ color: '#ffffff', mr: 2 }} />
+            <Typography variant="body2" sx={{ color: '#b3b3b3', flex: 1 }}>
+              動作中...
             </Typography>
+            <Button 
+              size="small" 
+              variant="outlined" 
+              color="error"
+              onClick={async () => {
+                try {
+                  await cancelExcelImport(sessionId);
+                  setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    type: 'system',
+                    content: '処理を中止しました。',
+                    timestamp: new Date()
+                  }]);
+                } catch(e) {
+                  console.error(e);
+                }
+                setIsLoading(false);
+              }}
+              sx={{ borderColor: '#555', color: '#ffaaaa', fontSize: '11px', textTransform: 'none' }}
+            >
+              🛑 中止する
+            </Button>
           </div>
         )}
         <div ref={messagesEndRef} />

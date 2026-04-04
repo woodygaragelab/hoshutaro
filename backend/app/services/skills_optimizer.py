@@ -1,7 +1,6 @@
 import logging
 import os
 import json
-from typing import Dict, Any
 
 from app.services.skill_loader import skill_loader
 from app.llm.factory import get_llm_adapter
@@ -47,8 +46,7 @@ def update_skills_file(skill_name: str, new_context: str, filepath: str = "skill
     if not os.path.exists(filepath):
         return
         
-    with open(filepath, "r", encoding="utf-8") as f:
-        content = f.read()
+
         
     # 簡易置換：該当スキルの ## skill: <name> から次の ## skill: までの間をパースして再構築するのは複雑なため、
     # loaderの全スキル情報を元にファイルを再構築する。

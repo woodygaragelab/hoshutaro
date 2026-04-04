@@ -25,6 +25,7 @@ class Session:
         self.snapshots: list = []
         self._import_state = None  # Excelインポートの途中状態を保持
         self._import_state_ts: float = 0  # import_stateの設定時刻
+        self.is_cancelled: bool = False   # キャンセル判定用フラグ
         self.metadata: Dict[str, Any] = {
             "skill_thinking_depth": {},
             "planning_stats_cache": {}

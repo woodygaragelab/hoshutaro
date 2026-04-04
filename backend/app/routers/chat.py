@@ -1,7 +1,6 @@
 import json
 import logging
 import asyncio
-from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -9,7 +8,6 @@ from sse_starlette.sse import EventSourceResponse
 from app.services.session_manager import session_manager
 from app.llm.factory import get_llm_adapter, get_llm_loading_status
 from app.engine.orchestrator import prepare_dispatch, execute_agent, keyword_fallback
-from app.engine.agents.excel_import import excel_import_engine
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

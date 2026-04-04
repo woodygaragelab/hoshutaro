@@ -113,6 +113,14 @@ export interface WorkOrderLine {
   ActualCost: number;            // >= 0, default 0
   PlannedManhours?: number;      // hours (optional, >= 0)
   ActualManhours?: number;       // hours (optional, >= 0)
+  schedule?: {
+    [dateKey: string]: {
+      planned: boolean;
+      actual: boolean;
+      planCost: number;
+      actualCost: number;
+    }
+  }; // Used in V3 data format for aggregated timelines
   CreatedAt: Date;
   UpdatedAt: Date;
 }

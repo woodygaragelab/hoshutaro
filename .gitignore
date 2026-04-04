@@ -35,3 +35,4 @@ amplifyconfiguration*
 backend/.env
 __pycache__
 *.pyc
+backend/.npucache/

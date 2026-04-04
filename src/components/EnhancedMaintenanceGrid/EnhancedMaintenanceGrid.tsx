@@ -348,7 +348,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             tasks: [],
 
             // Add type information
-            type: 'asset' as 'asset',
+            type: 'asset' as const,
             rowType: 'asset' as const
           } as any;
         }

@@ -301,12 +301,42 @@ export class ViewModeManager {
     const aggregated: { [timeKey: string]: AggregatedStatus } = {};
 
     events.forEach(event => {
+       // Support V3 data format where schedule is pre-aggregated
+       if (event.schedule) {
+         Object.entries(event.schedule).forEach(([dateStr, status]) => {
+           // Resolve V3 schedule keys (e.g. "2023-09" -> Date)
+           const isYearOnly = dateStr.length === 4;
+           const date = new Date(isYearOnly ? `${dateStr}-01-01` : `${dateStr}-01`);
+           if (isNaN(date.getTime())) return;
+
+           const aggregateKey = getTimeKey(date, timeScale);
+
+           if (!aggregated[aggregateKey]) {
+             aggregated[aggregateKey] = {
+               planned: false,
+               actual: false,
+               totalPlanCost: 0,
+               totalActualCost: 0,
+               count: 0,
+             };
+           }
+
+           aggregated[aggregateKey].planned = aggregated[aggregateKey].planned || status.planned;
+           aggregated[aggregateKey].actual = aggregated[aggregateKey].actual || status.actual;
+           aggregated[aggregateKey].totalPlanCost += status.planCost || 0;
+           aggregated[aggregateKey].totalActualCost += status.actualCost || 0;
+           aggregated[aggregateKey].count += 1;
+         });
+         return; // Move to next event
+       }
+
        // Convert string to Date if needed (sometimes JSON parse leaves it as string)
        const date = typeof event.PlanScheduleStart === 'string' 
            ? new Date(event.PlanScheduleStart) 
            : event.PlanScheduleStart;
 
-       if (isNaN(date.getTime())) return;
+       // Legacy format requires PlanScheduleStart to be a valid date
+       if (!date || isNaN(date.getTime())) return;
 
        const aggregateKey = getTimeKey(date, timeScale);
 
@@ -322,8 +352,8 @@ export class ViewModeManager {
 
        aggregated[aggregateKey].planned = aggregated[aggregateKey].planned || event.Planned;
        aggregated[aggregateKey].actual = aggregated[aggregateKey].actual || event.Actual;
-       aggregated[aggregateKey].totalPlanCost += event.PlanCost;
-       aggregated[aggregateKey].totalActualCost += event.ActualCost;
+       aggregated[aggregateKey].totalPlanCost += event.PlanCost || 0;
+       aggregated[aggregateKey].totalActualCost += event.ActualCost || 0;
        aggregated[aggregateKey].count += 1;
     });
 
@@ -394,7 +424,17 @@ export class ViewModeManager {
 
     const sortedLevels = [...this.hierarchy.levels].sort((a, b) => a.order - b.order);
 
-    if (sortedLevels.length === 0) return { roots };
+    if (sortedLevels.length === 0) {
+      // If no hierarchy is defined, group all assets under a single root node
+      const dummyRoot: HierarchyNode = {
+        key: 'all',
+        value: '全ての機器',
+        level: 0,
+        children: [],
+        assets: Array.from(this.assets.values()),
+      };
+      return { roots: [dummyRoot] };
+    }
 
     Array.from(this.assets.values()).forEach(asset => {
       let parentKey = '';

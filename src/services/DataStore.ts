@@ -215,8 +215,16 @@ export class DataStore {
         throw new ValidationError(`WorkOrder ${woId} の名前が必要です`);
       }
 
-      if (!w.ClassificationId || typeof w.ClassificationId !== 'string') {
-        throw new ValidationError(`WorkOrder ${woId} の作業分類IDが必要です`);
+      // Allow multiple variations for compatibility
+      const classId = w.ClassificationId || w.classificationId || w.classificationID || w.Classification || w.classification || w.taskClassificationId || w.TaskClassificationId;
+      
+      if (!classId || typeof classId !== 'string') {
+        throw new ValidationError(`WorkOrder ${woId} の作業分類IDが必要です (見つかったキー: ${Object.keys(w).join(', ')})`);
+      }
+      
+      // Normalize to upper case standard if not present
+      if (!w.ClassificationId && classId) {
+        w.ClassificationId = classId;
       }
     }
   }
@@ -244,12 +252,22 @@ export class DataStore {
         throw new ValidationError(`WorkOrderLineのIDがキーと一致しません: ${lineId} !== ${l.id}`);
       }
 
-      if (!l.WorkOrderId || typeof l.WorkOrderId !== 'string') {
-        throw new ValidationError(`WorkOrderLine ${lineId} のWorkOrder IDが必要です`);
+      // Allow both WorkOrderId and workOrderId
+      const woId = l.WorkOrderId || l.workOrderId || l.workOrderID;
+      if (!woId || typeof woId !== 'string') {
+        throw new ValidationError(`WorkOrderLine ${lineId} のWorkOrder IDが必要です (見つかったキー: ${Object.keys(l).join(', ')})`);
+      }
+      if (!l.WorkOrderId && woId) {
+        l.WorkOrderId = woId;
       }
 
-      if (!l.AssetId || typeof l.AssetId !== 'string') {
-        throw new ValidationError(`WorkOrderLine ${lineId} の機器IDが必要です`);
+      // Allow both AssetId and assetId
+      const astId = l.AssetId || l.assetId || l.assetID;
+      if (!astId || typeof astId !== 'string') {
+        throw new ValidationError(`WorkOrderLine ${lineId} の機器IDが必要です (見つかったキー: ${Object.keys(l).join(', ')})`);
+      }
+      if (!l.AssetId && astId) {
+        l.AssetId = astId;
       }
 
       // 参照整合性チェック
@@ -261,7 +279,13 @@ export class DataStore {
         throw new ValidationError(`WorkOrderLine ${lineId} が存在しない機器を参照しています: ${l.AssetId}`);
       }
 
+      // Normalize Planned to boolean
+      const plannedValue = typeof l.Planned !== 'undefined' ? l.Planned : l.planned;
+      l.Planned = plannedValue === true || plannedValue === 'true' || plannedValue === 1;
 
+      // Normalize Actual to boolean
+      const actualValue = typeof l.Actual !== 'undefined' ? l.Actual : l.actual;
+      l.Actual = actualValue === true || actualValue === 'true' || actualValue === 1;
     }
   }
 

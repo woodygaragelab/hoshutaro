@@ -1,4 +1,4 @@
-from typing import TypedDict, Any, Optional
+from typing import TypedDict, Optional
 
 class AgentState(TypedDict):
     session_id: str

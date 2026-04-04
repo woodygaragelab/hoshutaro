@@ -1,3 +1,4 @@
+import time
 import threading
 import logging
 from typing import Optional
@@ -18,6 +19,16 @@ def create_llm_adapter() -> LLMAdapter:
             temperature=settings.llm_temperature,
             max_tokens=settings.llm_max_tokens,
         )
+    elif adapter_type == "openvino_genai":
+        from app.llm.openvino_genai import OpenVINOGenAIAdapter
+        adapter = OpenVINOGenAIAdapter(
+            model_path=settings.openvino_model_path,
+            device=settings.openvino_device,
+            performance_mode=settings.openvino_performance_mode,
+        )
+        adapter.temperature = settings.llm_temperature
+        adapter.max_tokens = settings.llm_max_tokens
+        return adapter
     else:
         raise ValueError(f"Unknown LLM Adapter type: {adapter_type}")
 
@@ -44,7 +55,6 @@ def _init_adapter_background() -> None:
         logger.error("[LLM Factory] LLMアダプター初期化失敗: %s", e)
 
 
-import time
 
 def get_llm_adapter(wait_timeout: float = 0.0) -> Optional[LLMAdapter]:
     """
@@ -94,16 +104,20 @@ def reset_llm_adapter() -> None:
     with _adapter_lock:
         if _adapter is not None:
             # 進行中の処理が持つ旧adapter参照にも即反映（ホットスワップ）
-            from openai import AsyncOpenAI
-            _adapter.model = settings.llm_model
-            _adapter._base_url = settings.llm_base_url
-            _adapter._api_key = settings.llm_api_key
-            _adapter._client = AsyncOpenAI(
-                base_url=settings.llm_base_url, api_key=settings.llm_api_key,
-            )
+            if settings.llm_adapter == "openai_compat":
+                from openai import AsyncOpenAI
+                _adapter.model = settings.llm_model
+                _adapter._base_url = settings.llm_base_url
+                _adapter._api_key = settings.llm_api_key
+                _adapter._client = AsyncOpenAI(
+                    base_url=settings.llm_base_url, api_key=settings.llm_api_key,
+                )
+                logger.info("[LLM Factory] アダプター設定をホットスワップ: model=%s", settings.llm_model)
+            elif settings.llm_adapter == "openvino_genai":
+                logger.info("[LLM Factory] OpenVINOの設定変更を検知。次回リクエストで再ロードします。")
+                
             _adapter.temperature = settings.llm_temperature
             _adapter.max_tokens = settings.llm_max_tokens
-            logger.info("[LLM Factory] アダプター設定をホットスワップ: model=%s", settings.llm_model)
         # 次回get_llm_adapter()で新設定のアダプターを再生成させる
         _adapter = None
         _adapter_loading = False

@@ -25,6 +25,8 @@ import {
   updateLLMSettings,
   testLLMConnection,
   getLLMModels,
+  getLocalModels,
+  LocalModelInfo
 } from '../../../services/api';
 
 interface LLMSettingsDialogProps {
@@ -34,11 +36,15 @@ interface LLMSettingsDialogProps {
 
 const DEFAULT_SETTINGS: LLMSettings = {
   llm_adapter: 'openai_compat',
-  llm_base_url: 'http://127.0.0.1:11434/v1',
-  llm_model: 'qwen2.5:7b',
-  llm_api_key: 'none',
+  llm_base_url: '',
+  llm_model: '',
+  llm_api_key: '',
   llm_temperature: 0.1,
   llm_max_tokens: 2048,
+  openvino_models_dir: '',
+  openvino_model_path: '',
+  openvino_device: 'AUTO',
+  openvino_performance_mode: 'LATENCY',
 };
 
 export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onClose }) => {
@@ -50,17 +56,33 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
   
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
+  const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
 
   useEffect(() => {
     if (open) {
       setLoading(true);
       getLLMSettings()
-        .then(setSettings)
+        .then(settings => {
+           setSettings(settings)
+           return getLocalModels(settings.openvino_models_dir)
+        })
+        .then(setLocalModels)
         .catch(() => setSettings(DEFAULT_SETTINGS))
         .finally(() => setLoading(false));
       setTestResult(null);
     }
   }, [open]);
+
+  const handleModelsDirChange = async (newDir: string) => {
+    handleChange('openvino_models_dir', newDir);
+    try {
+      const models = await getLocalModels(newDir);
+      setLocalModels(models);
+    } catch (e) {
+      console.error("Failed to fetch models for new dir", e);
+      setLocalModels([]);
+    }
+  };
 
   const handleChange = (field: keyof LLMSettings, value: any) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
@@ -131,52 +153,113 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
             onChange={(e) => handleChange('llm_adapter', e.target.value)}
           >
             <MenuItem value="openai_compat">外部/ローカルサーバー接続 (OpenAI互換)</MenuItem>
+            <MenuItem value="openvino_genai">ローカルエッジ推論 (OpenVINO NPU/GPU)</MenuItem>
           </Select>
         </FormControl>
 
-        <TextField
-          label="接続URL (Base URL)"
-          fullWidth
-          size="small"
-          value={settings.llm_base_url}
-          onChange={(e) => handleChange('llm_base_url', e.target.value)}
-        />
-
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-          <Autocomplete
-            freeSolo
-            options={availableModels}
-            value={settings.llm_model}
-            onChange={(_, newValue) => handleChange('llm_model', newValue || '')}
-            onInputChange={(_, newInputValue) => handleChange('llm_model', newInputValue)}
-            sx={{ flexGrow: 1 }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="モデル名"
-                size="small"
-                helperText="Ollama / LocalAI / OpenAI 等のモデルIDを入力、または一覧取得から選択"
+        {settings.llm_adapter === 'openvino_genai' ? (
+          <>
+            <TextField
+              label="共通モデル検索フォルダ (Models Directory)"
+              fullWidth
+              size="small"
+              value={settings.openvino_models_dir || ''}
+              onChange={(e) => handleModelsDirChange(e.target.value)}
+              helperText="このフォルダ内のモデル一覧を下部プルダウンに自動表示します"
+            />
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <Autocomplete
+                freeSolo
+                options={localModels.map(m => m.path)}
+                value={settings.openvino_model_path || ''}
+                onChange={(_, newValue) => handleChange('openvino_model_path', newValue || '')}
+                onInputChange={(_, newInputValue) => handleChange('openvino_model_path', newInputValue)}
+                sx={{ flexGrow: 1 }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="推論モデル名 / フルパス"
+                    size="small"
+                    helperText="上の検索フォルダで見つかったモデルを選択、またはフルパスを入力"
+                  />
+                )}
               />
-            )}
-          />
-          <Button 
-            variant="outlined" 
-            onClick={handleFetchModels} 
-            disabled={fetchingModels || !settings.llm_base_url}
-            sx={{ mt: 0.5, whiteSpace: 'nowrap' }}
-          >
-            {fetchingModels ? '...' : '一覧取得'}
-          </Button>
-        </Box>
+            </Box>
+            <FormControl fullWidth size="small">
+              <InputLabel>推論デバイス</InputLabel>
+              <Select
+                label="推論デバイス"
+                value={settings.openvino_device || 'AUTO'}
+                onChange={(e) => handleChange('openvino_device', e.target.value)}
+              >
+                <MenuItem value="AUTO">AUTO (自動選択)</MenuItem>
+                <MenuItem value="NPU">NPU (Neural Processing Unit)</MenuItem>
+                <MenuItem value="GPU">GPU</MenuItem>
+                <MenuItem value="CPU">CPU</MenuItem>
+                <MenuItem value="HETERO:NPU,GPU">HETERO:NPU,GPU (ハイブリッド)</MenuItem>
+                <MenuItem value="HETERO:GPU,CPU">HETERO:GPU,CPU (ハイブリッド)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>パフォーマンスモード</InputLabel>
+              <Select
+                label="パフォーマンスモード"
+                value={settings.openvino_performance_mode || 'LATENCY'}
+                onChange={(e) => handleChange('openvino_performance_mode', e.target.value)}
+              >
+                <MenuItem value="LATENCY">LATENCY (応答速度優先)</MenuItem>
+                <MenuItem value="THROUGHPUT">THROUGHPUT (全体処理量優先)</MenuItem>
+                <MenuItem value="AUTO">AUTO (自動最適化)</MenuItem>
+              </Select>
+            </FormControl>
+          </>
+        ) : (
+          <>
+            <TextField
+              label="接続URL (Base URL)"
+              fullWidth
+              size="small"
+              value={settings.llm_base_url}
+              onChange={(e) => handleChange('llm_base_url', e.target.value)}
+            />
 
-        <TextField
-          label="APIキー (省略時は none)"
-          fullWidth
-          size="small"
-          type="password"
-          value={settings.llm_api_key}
-          onChange={(e) => handleChange('llm_api_key', e.target.value)}
-        />
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <Autocomplete
+                freeSolo
+                options={availableModels}
+                value={settings.llm_model}
+                onChange={(_, newValue) => handleChange('llm_model', newValue || '')}
+                onInputChange={(_, newInputValue) => handleChange('llm_model', newInputValue)}
+                sx={{ flexGrow: 1 }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="モデル名"
+                    size="small"
+                    helperText="Ollama / LocalAI / OpenAI 等のモデルIDを入力、または一覧取得から選択"
+                  />
+                )}
+              />
+              <Button 
+                variant="outlined" 
+                onClick={handleFetchModels} 
+                disabled={fetchingModels || !settings.llm_base_url}
+                sx={{ mt: 0.5, whiteSpace: 'nowrap' }}
+              >
+                {fetchingModels ? '...' : '一覧取得'}
+              </Button>
+            </Box>
+
+            <TextField
+              label="APIキー (省略時は none)"
+              fullWidth
+              size="small"
+              type="password"
+              value={settings.llm_api_key}
+              onChange={(e) => handleChange('llm_api_key', e.target.value)}
+            />
+          </>
+        )}
 
         <Box>
           <Typography gutterBottom variant="body2" color="text.secondary">

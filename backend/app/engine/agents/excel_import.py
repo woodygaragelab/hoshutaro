@@ -12,8 +12,7 @@ Excel Import Agent (LangGraph StateGraph)
 """
 import logging
 from typing import Dict, Any
-from dataclasses import asdict
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, START, END
 
 from app.engine.state import ExcelImportState
 from app.services.excel_converter import (
@@ -30,7 +29,6 @@ def _check_validation_errors(sheets_data: list[dict]) -> list[str]:
     """バリデーションエラーをチェックする。"""
     errors = []
     for sheet in sheets_data:
-        warnings = sheet.get("warnings", [])
         descriptors = sheet.get("descriptors_info", [])
         structure = sheet.get("structure_info", {})
         preview = sheet.get("preview_records", [])
@@ -66,8 +64,15 @@ async def analyze_node(state: ExcelImportState) -> Dict[str, Any]:
     try:
         file_bytes = state["file_bytes"]
         filename = state.get("filename", "unknown.xlsx")
+        session_id = state.get("session_id")
+        
+        # キャンセルフラグをリセット
+        from app.services.session_manager import session_manager
+        if session_id:
+            session = session_manager.get_session(session_id)
+            session.is_cancelled = False
 
-        results = await analyze_excel_full(file_bytes, filename)
+        results = await analyze_excel_full(file_bytes, filename, session_id=session_id)
 
         sheets_data = _build_sheets_data(results, filename)
         overall_summary = f"ファイル: {filename} ({len(results)} シート解析完了)"
@@ -300,7 +305,7 @@ def create_excel_import_graph():
     workflow.add_node("re_analyze", re_analyze_node)
     workflow.add_node("convert", convert_node)
 
-    workflow.set_entry_point("analyze")
+    workflow.add_edge(START, "analyze")
 
     workflow.add_conditional_edges(
         "analyze",
