@@ -72,7 +72,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
-  const [isToolsExpanded, setIsToolsExpanded] = useState(false);
+  const [isAIAreaExpanded, setIsAIAreaExpanded] = useState(false);
+  const hasData = !!dataContext?.assets?.length;
 
   // --- Hover Menu States ---
   const [showTimeScaleMenu, setShowTimeScaleMenu] = useState(false);
@@ -262,9 +263,11 @@ export const AgentBar: React.FC<AgentBarProps> = ({
       
       {/* Floating Agent Bar */}
       <div className="agent-bar-container">
-        {/* Expandable Chat History */}
-        {isChatExpanded && (
-          <div className="agent-chat-window animate-float-up">
+        {/* Main Bar */}
+        <div className="agent-bar-surface shadow-bar">
+
+          {/* Expandable Chat History */}
+          <div className={`agent-chat-window ${isChatExpanded ? 'expanded' : ''}`}>
             <div className="agent-chat-header">
               <span className="agent-chat-title"><AIIcon sx={{ fontSize: 18, mr: 1}}/> HOSHUTARO</span>
               <IconButton size="small" sx={{color: '#999'}} onClick={() => setIsChatExpanded(false)}>
@@ -333,24 +336,74 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               <div ref={messagesEndRef} />
             </div>
           </div>
-        )}
-
-        {/* Main Bar */}
-        <div className="agent-bar-surface shadow-bar">
           
-          {/* Controls Cluster */}
-          <div className="agent-bar-controls" style={{ position: 'relative' }}>
+          {/* Expandable AI Row (Middle) */}
+          <div className={`agent-bar-ai-row ${isAIAreaExpanded ? 'expanded' : ''}`}>
             
-            <IconButton 
-              className={`tb-icon ${isToolsExpanded ? 'active' : ''}`}
-              onClick={() => setIsToolsExpanded(!isToolsExpanded)}
-              title="グリッドツール"
-            >
-              <ToolsIcon fontSize="small" />
-            </IconButton>
+            {/* AI Input Box */}
+            <div className="agent-input-wrapper">
+               <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".xlsx,.xls,.csv"
+                style={{ display: 'none' }}
+              />
+              <IconButton 
+                className="tb-icon attach-btn" 
+                onClick={() => fileInputRef.current?.click()}
+                title="ファイル添付"
+              >
+                <AttachFileIcon fontSize="small" />
+              </IconButton>
 
-            <div className={`expandable-tools-pill ${isToolsExpanded ? 'expanded' : ''}`}>
-              {/* Display Mode Toggle */}
+              {pendingFile && (
+                <Chip label={pendingFile.name} size="small" onDelete={() => setPendingFile(null)} sx={{color: '#fff', bgcolor: '#333', mr: 1, height: '20px', fontSize: '11px'}}/>
+              )}
+
+              <input 
+                className="agent-text-input"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="指示を入力するかファイルを添付..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+
+              <IconButton 
+                className="send-btn" 
+                onClick={handleSendMessage}
+                disabled={(!inputMessage.trim() && !pendingFile) || isLoading}
+              >
+                <SendIcon fontSize="small" />
+              </IconButton>
+            </div>
+
+            {/* Right Controls */}
+            <div className="agent-bar-right">
+               <IconButton 
+                 className={`tb-icon ${isChatExpanded ? 'active' : ''}`}
+                 onClick={() => setIsChatExpanded(!isChatExpanded)} 
+                 title="AIチャット履歴の表示切替"
+               >
+                 <ChatIcon fontSize="small"/>
+               </IconButton>
+               <IconButton className="tb-icon" onClick={() => setIsSettingsOpen(true)} title="LLM設定">
+                 <SettingsIcon fontSize="small"/>
+               </IconButton>
+            </div>
+          </div>
+
+          {/* Grid Tools Row (Bottom) */}
+          <div className="agent-bar-grid-row">
+            {/* Grid Tools */}
+            {/* Grid Tools */}
+            {/* Display Mode Toggle */}
+            <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
               <div 
                 className="control-hover-group"
                 onMouseEnter={() => setShowDisplayModeMenu(true)}
@@ -367,8 +420,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Time Scale Toggle */}
+            {/* Time Scale Toggle */}
+            <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
               <div 
                 className="control-hover-group"
                 onMouseEnter={() => setShowTimeScaleMenu(true)}
@@ -386,8 +441,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* View Mode Toggle */}
+            {/* View Mode Toggle */}
+            <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
               <IconButton 
                 className="tb-icon" 
                 onClick={() => onDataViewModeChange(dataViewMode === 'asset-based' ? 'workorder-based' : 'asset-based')}
@@ -395,9 +452,11 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               >
                 <ViewModeIcon fontSize="small" />
               </IconButton>
+            </div>
 
-              {/* Hierarchy Edit Toggle */}
-              {onHierarchyEdit && (
+            {/* Hierarchy Edit Toggle */}
+            {onHierarchyEdit && (
+              <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
                 <IconButton 
                   className="tb-icon" 
                   onClick={onHierarchyEdit}
@@ -405,92 +464,46 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 >
                   <HierarchyIcon fontSize="small" />
                 </IconButton>
-              )}
-
-              {/* Data Sync Toggle */}
-              <div 
-                className="control-hover-group"
-                onMouseEnter={() => setShowDataSyncMenu(true)}
-                onMouseLeave={() => setShowDataSyncMenu(false)}
-              >
-                <IconButton className={`tb-icon ${showDataSyncMenu ? 'active' : ''}`} title="データ入出力">
-                  <SyncIcon fontSize="small"/>
-                </IconButton>
-                {showDataSyncMenu && (
-                  <div className="hover-menu-vertical">
-                    <div className="menu-item" onClick={onImportData} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <UploadFileIcon fontSize="small" sx={{mr: 1}}/> アップロード
-                    </div>
-                    <div className="menu-item" onClick={onExportData} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <DownloadFileIcon fontSize="small" sx={{mr: 1}}/> ダウンロード
-                    </div>
-                  </div>
-                )}
               </div>
-            </div>
-          </div>
-
-          <div className="divider"></div>
-
-          {/* AI Input Box */}
-          <div className="agent-input-wrapper">
-             <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept=".xlsx,.xls,.csv"
-              style={{ display: 'none' }}
-            />
-            <IconButton 
-              className="tb-icon attach-btn" 
-              onClick={() => fileInputRef.current?.click()}
-              title="ファイル添付"
-            >
-              <AttachFileIcon fontSize="small" />
-            </IconButton>
-
-            {pendingFile && (
-              <Chip label={pendingFile.name} size="small" onDelete={() => setPendingFile(null)} sx={{color: '#fff', bgcolor: '#333', mr: 1, height: '20px', fontSize: '11px'}}/>
             )}
 
-            <input 
-              className="agent-text-input"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="指示を入力するかファイルを添付..."
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
+            {/* Download Data Toggle */}
+            <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
+              <IconButton 
+                className="tb-icon" 
+                onClick={onExportData}
+                title="データをダウンロード"
+              >
+                <DownloadFileIcon fontSize="small"/>
+              </IconButton>
+            </div>
 
-            <IconButton 
-              className="send-btn" 
-              onClick={handleSendMessage}
-              disabled={(!inputMessage.trim() && !pendingFile) || isLoading}
-            >
-              <SendIcon fontSize="small" />
-            </IconButton>
+            {/* Upload Data Toggle (Always visible) */}
+            <div className="agent-tool-anim-wrapper">
+              <IconButton 
+                onClick={onImportData}
+                className="tb-icon"
+                title="データをアップロード"
+                sx={{ 
+                  bgcolor: !hasData ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.15)' }
+                }}
+              >
+                <UploadFileIcon fontSize="small" />
+              </IconButton>
+            </div>
+
+            {/* AI Toggle / Favicon (Always visible) */}
+            <div className="agent-tool-anim-wrapper">
+               <IconButton 
+                 className={`tb-icon favicon-toggle ${isAIAreaExpanded ? 'active' : ''}`} 
+                 onClick={() => setIsAIAreaExpanded(!isAIAreaExpanded)}
+                 title="HOSHUTARO AI アシスタント"
+               >
+                 <img src="/favicon.svg" alt="AI Agent" style={{ width: 24, height: 24, filter: isAIAreaExpanded ? 'none' : 'grayscale(100%) brightness(2)' }} />
+               </IconButton>
+            </div>
           </div>
-
-          <div className="divider"></div>
-
-          {/* Right Controls */}
-          <div className="agent-bar-right">
-             <IconButton 
-               className={`tb-icon ${isChatExpanded ? 'active' : ''}`}
-               onClick={() => setIsChatExpanded(!isChatExpanded)} 
-               title="AIチャット履歴の表示切替"
-             >
-               <ChatIcon fontSize="small"/>
-             </IconButton>
-             <IconButton className="tb-icon" onClick={() => setIsSettingsOpen(true)} title="LLM設定">
-               <SettingsIcon fontSize="small"/>
-             </IconButton>
-          </div>
-
         </div>
       </div>
     </>
