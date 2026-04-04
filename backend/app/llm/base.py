@@ -22,7 +22,7 @@ class LLMAdapter(ABC):
     # ── ハードウェア固有の抽象プリミティブ ─────────────────────
 
     @abstractmethod
-    async def _generate_text_raw(self, messages: list[dict], temperature: float, max_tokens: int) -> str:
+    async def _generate_text_raw(self, messages: list[dict], temperature: float, max_tokens: int, json_schema: dict | None = None) -> str:
         """各デバイス・API固有のテキスト生成処理"""
 
     @abstractmethod
@@ -39,10 +39,10 @@ class LLMAdapter(ABC):
     # ── 用途別パラメータ算出 ──────────────────────────────────────
 
     def _structured_params(self) -> dict:
-        """構造化JSON出力用: 低temperature、中tokens"""
+        """構造化JSON出力用: 低temperature"""
         return {
             "temperature": min(self.temperature * 0.2, 0.2),
-            "max_tokens": max(min(self.max_tokens // 2, 1024), 256),
+            "max_tokens": self.max_tokens,
         }
 
     def _conversation_params(self) -> dict:
@@ -83,7 +83,7 @@ class LLMAdapter(ABC):
         max_retries = 2
         for attempt in range(max_retries + 1):
             try:
-                raw_output = await self._generate_text_raw(current_messages, **params)
+                raw_output = await self._generate_text_raw(current_messages, **params, json_schema=MaintenanceOperation.model_json_schema())
             except Exception as e:
                 logger.error("[base_adapter] call failed %d: %s", attempt, e)
                 return MaintenanceOperation(
@@ -149,6 +149,7 @@ class LLMAdapter(ABC):
         self,
         system_prompt: str,
         user_prompt: str,
+        json_schema: dict | None = None,
         max_tokens: int = 0,
         retries: int = 2,
     ) -> str:
@@ -160,7 +161,7 @@ class LLMAdapter(ABC):
         ]
         for attempt in range(retries + 1):
             try:
-                result = await self._generate_text_raw(messages, temperature=params["temperature"], max_tokens=tok)
+                result = await self._generate_text_raw(messages, temperature=params["temperature"], max_tokens=tok, json_schema=json_schema)
                 if result.strip():
                     return result
                 logger.warning("[generate_structured] 空レスポンス (attempt %d/%d)", attempt, retries)

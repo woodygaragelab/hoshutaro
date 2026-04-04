@@ -22,19 +22,32 @@ def _get_title_injection(grid: PhysicalGrid) -> str:
 
 PHASE1A_SYSTEM_PROMPT = """Excel構造解析の探索エキスパートです。
 与えられたデータチャンクの中に、「ヘッダー行（各種列のタイトルが横に並んでいる行）」が含まれているかを探してください。
-また、このシート自体がヘッダーを持たない無意味なシートだと判断した場合は探索を停止できます。
+また、このシート自体がヘッダーを持たない無意味なシートだと判断した場合は探索を停止できます。"""
 
-【重要】回答に <think> タグによる思考過程は一切含めないでください。即座にJSONのみを出力してください。
-
-出力形式（JSONのみ）:
-{"action": "continue"|"stop"|"found", "header_start": 行番号, "header_end": 行番号, "data_start": 行番号, "blank_row_strategy": "skip", "key_column": 列番号, "forward_fill_columns": [列番号]}
-
-actionの種類:
-- found: ヘッダーを発見した場合。
-- continue: ヘッダーが見つからないが、さらに下の行を探すべき場合。
-- stop: このシートはデータ表ではない（メモや目次等）と判断し、探索を打ち切る場合。
-
-見つかった場合は、0始まりで行番号を正確に指定してください。"""
+PHASE1A_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "thought_process": {
+            "type": "string",
+            "description": "どこからどこまでがヘッダーか、実データがどこから始まるかを簡潔に考察する(最大50文字)"
+        },
+        "action": {
+            "type": "string",
+            "enum": ["continue", "stop", "found"],
+            "description": "found:ヘッダー発見, continue:さらに下を探す, stop:データ表ではない"
+        },
+        "header_start": {"type": "integer"},
+        "header_end": {"type": "integer"},
+        "data_start": {"type": "integer"},
+        "blank_row_strategy": {"type": "string", "enum": ["skip"]},
+        "key_column": {"type": "integer"},
+        "forward_fill_columns": {
+            "type": "array",
+            "items": {"type": "integer"}
+        }
+    },
+    "required": ["thought_process", "action"]
+}
 
 async def run_phase1a_search(grid: PhysicalGrid, filename: str) -> Optional[dict]:
     adapter = get_llm_adapter(wait_timeout=30.0)
@@ -88,7 +101,7 @@ async def run_phase1a_search(grid: PhysicalGrid, filename: str) -> Optional[dict
             raw_text = await adapter.generate_structured(
                 system_prompt=PHASE1A_SYSTEM_PROMPT,
                 user_prompt=prompt,
-                max_tokens=4096,
+                json_schema=PHASE1A_SCHEMA,
                 retries=1,
             )
             data = extract_json_object(raw_text)
@@ -119,18 +132,26 @@ async def run_phase1a_search(grid: PhysicalGrid, filename: str) -> Optional[dict
 PHASE1B_SYSTEM_PROMPT = """Excel構造解析の全体像推論エキスパートです。
 ヘッダー行とシートのタイトル行をみて、このシートがどのようなものであるかを一発で推測しJSONで出力してください。
 
-【重要】回答に <think> タグによる思考過程は一切含めないでください。即座にJSONのみを出力してください。
-
-出力形式（JSONのみ）:
-{"pattern": "パターン名", "year_context": 年度, "implied_hierarchy": {"第1階層名": "値", "第2階層名": "値"}}
-
 pattern値のルール:
 - Schedule Matrix: 作業予定（4月 5月...）や丸印（○●）が入る星取表
 - Specs Only: メーカーや型式など、機器の仕様のみが書かれた表
 - Mixed Data: 両方が混ざっている表
-year_contextは年度が書かれていれば抽出(例:2025)。不明なら0。
-implied_hierarchyはシート名やタイトルに書かれた「〇〇工場」「△△エリア」などを抽出。
 """
+
+PHASE1B_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "thought_process": {"type": "string", "description": "シートの性質を簡潔に分析(最大50文字)"},
+        "pattern": {"type": "string", "enum": ["Schedule Matrix", "Specs Only", "Mixed Data"]},
+        "year_context": {"type": "integer", "description": "年度が書かれていれば抽出(例:2025)。不明なら0"},
+        "implied_hierarchy": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": "シート名やタイトルに書かれた階層情報(例: '第1階層名': '値')"
+        }
+    },
+    "required": ["thought_process", "pattern", "year_context", "implied_hierarchy"]
+}
 
 async def run_phase1b_global_state(grid: PhysicalGrid, filename: str, p1a_data: dict) -> dict:
     adapter = get_llm_adapter(wait_timeout=30.0)
@@ -156,7 +177,7 @@ async def run_phase1b_global_state(grid: PhysicalGrid, filename: str, p1a_data: 
         if error_msg:
             prompt += f"\n\n【エラー】{error_msg}"
             
-        raw_text = await adapter.generate_structured(PHASE1B_SYSTEM_PROMPT, prompt, max_tokens=4096, retries=1)
+        raw_text = await adapter.generate_structured(PHASE1B_SYSTEM_PROMPT, prompt, json_schema=PHASE1B_SCHEMA, retries=1)
         data = extract_json_object(raw_text)
         if not data:
             error_msg = "JSONを出力してください"
@@ -177,7 +198,7 @@ async def run_phase1b_global_state(grid: PhysicalGrid, filename: str, p1a_data: 
 # フェーズ2: 並列マッピングエージェント
 # ═══════════════════════════════════════════════════════════════
 
-async def _agentic_column_mapper(agent_name: str, system_prompt: str, user_text: str, validator) -> list[dict]:
+async def _agentic_column_mapper(agent_name: str, system_prompt: str, json_schema: dict, user_text: str, validator) -> list[dict]:
     adapter = get_llm_adapter(wait_timeout=30.0)
     if not adapter:
         return []
@@ -189,8 +210,12 @@ async def _agentic_column_mapper(agent_name: str, system_prompt: str, user_text:
         if error_msg:
             prompt += f"\n\n【エラー修正指示】\n{error_msg}"
             
-        raw_text = await adapter.generate_structured(system_prompt, prompt, max_tokens=4096, retries=1)
-        arr = extract_json_array(raw_text)
+        raw_text = await adapter.generate_structured(system_prompt, prompt, json_schema=json_schema, retries=1)
+        data_obj = extract_json_object(raw_text)
+        if not data_obj:
+            error_msg = "JSONオブジェクトを出力してください"
+            continue
+        arr = data_obj.get("mappings", [])
         
         ok, err = validator(arr)
         if ok:
@@ -242,35 +267,52 @@ async def run_phase2_parallel_mapping(grid: PhysicalGrid, structure: StructureIn
                     return False, f"monthは1〜12の範囲にしてください。現在の出力: {m}"
         return True, ""
 
-    prompt_asset = """【機器担当エージェント】必ずJSON配列のみ出力。
-【重要】<think>タグ等による思考過程は一切含めず、即座にJSONのみを出力してください。
-「機器ID（タグNo、整理番号、ITEM No.、Equipment No.）」「機器名」「機器名称」に関する列だけを抽出し、以下を出力。「AssetId」は最重要。存在しない場合は [] を返す。
-形式: [{"col": 99, "field": "AssetId", "label": "列の名前"}, {"col": 98, "field": "AssetName", "label": "列の名前"}]"""
+    PHASE2_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "thought_process": {
+                "type": "string",
+                "description": "各列の意味や対応するフィールドを簡潔に推論(最大50文字)"
+            },
+            "mappings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "col": {"type": "integer"},
+                        "field": {"type": "string"},
+                        "label": {"type": "string"},
+                        "month": {"type": "integer"},
+                        "sub": {"type": "string"}
+                    },
+                    "required": ["col", "field", "label"]
+                }
+            }
+        },
+        "required": ["thought_process", "mappings"]
+    }
+
+    prompt_asset = """【機器担当エージェント】
+「機器ID（タグNo、整理番号、ITEM No.、Equipment No.）」「機器名」「機器名称」に関する列だけを抽出し出力。「AssetId」は最重要。存在しない場合はmappingsを空白の配列[]にすること。"""
     
-    prompt_hierarchy = """【階層担当エージェント】必ずJSON配列のみ出力。
-【重要】<think>タグ等による思考過程は一切含めず、即座にJSONのみを出力してください。
-「設置エリア」「プラント」「建屋」「場所」「系統」など、親階層になりうる列だけを抽出し、Hierarchy1, Hierarchy2 を割り当てる。機器番号は選ばない事。
-形式: [{"col": 99, "field": "Hierarchy1", "label": "エリア"}, {"col": 98, "field": "Hierarchy2", "label": "サブエリア"}]"""
+    prompt_hierarchy = """【階層担当エージェント】
+「設置エリア」「プラント」「建屋」「場所」「系統」など、親階層になりうる列だけを抽出し、Hierarchy1, Hierarchy2等を割り当てる。機器番号は選ばない事。"""
 
-    prompt_spec = """【仕様担当エージェント】必ずJSON配列のみ出力。
-【重要】<think>タグ等による思考過程は一切含めず、即座にJSONのみを出力してください。
-「メーカー」「型式」「電圧」「設置年」「容量」「能力」「備考」などの仕様列だけを抽出。"Attribute"を割り当てる。
-形式: [{"col": 99, "field": "Attribute", "label": "列の名前"}, {"col": 98, "field": "Attribute", "label": "列の名前"}]"""
+    prompt_spec = """【仕様担当エージェント】
+「メーカー」「型式」「電圧」「設置年」「容量」「能力」「備考」などの仕様列だけを抽出。"Attribute"を割り当てる。"""
 
-    prompt_work = """【作業担当エージェント】必ずJSON配列のみ出力。
-【重要】<think>タグ等による思考過程は一切含めず、即座にJSONのみを出力してください。
+    prompt_work = """【作業担当エージェント】
 「点検内容」「作業項目」や「4月」「5月」等のスケジュール列だけを抽出。
-スケジュールの場合は month=数字(1-12), sub="both"|"plan"|"actual" を付与すること。
-形式: [{"col": 99, "field": "WorkOrderName", "label": "列の名前"}, {"col": 98, "field": "schedule", "month": 4, "sub": "both", "label": "4月"}]"""
+スケジュールの場合は month=数字(1-12), sub="both"|"plan"|"actual" を付与すること。"""
 
     logger.info("[P2] 4つの並列エージェントを起動します...")
     
     # 🏃 並列実行 (Gather)
     results = await asyncio.gather(
-        _agentic_column_mapper("Asset", prompt_asset, user_text, val_asset),
-        _agentic_column_mapper("Hierarchy", prompt_hierarchy, user_text, val_hierarchy),
-        _agentic_column_mapper("Spec", prompt_spec, user_text, val_spec),
-        _agentic_column_mapper("Work", prompt_work, user_text, val_work),
+        _agentic_column_mapper("Asset", prompt_asset, PHASE2_SCHEMA, user_text, val_asset),
+        _agentic_column_mapper("Hierarchy", prompt_hierarchy, PHASE2_SCHEMA, user_text, val_hierarchy),
+        _agentic_column_mapper("Spec", prompt_spec, PHASE2_SCHEMA, user_text, val_spec),
+        _agentic_column_mapper("Work", prompt_work, PHASE2_SCHEMA, user_text, val_work),
         return_exceptions=True
     )
     
@@ -327,7 +369,7 @@ async def run_phase3_hierarchy_linking(assets: list[dict], existing_hierarchy: l
         user_text += f"ID: {a.get('id')}, 名前: {a.get('name')}\n"
         
     try:
-        raw_text = await adapter.generate_structured(PHASE3_SYSTEM_PROMPT, user_text, max_tokens=2048, retries=1)
+        raw_text = await adapter.generate_structured(PHASE3_SYSTEM_PROMPT, user_text, retries=1)
         return extract_json_object(raw_text) or {}
     except Exception as e:
         logger.error("[P3] エラー: %s", e)

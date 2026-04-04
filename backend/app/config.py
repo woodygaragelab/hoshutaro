@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     llm_model: str = ""
     llm_api_key: str = "none"
     llm_temperature: float = 0.1
-    llm_max_tokens: int = 2048
+    llm_max_tokens: int = 1024
     skills_path: str = "./skills/SKILLS.md"
     debug_mode: bool = False
     

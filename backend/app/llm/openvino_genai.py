@@ -189,7 +189,7 @@ class OpenVINOGenAIAdapter(LLMAdapter):
         best_dev, best_ms = min(results, key=lambda x: x[1])
         return best_dev
 
-    async def _generate_text_raw(self, messages: list[dict], temperature: float, max_tokens: int) -> str:
+    async def _generate_text_raw(self, messages: list[dict], temperature: float, max_tokens: int, json_schema: dict | None = None) -> str:
         if not self._available or self._pipe is None:
             raise RuntimeError("OpenVINO GenAI パイプラインが利用できません")
 
@@ -199,17 +199,26 @@ class OpenVINOGenAIAdapter(LLMAdapter):
 
         content_str = " ".join(str(m.get("content", "")) for m in messages)
         prefill = ""
-        # JSONを要求するプロンプトの場合、全ての推論モデル(DeepSeek等)に対して「すでに思考プロセスは終了した」と錯覚させ、
-        # 配列・オブジェクト問わず即座にJSONの中身だけを生成させるプレフィル
-        if "JSON" in content_str:
-            prefill = "<think>\n</think>\n```json\n"
-            prompt += prefill
+        
+        # JSON Schemaが指定された場合、OpenVINO側の構造化制約エンジンを利用
+        ov_soc = None
+        if json_schema is not None:
+            import json
+            import openvino_genai as ov_genai
+            ov_soc = ov_genai.StructuredOutputConfig()
+            ov_soc.json_schema = json.dumps(json_schema)
+        else:
+            # 制約がない場面でのみ、DeepSeek等の余計な思考タグを強引にブロックする
+            if "JSON" in content_str:
+                prefill = "<think>\n</think>\n```json\n"
+                prompt += prefill
 
         def _run_generate():
             with self._infer_lock:
-                return self._pipe.generate(
-                    prompt, max_new_tokens=max_tokens, do_sample=False
-                )
+                kwargs = {"max_new_tokens": max_tokens, "do_sample": False}
+                if ov_soc is not None:
+                    kwargs["structured_output_config"] = ov_soc
+                return self._pipe.generate(prompt, **kwargs)
 
         result = await asyncio.to_thread(_run_generate)
         raw = str(result).strip()

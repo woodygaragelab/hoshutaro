@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: LLMSettings = {
   llm_model: '',
   llm_api_key: '',
   llm_temperature: 0.1,
-  llm_max_tokens: 2048,
+  llm_max_tokens: 1024,
   openvino_models_dir: '',
   openvino_model_path: '',
   openvino_device: 'AUTO',
