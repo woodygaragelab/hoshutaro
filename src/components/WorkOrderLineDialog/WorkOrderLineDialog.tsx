@@ -55,6 +55,7 @@ import {
 } from '../../types/maintenanceTask';
 import { getClassificationOptions } from '../../config/classificationMaster';
 import { AssetSelectionDialog } from '../AssetSelectionDialog/AssetSelectionDialog';
+import { getTimeKey } from '../../utils/dateUtils';
 
 export interface WorkOrderLineDialogProps {
   open: boolean;
@@ -195,6 +196,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         // In context mode, skip records not matching the context WorkOrder
         if (contextWorkOrderId && assoc.WorkOrderId !== contextWorkOrderId) return;
 
+        // Helper to format date values to YYYY-MM-DD strings
         const formatDate = (dateValue: any) => {
           if (!dateValue) return '';
           const d = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
@@ -205,11 +207,21 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         const planStart = formatDate(assoc.PlanScheduleStart);
         const actualStart = formatDate(assoc.ActualScheduleStart);
 
-        // Check prefix match for aggregated periods against either start date
-        const matchesDateKey = (dateStr: string) => dateStr === dateKey || dateStr.startsWith(dateKey + '-');
-        const hasDateMatch = matchesDateKey(planStart) || matchesDateKey(actualStart);
+        // Determine timeScale based on dateKey format
+        let inferredTimeScale: 'year' | 'month' | 'week' | 'day' = 'day';
+        if (dateKey.includes('W')) inferredTimeScale = 'week';
+        else if (dateKey.length === 4) inferredTimeScale = 'year';
+        else if (dateKey.length === 7) inferredTimeScale = 'month';
 
-        if (!hasDateMatch) {
+        // Use getTimeKey for proper ISO week matching (prefix matching fails for "YYYY-Www" format)
+        const matchesByTimeKey = (dateValue: any) => {
+          if (!dateValue) return false;
+          const d = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+          if (isNaN(d.getTime())) return false;
+          return getTimeKey(d, inferredTimeScale) === dateKey;
+        };
+
+        if (!matchesByTimeKey(assoc.PlanScheduleStart) && !matchesByTimeKey(assoc.ActualScheduleStart)) {
           return; // Skip if it doesn't match the cell's dateKey
         }
 
