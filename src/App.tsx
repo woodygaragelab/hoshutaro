@@ -1458,24 +1458,9 @@ const App: React.FC = () => {
         let startBoundStr = sortedHeaders[0];
         let endBoundStr = sortedHeaders[sortedHeaders.length - 1];
 
-        if (timeScale !== 'year') {
-          // Dynamic window: roughly center around focusDateKey or today
-          const focusDateStr = focusDateKey || getTimeKey(new Date(), timeScale);
-          const centerDate = parseTimeKey(focusDateStr, timeScale);
-          const minDate = parseTimeKey(startBoundStr, timeScale);
-          
-          if (centerDate && minDate) {
-             const adjustedStart = new Date(centerDate);
-             if (timeScale === 'day') adjustedStart.setDate(adjustedStart.getDate() - 300);
-             else if (timeScale === 'week') adjustedStart.setDate(adjustedStart.getDate() - 300 * 7);
-             else if (timeScale === 'month') adjustedStart.setMonth(adjustedStart.getMonth() - 150);
-
-             // Start from adjusted start, unless absolute start is later (if we prefer not scrolling past history, but it's fine).
-             // To prevent jumping completely out of bounds into empty void permanently, we just use adjustedStart
-             startBoundStr = getTimeKey(adjustedStart, timeScale);
-          }
-        }
-
+        // We no longer truncate the time window here. The grid uses virtual scrolling, 
+        // so generating 5000+ columns (e.g., 10 years of days) is cheap in React.
+        // Truncating this array was breaking the DateJumpDialog min/max limits.
         return generateFullTimeRange(startBoundStr, endBoundStr, timeScale);
       } catch (error) {
                 return sortedHeaders;

@@ -75,7 +75,7 @@ export const generateTimeRange = (startDate: Date, endDate: Date, timeScale: Tim
     // Iterate until we pass the end date
     // We use a safe loop limit to prevent memory spikes
     let safetyCounter = 0;
-    const LIMIT = 600; // 600 elements: ~1.5 years day, ~11 years week, ~50 years month
+    const LIMIT = 18000; // 18000 elements: ~50 years day, ~345 years week, ~1500 years month
 
     while (current <= endDate && safetyCounter < LIMIT) {
         keys.push(getTimeKey(current, timeScale));
