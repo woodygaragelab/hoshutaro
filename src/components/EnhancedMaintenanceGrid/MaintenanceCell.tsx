@@ -4,7 +4,7 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import CircleIcon from '@mui/icons-material/Circle';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import { HierarchicalData } from '../../types';
-import { GridColumn } from '../ExcelLikeGrid/types';
+import { GridColumn } from './types';
 import { getDisplaySymbolWithCount } from '../../utils/dataAggregation';
 import type { AggregatedStatus } from '../../types/maintenanceTask';
 

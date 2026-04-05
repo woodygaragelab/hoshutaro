@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, InputLabel, FormControl, Checkbox, FormGroup, FormControlLabel, List, ListItem, Divider } from '@mui/material';
 import { DragIndicator as DragIcon, FilterList as FilterIcon, Search as SearchIcon } from '@mui/icons-material';
-import { GridColumn, GridState } from '../ExcelLikeGrid/types';
+import { GridColumn, GridState } from './types';
 import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
 
 interface MaintenanceTableHeaderProps {

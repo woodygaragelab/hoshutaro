@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { WorkOrderBasedRow as WorkOrderBasedRowData, AggregatedStatus } from '../../types/maintenanceTask';
-import { GridColumn, GridState } from '../ExcelLikeGrid/types';
+import { GridColumn, GridState } from './types';
 import { HierarchicalData } from '../../types';
 import MaintenanceCell from './MaintenanceCell';
 

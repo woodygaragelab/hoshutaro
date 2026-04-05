@@ -1,4 +1,4 @@
-import { GridColumn } from '../ExcelLikeGrid/types';
+import { GridColumn } from './types';
 import { HierarchicalData } from '../../types';
 
 export interface NavigationResult {

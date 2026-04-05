@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { Box } from '@mui/material';
 import { HierarchicalData } from '../../types';
-import { GridColumn, GridState, DisplayAreaConfig } from '../ExcelLikeGrid/types';
+import { GridColumn, GridState, DisplayAreaConfig } from './types';
 import Resizer from './Resizer';
 // CommonEditLogic removed - not used as JSX component
 import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
@@ -306,54 +306,69 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     }
   }, [viewMode]);
 
-  // Listen for jump to column events
+  // Listen for jump to column events and handle delayed grid updates due to dynamic time windowing
+  const pendingJumpRef = useRef<string | null>(null);
+
+  const executeJump = useCallback((header: string) => {
+    // Find the column by header
+    const targetColumn = columns.find(col => col.id === `time_${header}`);
+    if (!targetColumn) return false;
+
+    // Determine which area the column belongs to
+    const isInSpecArea = columnsByArea.specifications.some(col => col.id === targetColumn.id);
+    const isInMaintenanceArea = columnsByArea.maintenance.some(col => col.id === targetColumn.id);
+
+    if (!isInSpecArea && !isInMaintenanceArea) return false;
+
+    // Calculate scroll position within the scrollable area (excluding fixed columns)
+    let scrollLeft = 0;
+    const targetArea = isInSpecArea ? columnsByArea.specifications : columnsByArea.maintenance;
+
+    for (let i = 0; i < targetArea.length; i++) {
+      const col = targetArea[i];
+      if (col.id === targetColumn.id) break;
+      scrollLeft += gridState.columnWidths[col.id] || col.width;
+    }
+
+    // Scroll to the column in the appropriate scrollable area
+    if (isInMaintenanceArea && maintenanceAreaRef.current) {
+      maintenanceAreaRef.current.scrollLeft = scrollLeft;
+      if (maintenanceHeaderRef.current) maintenanceHeaderRef.current.scrollLeft = scrollLeft;
+    }
+    if (isInSpecArea && specAreaRef.current) {
+      specAreaRef.current.scrollLeft = scrollLeft;
+      if (specHeaderRef.current) specHeaderRef.current.scrollLeft = scrollLeft;
+    }
+
+    return true;
+  }, [columns, gridState.columnWidths, columnsByArea]);
+
   useEffect(() => {
     const handleJumpToColumn = (event: CustomEvent) => {
       const { header } = event.detail;
-
-      // Find the column by header
-      const targetColumn = columns.find(col => col.id === `time_${header}`);
-      if (!targetColumn) return;
-
-      // Determine which area the column belongs to
-      const isInSpecArea = columnsByArea.specifications.some(col => col.id === targetColumn.id);
-      const isInMaintenanceArea = columnsByArea.maintenance.some(col => col.id === targetColumn.id);
-
-      if (!isInSpecArea && !isInMaintenanceArea) return;
-
-      // Calculate scroll position within the scrollable area (excluding fixed columns)
-      let scrollLeft = 0;
-      const targetArea = isInSpecArea ? columnsByArea.specifications : columnsByArea.maintenance;
-
-      for (let i = 0; i < targetArea.length; i++) {
-        const col = targetArea[i];
-        if (col.id === targetColumn.id) break;
-        scrollLeft += gridState.columnWidths[col.id] || col.width;
-      }
-
-      // Scroll to the column in the appropriate scrollable area
-      if (isInMaintenanceArea && maintenanceAreaRef.current) {
-        maintenanceAreaRef.current.scrollLeft = scrollLeft;
-        // Also sync the header
-        if (maintenanceHeaderRef.current) {
-          maintenanceHeaderRef.current.scrollLeft = scrollLeft;
-        }
-      }
-      if (isInSpecArea && specAreaRef.current) {
-        specAreaRef.current.scrollLeft = scrollLeft;
-        // Also sync the header
-        if (specHeaderRef.current) {
-          specHeaderRef.current.scrollLeft = scrollLeft;
-        }
+      
+      // Attempt jump immediately in case columns are already in view
+      const success = executeJump(header);
+      
+      // If failed, column not rendered yet. Store pending jump to execute when columns update.
+      if (!success) {
+        pendingJumpRef.current = header;
       }
     };
 
     window.addEventListener('jumpToColumn', handleJumpToColumn as EventListener);
+    return () => window.removeEventListener('jumpToColumn', handleJumpToColumn as EventListener);
+  }, [executeJump]);
 
-    return () => {
-      window.removeEventListener('jumpToColumn', handleJumpToColumn as EventListener);
-    };
-  }, [columns, gridState.columnWidths, columnsByArea]);
+  // Execute pending jump once columns have updated
+  useEffect(() => {
+    if (pendingJumpRef.current) {
+      const success = executeJump(pendingJumpRef.current);
+      if (success) {
+        pendingJumpRef.current = null;
+      }
+    }
+  }, [columns, executeJump]);
 
   // Determine layout based on display mode
   const layoutStyle = useMemo(() => {

@@ -328,8 +328,8 @@ export class DataStore {
       throw new ValidationError('階層のlevelsが必要です');
     }
 
-    if (hierarchy.levels.length < 1 || hierarchy.levels.length > 10) {
-      throw new ValidationError(`階層レベル数は1-10の範囲である必要があります: ${hierarchy.levels.length}`);
+    if (hierarchy.levels.length > 10) {
+      throw new ValidationError(`階層レベル数は10以下の範囲である必要があります: ${hierarchy.levels.length}`);
     }
 
     const seenKeys = new Set<string>();

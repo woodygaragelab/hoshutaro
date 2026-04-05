@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Box, TextField, Checkbox } from '@mui/material';
 import { HierarchicalData } from '../../types';
-import { GridColumn, GridState } from '../ExcelLikeGrid/types';
+import { GridColumn, GridState } from './types';
 
 interface MaintenanceTableRowProps {
   item: HierarchicalData;

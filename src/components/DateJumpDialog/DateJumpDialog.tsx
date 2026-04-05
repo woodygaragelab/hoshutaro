@@ -60,13 +60,39 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
   currentDate,
   onJumpToDate,
 }) => {
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(currentDate ? dayjs(currentDate) : dayjs());
+  const { minDate, maxDate } = useMemo(() => {
+    if (!timeHeaders || timeHeaders.length === 0) {
+      return { minDate: undefined, maxDate: undefined };
+    }
+    const safeHeaders = [...timeHeaders].filter(h => !h.startsWith('spec_') && !h.startsWith('info_') && !h.startsWith('bomCode'));
+    if (safeHeaders.length === 0) {
+      return { minDate: undefined, maxDate: undefined };
+    }
+    const sortedHeaders = safeHeaders.sort();
+    
+    // Parse oldest and newest time key bounds
+    const minParsed = parseTimeKey(sortedHeaders[0], timeScale as any);
+    const maxParsed = parseTimeKey(sortedHeaders[sortedHeaders.length - 1], timeScale as any);
+
+    return { 
+      minDate: minParsed ? dayjs(minParsed) : undefined, 
+      maxDate: maxParsed ? dayjs(maxParsed) : undefined 
+    };
+  }, [timeHeaders, timeScale]);
+
+  const parsedCurrentDate = useMemo(() => {
+    if (currentDate) {
+      const parsed = parseTimeKey(currentDate, timeScale as any);
+      if (parsed) return dayjs(parsed);
+    }
+    return minDate || dayjs();
+  }, [currentDate, timeScale, minDate]);
+
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(parsedCurrentDate);
 
   React.useEffect(() => {
-    if (currentDate) {
-      setSelectedDate(dayjs(currentDate));
-    }
-  }, [currentDate]);
+    setSelectedDate(parsedCurrentDate);
+  }, [parsedCurrentDate]);
 
   // Determine views based on timescale
   let views: ('year' | 'month' | 'day')[] = ['year', 'month', 'day'];
@@ -87,25 +113,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
     setCurrentView(openTo);
   }, [openTo]);
 
-  const { minDate, maxDate } = useMemo(() => {
-    if (!timeHeaders || timeHeaders.length === 0) {
-      return { minDate: undefined, maxDate: undefined };
-    }
-    const safeHeaders = [...timeHeaders].filter(h => !h.startsWith('spec_') && !h.startsWith('info_') && !h.startsWith('bomCode'));
-    if (safeHeaders.length === 0) {
-      return { minDate: undefined, maxDate: undefined };
-    }
-    const sortedHeaders = safeHeaders.sort();
-    
-    // Parse oldest and newest time key bounds
-    const minParsed = parseTimeKey(sortedHeaders[0], timeScale as any);
-    const maxParsed = parseTimeKey(sortedHeaders[sortedHeaders.length - 1], timeScale as any);
-
-    return { 
-      minDate: minParsed ? dayjs(minParsed) : undefined, 
-      maxDate: maxParsed ? dayjs(maxParsed) : undefined 
-    };
-  }, [timeHeaders, timeScale]);
+  // minDate and maxDate moved up to the top of the hook
 
   const handleJump = (newValue: Dayjs | null) => {
     if (newValue) {
@@ -139,6 +147,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
       flexDirection: 'column', 
       alignItems: 'center',
       minWidth: 320,
+      minHeight: 380,
       cursor: 'default',
     }}>
       <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
@@ -160,6 +169,9 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
           '& .MuiPickersMonth-monthButton': { color: 'white' },
           '& .MuiPickersMonth-monthButton.Mui-selected': { backgroundColor: 'primary.main' },
           '& .MuiPickersMonth-monthButton.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
+          '& .MuiDateCalendar-root': { backgroundColor: 'transparent', borderRadius: 0 },
+          '& .MuiPickersLayout-root': { backgroundColor: 'transparent', borderRadius: 0 },
+          '& .MuiPaper-root': { backgroundColor: 'transparent', borderRadius: 0, backgroundImage: 'none' },
         }}>
           <DateCalendar 
             value={selectedDate} 

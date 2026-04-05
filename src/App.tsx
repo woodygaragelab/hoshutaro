@@ -4,10 +4,10 @@ import './App.css';
 import './styles/responsive.css';
 import './styles/grid-text-fix.css';
 import './styles/performance.css';
-const rawData = { version: '3.0.0', assets: {}, workOrders: {}, workOrderLines: {}, hierarchy: { levels: [] } };
 import { HierarchicalData, RawEquipment } from './types';
 import { usePerformanceMonitor } from './utils/performanceMonitor';
 import { useAccessibility } from './utils/accessibility';
+
 
 // Import memoization utilities for performance optimization - Requirements 10.1, 10.2, 10.3
 import { memoize, memoizeArray, createMemoizedSelector } from './utils/memoization';
@@ -41,6 +41,15 @@ import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, S
 import { darkTheme } from './theme/darkTheme';
 import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate } from './types/maintenanceTask';
 
+const rawData = { 
+  version: '3.0.0', 
+  assets: {}, 
+  workOrders: {}, 
+  workOrderLines: {}, 
+  hierarchy: { levels: [{ key: 'level1', order: 1, values: [] }] }, 
+  metadata: {} 
+};
+
 const App: React.FC = () => {
   // Performance and accessibility hooks
   const { measureAsync } = usePerformanceMonitor();
@@ -64,6 +73,7 @@ const App: React.FC = () => {
   // Data states
   const [maintenanceData, setMaintenanceData] = useState<HierarchicalData[]>([]);
   const [activeTimeHeaders, setActiveTimeHeaders] = useState<string[]>([]);
+  const [focusDateKey, setFocusDateKey] = useState<string | null>(null);
   const [timeHeaders, setTimeHeaders] = useState<string[]>(() => {
     // Initialize with basic time headers to prevent "ヘッダーが見つかりません" error
     const currentYear = new Date().getFullYear();
@@ -160,6 +170,8 @@ const App: React.FC = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  const [isHierarchyManagerOpen, setIsHierarchyManagerOpen] = useState(false);
 
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
@@ -248,7 +260,8 @@ const App: React.FC = () => {
           
           if (dataVersion === '3.0.0') {
             // New data model (v3.0.0) - use DataStore
-                        const loadedData = dataStoreRef.current.loadData(rawData);
+            console.log("Raw Data Hierarchy:", JSON.parse(JSON.stringify(rawData.hierarchy)));
+            const loadedData = dataStoreRef.current.loadData(rawData);
 
                                     
             // Populate managers with loaded data
@@ -388,16 +401,7 @@ const App: React.FC = () => {
               });
             }
           }
-
-          // Fallback to legacy data transformation
-          
-          // Ensure rawData is valid before transformation
-          const validRawData = rawData && typeof rawData === 'object' ? rawData : {};
-          const [flatData, headers, filterTree] = transformData(validRawData as unknown as { [id: string]: RawEquipment }, timeScale);
-          setMaintenanceData(flatData);
-          setTimeHeaders(headers);
-          setHierarchyFilterTree(filterTree);
-          announce(`データ読み込みエラー。レガシーデータを使用します。`);
+          console.log("NOT calling fallback data transformation to prevent infinite loop");
         }
 
         setIsServicesInitialized(true);
@@ -427,7 +431,20 @@ const App: React.FC = () => {
     measureAsync('service-initialization', 'render', initializeServices);
   }, []); // Only run once on mount
 
-  // Update data when time scale changes or services are initialized
+  // Listen for date jumps to update the dynamic time window
+  useEffect(() => {
+    const handleJump = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const header = customEvent.detail?.header;
+      if (header) {
+        setFocusDateKey(header);
+      }
+    };
+    window.addEventListener('jumpToColumn', handleJump);
+    return () => window.removeEventListener('jumpToColumn', handleJump);
+  }, []);
+
+  // Update data when time scale changes, focus date changes, or services are initialized
   useEffect(() => {
     if (!isServicesInitialized) return;
 
@@ -436,7 +453,7 @@ const App: React.FC = () => {
       loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
     };
     measureAsync('data-transformation', 'render', loadData);
-  }, [timeScale, isServicesInitialized]); // Remove measureAsync and announce from dependencies
+  }, [timeScale, focusDateKey, isServicesInitialized]); // Remove measureAsync and announce from dependencies
 
   // Helper function to build hierarchy filter tree
   // Memoized for performance - Requirements 10.1, 10.2, 10.3
@@ -737,7 +754,7 @@ const App: React.FC = () => {
       // Doing so would wipe out the task hierarchies (causing the ghost UI bug).
       // We rely strictly on ViewModeManager, and if it fails, we show the ErrorHandler UI.
     }
-  }, [isServicesInitialized, timeScale]);
+  }, [isServicesInitialized, timeScale, focusDateKey]);
 
   const loadDataFromViewModeManager = useCallback((timeScaleOverride?: 'year' | 'month' | 'week' | 'day') => {
     // Delegate to loadDataFromViewModeManagerWithMode to ensure consistent behavior
@@ -1438,7 +1455,28 @@ const App: React.FC = () => {
     const sortedHeaders = Array.from(timeHeadersSet).sort();
     if (sortedHeaders.length > 0) {
       try {
-        return generateFullTimeRange(sortedHeaders[0], sortedHeaders[sortedHeaders.length - 1], timeScale);
+        let startBoundStr = sortedHeaders[0];
+        let endBoundStr = sortedHeaders[sortedHeaders.length - 1];
+
+        if (timeScale !== 'year') {
+          // Dynamic window: roughly center around focusDateKey or today
+          const focusDateStr = focusDateKey || getTimeKey(new Date(), timeScale);
+          const centerDate = parseTimeKey(focusDateStr, timeScale);
+          const minDate = parseTimeKey(startBoundStr, timeScale);
+          
+          if (centerDate && minDate) {
+             const adjustedStart = new Date(centerDate);
+             if (timeScale === 'day') adjustedStart.setDate(adjustedStart.getDate() - 300);
+             else if (timeScale === 'week') adjustedStart.setDate(adjustedStart.getDate() - 300 * 7);
+             else if (timeScale === 'month') adjustedStart.setMonth(adjustedStart.getMonth() - 150);
+
+             // Start from adjusted start, unless absolute start is later (if we prefer not scrolling past history, but it's fine).
+             // To prevent jumping completely out of bounds into empty void permanently, we just use adjustedStart
+             startBoundStr = getTimeKey(adjustedStart, timeScale);
+          }
+        }
+
+        return generateFullTimeRange(startBoundStr, endBoundStr, timeScale);
       } catch (error) {
                 return sortedHeaders;
       }
@@ -2628,14 +2666,15 @@ const App: React.FC = () => {
 
         {/* Hierarchy Edit Dialog */}
         <HierarchyEditDialog
-          open={hierarchyEditDialogOpen}
-          onClose={() => setHierarchyEditDialogOpen(false)}
+          open={isHierarchyManagerOpen}
+          onClose={() => setIsHierarchyManagerOpen(false)}
           hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition() || { levels: [] }}
+          assetCount={assetManagerRef.current?.getAllAssets().length || 0}
           onSave={(newHierarchy) => {
             if (hierarchyManagerRef.current) {
-              hierarchyManagerRef.current.updateHierarchyDefinition(newHierarchy.levels);
+              hierarchyManagerRef.current.setHierarchyDefinition({ levels: newHierarchy.levels });
               // Trigger a basic re-load of hierarchy visuals
-              loadDataFromViewModeManager(timeScale);
+              loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
             }
           }}
         />

@@ -4,7 +4,7 @@
  */
 
 import { useMemo, useCallback } from 'react';
-import { GridColumn } from '../ExcelLikeGrid/types';
+import { GridColumn } from '../EnhancedMaintenanceGrid/types';
 
 export interface HorizontalVirtualScrollingConfig {
   columns: GridColumn[];

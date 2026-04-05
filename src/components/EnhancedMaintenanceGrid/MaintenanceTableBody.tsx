@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
 import { HierarchicalData } from '../../types';
-import { GridColumn, GridState } from '../ExcelLikeGrid/types';
+import { GridColumn, GridState } from './types';
 import MaintenanceTableRow from './MaintenanceTableRow';
 import GroupHeaderRow from './GroupHeaderRow';
 import { WorkOrderBasedRow } from './WorkOrderBasedRow';
@@ -62,10 +62,8 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   expandedWorkOrders,
   onToggleWorkOrderExpanded,
 }) => {
-  // Horizontal virtual scrolling
-  // DISABLED based on user feedback: The caching mechanism was causing severe display breakage
-  // (blank grids/out of bounds) when switching time scales or resizing.
-  const shouldUseHorizontalVirtualScrolling = false;
+  // Horizontal virtual scrolling enabled for performance
+  const shouldUseHorizontalVirtualScrolling = enableHorizontalVirtualScrolling;
 
   const horizontalVirtualScrolling = useHorizontalVirtualScrolling({
     columns,
@@ -76,8 +74,10 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
     enableMemoization: false, // Disabled cache
   });
 
-  // Always use all columns for stability
-  const displayColumns = columns;
+  // Use virtual columns if enabled, otherwise use all columns
+  const displayColumns = shouldUseHorizontalVirtualScrolling ? 
+    horizontalVirtualScrolling.visibleColumns.map(vc => vc.data) : 
+    columns;
 
   const virtualOffset = shouldUseHorizontalVirtualScrolling && horizontalVirtualScrolling.visibleColumns.length > 0 ?
     horizontalVirtualScrolling.visibleColumns[0].left : 0;

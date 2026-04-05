@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { GridColumn } from '../ExcelLikeGrid/types';
+import { GridColumn } from './types';
 
 interface GroupHeaderRowProps {
   hierarchyPath: string;

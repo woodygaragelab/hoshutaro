@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { HierarchicalData } from '../../../types';
-import { GridColumn, GridState } from '../../ExcelLikeGrid/types';
+import { GridColumn, GridState } from '../types';
 
 export const useMaintenanceGridState = (columns: GridColumn[], data: HierarchicalData[]) => {
   const [selectedCell, setSelectedCellState] = useState<{ rowId: string; columnId: string } | null>(null);

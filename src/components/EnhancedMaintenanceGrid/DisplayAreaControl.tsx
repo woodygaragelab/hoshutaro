@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import { ViewList, TableChart, ViewModule } from '@mui/icons-material';
-import { DisplayAreaConfig } from '../ExcelLikeGrid/types';
+import { DisplayAreaConfig } from './types';
 
 interface DisplayAreaControlProps {
   config: DisplayAreaConfig;

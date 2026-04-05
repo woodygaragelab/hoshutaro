@@ -1,50 +1,114 @@
+/**
+ * Excel-Like Grid Types
+ * Type definitions for the Excel-like grid component
+ */
+
 import { HierarchicalData } from '../../types';
-import { GridColumn, GridState, DisplayAreaConfig } from '../ExcelLikeGrid/types';
 
-export interface MaintenanceGridLayoutProps {
-  data: HierarchicalData[];
-  columns: GridColumn[];
-  displayAreaConfig: DisplayAreaConfig;
-  gridState: GridState;
-  viewMode: 'status' | 'cost';
-  groupedData?: { [key: string]: HierarchicalData[] };
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
-  onColumnResize: (columnId: string, width: number) => void;
-  onRowResize: (rowId: string, height: number) => void;
-  onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
-  onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
-  onSelectedRangeChange: (range: any) => void;
-  onUpdateItem: (updatedItem: HierarchicalData) => void;
-  virtualScrolling: boolean;
-  readOnly: boolean;
+/**
+ * Grid Column Definition
+ */
+export interface GridColumn {
+  id: string;
+  header: string;
+  width: number;
+  minWidth: number;
+  maxWidth?: number;
+  resizable: boolean;
+  sortable: boolean;
+  type: 'text' | 'number' | 'date' | 'status' | 'cost';
+  editable: boolean;
+  fixed?: boolean;
+  accessor?: string | ((row: any) => any);
 }
 
-export interface MaintenanceTableRowProps {
-  item: HierarchicalData;
-  columns: GridColumn[];
-  viewMode: 'status' | 'cost';
-  gridState: GridState;
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
-  onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
-  onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
-  onUpdateItem: (updatedItem: HierarchicalData) => void;
-  readOnly: boolean;
+/**
+ * Grid State
+ */
+export interface GridState {
+  selectedCell: { rowId: string; columnId: string } | null;
+  editingCell: { rowId: string; columnId: string } | null;
+  selectedRange: {
+    start: { rowId: string; columnId: string };
+    end: { rowId: string; columnId: string };
+  } | null;
+  columnWidths: { [columnId: string]: number };
+  rowHeights: { [rowId: string]: number };
+  sortColumn: string | null;
+  sortDirection: 'asc' | 'desc' | null;
+  scrollPosition: { x: number; y: number };
+  clipboardData?: any;
 }
 
-export interface SpecificationEditContext {
+/**
+ * Display Area Configuration
+ */
+export interface DisplayAreaConfig {
+  mode: 'specifications' | 'maintenance' | 'both';
+  fixedColumns: string[]; // 機器リスト等の固定列
+  scrollableAreas: {
+    specifications?: {
+      visible: boolean;
+      width: number;
+      columns: string[];
+    };
+    maintenance?: {
+      visible: boolean;
+      width: number;
+      columns: string[];
+    };
+  };
+}
+
+/**
+ * Cell Edit Context
+ */
+export interface CellEditContext {
   rowId: string;
-  specIndex: number;
-  field: 'key' | 'value' | 'order';
-  value: string | number;
-  previousValue: string | number;
+  columnId: string;
+  value: any;
+  previousValue: any;
   isValid: boolean;
   errorMessage?: string;
 }
 
-export interface DisplayAreaControlProps {
-  config: DisplayAreaConfig;
-  onChange: (config: DisplayAreaConfig) => void;
+/**
+ * Clipboard Data
+ */
+export interface ClipboardData {
+  rows: string[][];
+  source: 'copy' | 'cut';
+  timestamp: number;
 }
 
-// Re-export commonly used types from ExcelLikeGrid
-export type { GridColumn, GridState, ClipboardData } from '../ExcelLikeGrid/types';
+/**
+ * Enhanced Maintenance Grid Props
+ */
+export interface EnhancedMaintenanceGridProps {
+  data: HierarchicalData[];
+  columns: GridColumn[];
+  timeHeaders: any[];
+  viewMode: 'status' | 'cost';
+  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  onUpdateItem: (updatedItem: HierarchicalData) => void;
+  virtualScrolling?: boolean;
+  readOnly?: boolean;
+  displayAreaConfig?: DisplayAreaConfig;
+  onDisplayAreaConfigChange?: (config: DisplayAreaConfig) => void;
+}
+
+/**
+ * Grid Selection
+ */
+export interface GridSelection {
+  rowId: string;
+  columnId: string;
+}
+
+/**
+ * Grid Range
+ */
+export interface GridRange {
+  start: GridSelection;
+  end: GridSelection;
+}

@@ -1,10 +1,9 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 // HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
 import { Box, Paper, Snackbar, Alert } from '@mui/material';
-import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from '../ExcelLikeGrid/types';
+import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from './types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
-import { GridFilterBar } from './GridFilterBar';
 import { WorkOrderLineDialog } from '../WorkOrderLineDialog/WorkOrderLineDialog';
 import { ViewModeManager } from '../../services/ViewModeManager';
 import {
@@ -219,8 +218,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   // Use timeHeaders directly to avoid memoization issues
   const memoizedTimeHeaders = timeHeaders;
 
-  // Get equipment-based data if in equipment-based mode - simplified without useMemo
-  const equipmentBasedData = (() => {
+  // Get equipment-based data if in equipment-based mode
+  const equipmentBasedData = useMemo(() => {
     // If we have data from parent (App.tsx), don't fetch again to avoid inconsistency
     if (data && data.length > 0) {
             return [];
@@ -230,10 +229,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       return [];
     }
     return viewModeManager.getAssetBasedData();
-  })();
+  }, [data, isEquipmentBasedMode, viewModeManager]);
 
-  // Get task-based data if in task-based mode - simplified without useMemo
-  const taskBasedData = (() => {
+  // Get task-based data if in task-based mode
+  const taskBasedData = useMemo(() => {
     // If we have data from parent (App.tsx), don't fetch again to avoid inconsistency
     if (data && data.length > 0) {
             return [];
@@ -243,11 +242,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       return [];
     }
     return viewModeManager.getWorkOrderBasedData();
-  })();
+  }, [data, isTaskBasedMode, viewModeManager]);
 
   // Convert equipment-based or task-based data to grid format
-  // Use immediate function to avoid memoization issues
-  const convertedData = (() => {
+  const convertedData = useMemo(() => {
     // If we have data from parent, use it directly (it's already transformed)
     if (data && data.length > 0) {
                         return data;
@@ -357,7 +355,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
     // Default: use original data
         return data;
-  })();
+  }, [data, isTaskBasedMode, taskBasedData, isEquipmentBasedMode, equipmentBasedData]);
 
   // Generate columns based on current configuration
   // Memoized to prevent heavy array reconstruction on every render
@@ -480,8 +478,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   ]);
 
   // Generate display area configuration
-  // Use immediate function to avoid memoization issues
-  const displayAreaConfig = ((): DisplayAreaConfig => {
+  const displayAreaConfig = useMemo((): DisplayAreaConfig => {
     const fixedColumns = ['task'];
     if (showBomCode) fixedColumns.push('bomCode');
 
@@ -504,7 +501,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         }
       }
     };
-  })();
+  }, [showBomCode, columns, displayMode, viewMode]);
 
   const {
     gridState,
@@ -517,18 +514,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   } = useMaintenanceGridState(columns, data);
 
   // Auto-enable virtual scrolling for large column counts (week/day views)
-  // DISABLED: User explicitly requested to review/disable the caching & rendering optimization design
-  // as it was causing severe rendering glitches (blank screens) upon time scale changes.
   const autoVirtualScrolling = useMemo(() => {
-    return false; // Force disable virtual scrolling to guarantee rendering stability
+    return true; // Use virtual scrolling for performance stability natively
   }, [columns, virtualScrolling]);
 
   // Performance optimization hooks - use appropriate data based on mode
-  // Use immediate function to avoid memoization issues
-  const dataForProcessing = (() => {
+  const dataForProcessing = useMemo(() => {
     // Use convertedData (which now includes data from parent)
     return convertedData as any;
-  })();
+  }, [convertedData]);
 
   const processedData = dataForProcessing;
   const processedColumns = columns;
@@ -904,8 +898,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         case 'p':
           if (e.shiftKey) {
             e.preventDefault();
-            // Toggle performance monitor via Ctrl+Shift+P
-            setShowPerformanceMonitor(prev => !prev);
+            // Toggle performance monitor via Ctrl+Shift+P (Not implemented)
+            console.log("Performance monitor toggle requested");
             return;
           }
           break;
@@ -1090,6 +1084,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         onSelectedRangeChange={setSelectedRange}
         onUpdateItem={onUpdateItem}
         virtualScrolling={autoVirtualScrolling || shouldUseVirtualScrolling}
+        enableHorizontalVirtualScrolling={autoVirtualScrolling || shouldUseVirtualScrolling}
         readOnly={readOnly}
         onCopy={handleCopy}
         isEquipmentBasedMode={isEquipmentBasedMode}
