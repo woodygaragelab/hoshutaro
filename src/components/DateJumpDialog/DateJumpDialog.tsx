@@ -11,12 +11,13 @@ import { PickersDay, PickersDayProps } from '@mui/x-date-pickers/PickersDay';
 import dayjs, { Dayjs } from 'dayjs';
 import { getTimeKey, parseTimeKey } from '../../utils/dateUtils';
 
-function CustomDay(props: PickersDayProps<Dayjs> & { activeTimeHeaders?: string[], timeScale?: string }) {
+function CustomDay(props: PickersDayProps & { activeTimeHeaders?: string[], timeScale?: string }) {
   const { activeTimeHeaders, timeScale, day, outsideCurrentMonth, ...other } = props;
 
   const isDataPresent = useMemo(() => {
     if (!activeTimeHeaders || outsideCurrentMonth) return false;
-    const dateStr = getTimeKey(day.toDate(), (timeScale as any) || 'day');
+    const utcDate = new Date(Date.UTC(day.year(), day.month(), day.date()));
+    const dateStr = getTimeKey(utcDate, (timeScale as any) || 'day');
     return activeTimeHeaders.includes(dateStr);
   }, [activeTimeHeaders, day, timeScale, outsideCurrentMonth]);
 
@@ -126,7 +127,10 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
       }
 
       if (onJump) {
-        const formatted = getTimeKey(newValue.toDate(), timeScale);
+        // MUST construct a UTC date using the user's selected Y/M/D to avoid timezone shifts 
+        // when passed to getTimeKey, because getTimeKey strictly extracts UTC values.
+        const utcDate = new Date(Date.UTC(newValue.year(), newValue.month(), newValue.date()));
+        const formatted = getTimeKey(utcDate, timeScale);
         onJump(formatted);
       } else if (onJumpToDate) {
         onJumpToDate(newValue.year(), newValue.month() + 1, undefined, newValue.date());
@@ -159,15 +163,33 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
           '& .MuiPickersCalendarHeader-root': { color: 'white', pt: 1 },
           '& .MuiDayCalendar-weekDayLabel': { color: 'rgba(255,255,255,0.6)' },
           '& .MuiPickersDay-root': { color: 'white' },
-          '& .MuiPickersDay-root.Mui-selected': { backgroundColor: 'primary.main' },
+          // Remove the selected white highlight entirely
+          '& .MuiPickersDay-root.Mui-selected': { 
+            backgroundColor: 'transparent !important', 
+            border: 'none',
+            color: 'white'
+          },
+          // Remove ALL white highlights from selected items globally within the calendar
+          '& .Mui-selected': { 
+            backgroundColor: 'transparent !important', 
+            color: 'white !important',
+            border: 'none !important',
+          },
+          '& .Mui-selected:hover': { 
+            backgroundColor: 'rgba(255, 255, 255, 0.25) !important', 
+          },
+          '& .Mui-selected:focus': { 
+            backgroundColor: 'rgba(255, 255, 255, 0.15) !important', 
+          },
           '& .MuiPickersDay-root:not(.Mui-selected):not(.Mui-disabled):hover': { backgroundColor: 'rgba(255,255,255,0.1)' },
           '& .MuiPickersDay-root.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
+          '& .MuiPickersDay-today': { 
+            border: '1px solid rgba(255, 255, 255, 0.6) !important',
+          },
           '& .MuiPickersArrowSwitcher-button': { color: 'white' },
           '& .MuiPickersYear-yearButton': { color: 'white' },
-          '& .MuiPickersYear-yearButton.Mui-selected': { backgroundColor: 'primary.main' },
           '& .MuiPickersYear-yearButton.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
           '& .MuiPickersMonth-monthButton': { color: 'white' },
-          '& .MuiPickersMonth-monthButton.Mui-selected': { backgroundColor: 'primary.main' },
           '& .MuiPickersMonth-monthButton.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
           '& .MuiDateCalendar-root': { backgroundColor: 'transparent', borderRadius: 0 },
           '& .MuiPickersLayout-root': { backgroundColor: 'transparent', borderRadius: 0 },

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 // HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
-import { Box, Paper, Snackbar, Alert } from '@mui/material';
+import { Box, Paper, Snackbar, Alert, Typography, TextField } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from './types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
@@ -85,13 +85,6 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   hierarchyFilterTree?: any;
   level2Options?: string[];
   level3Options?: string[];
-  onAddYear?: () => void;
-  onDeleteYear?: () => void;
-  onExportData?: () => void;
-  onImportData?: () => void;
-  onResetData?: () => void;
-  onAIAssistantToggle?: () => void;
-  isAIAssistantOpen?: boolean;
   onShowBomCodeChange?: (checked: boolean) => void;
   onDisplayModeChange?: (mode: 'both' | 'specifications' | 'maintenance') => void;
   onViewModeChange?: (mode: 'status' | 'cost') => void;
@@ -101,6 +94,9 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onJumpToDate?: (year: number, month?: number, week?: number, day?: number) => void;
   onCellCopy?: (rowId: string, columnId: string, viewMode: 'status' | 'cost') => void;
   onCellPaste?: (rowId: string, columnId: string, viewMode: 'status' | 'cost') => void;
+  // Project Name Props
+  projectName?: string;
+  onProjectNameChange?: (newName: string) => void;
 }
 
 export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = ({
@@ -161,13 +157,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onTimeScaleChange,
   onShowBomCodeChange,
   onDisplayModeChange,
-  onAddYear,
-  onDeleteYear,
-  onExportData,
-  onImportData,
-  onResetData,
-  onAIAssistantToggle,
-  isAIAssistantOpen = false,
   currentYear,
   onJumpToDate,
   onCellCopy,
@@ -177,7 +166,11 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onSelectedTasksChange,
   uniqueBomCodes,
   selectedBomCodes,
-  onSelectedBomCodesChange
+  onSelectedBomCodesChange,
+  onScroll,
+  // Project Name Props
+  projectName = '無題のプロジェクト',
+  onProjectNameChange
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -190,6 +183,33 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
   // WorkOrder Expand State for Tree Grid
   const [expandedWorkOrders, setExpandedWorkOrders] = useState<Set<string>>(new Set());
+
+  // Project Name Edit State
+  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
+  const [tempProjectName, setTempProjectName] = useState(projectName);
+
+  // Sync temp name when prop changes
+  useEffect(() => {
+    setTempProjectName(projectName);
+  }, [projectName]);
+
+  const handleProjectNameBlur = () => {
+    setIsEditingProjectName(false);
+    if (tempProjectName.trim() && tempProjectName !== projectName) {
+      onProjectNameChange?.(tempProjectName.trim());
+    } else {
+      setTempProjectName(projectName);
+    }
+  };
+
+  const handleProjectNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleProjectNameBlur();
+    } else if (e.key === 'Escape') {
+      setIsEditingProjectName(false);
+      setTempProjectName(projectName);
+    }
+  };
 
   const toggleWorkOrderExpanded = useCallback((workOrderId: string) => {
     setExpandedWorkOrders(prev => {
@@ -1054,12 +1074,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const stableOnSearchChange = useMemo(() => onSearchChange || (() => { }), [onSearchChange]);
   const stableOnShowBomCodeChange = useMemo(() => onShowBomCodeChange || (() => { }), [onShowBomCodeChange]);
   const stableOnDisplayModeChange = useMemo(() => onDisplayModeChange || (() => { }), [onDisplayModeChange]);
-  const stableOnAddYear = useMemo(() => onAddYear || (() => { }), [onAddYear]);
-  const stableOnDeleteYear = useMemo(() => onDeleteYear || (() => { }), [onDeleteYear]);
-  const stableOnExportData = useMemo(() => onExportData || (() => { }), [onExportData]);
-  const stableOnImportData = useMemo(() => onImportData || (() => { }), [onImportData]);
-  const stableOnResetData = useMemo(() => onResetData || (() => { }), [onResetData]);
-  const stableOnAIAssistantToggle = useMemo(() => onAIAssistantToggle || (() => { }), [onAIAssistantToggle]);
 
   // Desktop-only view
   const renderGridView = useMemo(() => {
@@ -1092,6 +1106,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         // Asset selection props
         selectedAssets={selectedAssets}
         onAssetSelectionToggle={handleAssetSelectionToggle}
+        onScroll={onScroll}
         // WorkOrder expansion props
         expandedWorkOrders={expandedWorkOrders}
         onToggleWorkOrderExpanded={toggleWorkOrderExpanded}
@@ -1136,6 +1151,38 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
   return (
     <>
+      {/* Project Title Container - Floating above the grid */}
+      <Box className="project-title-container">
+        {isEditingProjectName ? (
+          <TextField
+            autoFocus
+            variant="standard"
+            value={tempProjectName}
+            onChange={(e) => setTempProjectName(e.target.value)}
+            onBlur={handleProjectNameBlur}
+            onKeyDown={handleProjectNameKeyDown}
+            className="project-title-input"
+            inputProps={{
+              style: {
+                textAlign: 'center',
+                color: '#ffffff',
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                letterSpacing: '0.04em',
+                padding: '0'
+              }
+            }}
+          />
+        ) : (
+          <Box
+            className="project-title-text"
+            onClick={() => setIsEditingProjectName(true)}
+          >
+            {projectName || '無題のプロジェクト'}
+          </Box>
+        )}
+      </Box>
+
       <Paper
         ref={gridRef}
         className={paperClassName}

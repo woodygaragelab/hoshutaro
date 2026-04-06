@@ -59,6 +59,7 @@ interface MaintenanceGridLayoutProps {
   uniqueBomCodes?: string[];
   selectedBomCodes?: string[];
   onSelectedBomCodesChange?: (bomCodes: string[]) => void;
+  onScroll?: (dateKey: string) => void;
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -108,6 +109,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   uniqueBomCodes,
   selectedBomCodes,
   onSelectedBomCodesChange,
+  onScroll,
 }) => {
     // Container width for horizontal virtual scrolling
   const [containerWidth, setContainerWidth] = useState(1920);
@@ -1259,6 +1261,19 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
                   // Update horizontal scroll position for virtual scrolling
                   setHorizontalScrollLeft(scrollLeft);
+
+                  // Calculate currently visible column's timekey and execute scroll callback
+                  if (onScroll && columnsByArea.maintenance.length > 0) {
+                    const colWidth = viewMode === 'cost' ? 120 : 80;
+                    const visibleColIndex = Math.floor(scrollLeft / colWidth);
+                    if (visibleColIndex >= 0 && visibleColIndex < columnsByArea.maintenance.length) {
+                      const timeHeaderId = columnsByArea.maintenance[visibleColIndex].id; // typically "time_YYYY-MM-DD"
+                      if (timeHeaderId.startsWith('time_')) {
+                        const timeKey = timeHeaderId.substring(5);
+                        onScroll(timeKey);
+                      }
+                    }
+                  }
 
                   // Sync header horizontal scroll
                   if (maintenanceHeaderRef.current) {
