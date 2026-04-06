@@ -95,6 +95,7 @@ export interface EnhancedMaintenanceGridProps {
   readOnly?: boolean;
   displayAreaConfig?: DisplayAreaConfig;
   onDisplayAreaConfigChange?: (config: DisplayAreaConfig) => void;
+  onScroll?: (dateKey: string) => void;
 }
 
 /**

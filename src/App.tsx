@@ -41,13 +41,13 @@ import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, S
 import { darkTheme } from './theme/darkTheme';
 import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate } from './types/maintenanceTask';
 
-const rawData = { 
-  version: '3.0.0', 
-  assets: {}, 
-  workOrders: {}, 
-  workOrderLines: {}, 
-  hierarchy: { levels: [{ key: 'level1', order: 1, values: [] }] }, 
-  metadata: {} 
+const rawData = {
+  version: '3.0.0',
+  assets: {},
+  workOrders: {},
+  workOrderLines: {},
+  hierarchy: { levels: [{ key: 'level1', order: 1, values: [] }] },
+  metadata: {}
 };
 
 const App: React.FC = () => {
@@ -73,6 +73,9 @@ const App: React.FC = () => {
   // Data states
   const [maintenanceData, setMaintenanceData] = useState<HierarchicalData[]>([]);
   const [activeTimeHeaders, setActiveTimeHeaders] = useState<string[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [currentVisibleDate, setCurrentVisibleDate] = useState<string | undefined>();
   const [focusDateKey, setFocusDateKey] = useState<string | null>(null);
   const [timeHeaders, setTimeHeaders] = useState<string[]>(() => {
     // Initialize with basic time headers to prevent "ヘッダーが見つかりません" error
@@ -86,7 +89,7 @@ const App: React.FC = () => {
   const [timeScale, setTimeScale] = useState<'year' | 'month' | 'week' | 'day'>('year');
   const [viewMode, setViewMode] = useState<'status' | 'cost'>('status');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  
+
   // Spreadsheet-style checkbox filters
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [selectedBomCodes, setSelectedBomCodes] = useState<string[]>([]);
@@ -99,6 +102,12 @@ const App: React.FC = () => {
   // In equipment-based mode: user can choose to edit single asset or all assets with same task
   // In task-based mode: always edits all assets (editScope is forced to 'all-assets')
   const [editScope, setEditScope] = useState<'single-asset' | 'all-assets'>('single-asset');
+  const [projectName, setProjectName] = useState<string>('無題のプロジェクト');
+
+  // Handle project name change
+  const handleProjectNameChange = useCallback((newName: string) => {
+    setProjectName(newName);
+  }, []);
 
   // Handle edit scope change with useCallback to prevent infinite loops
   const handleEditScopeChange = useCallback((scope: 'single-asset' | 'all-assets') => {
@@ -114,13 +123,13 @@ const App: React.FC = () => {
   const isTransitioning = false;
   const transitionDuration = 0;
   const hookSwitchMode = (mode: any, preserveState?: boolean) => {
-        // Don't call setDataViewMode here to prevent infinite loops
+    // Don't call setDataViewMode here to prevent infinite loops
     // The mode change will be handled by the handleDataViewModeChange function
   };
   const hookApplyFilters = (filters: any) => {
-      };
+  };
   const hookUpdateData = (tasks: any, assets: any, associations: any, hierarchy: any) => {
-      };
+  };
 
   // Original hook disabled:
   /*
@@ -181,7 +190,7 @@ const App: React.FC = () => {
 
   // Handle cell double click - proper dialog routing based on view mode
   const handleCellDoubleClick = (item: any, header: string, event: React.MouseEvent<HTMLElement>) => {
-    
+
     // Route to appropriate dialog based on view mode
     // Both modes use TaskEditDialog, but with different context
     if (dataViewMode === 'asset-based') {
@@ -224,6 +233,10 @@ const App: React.FC = () => {
       try {
         // Initialize UndoRedoManager first
         undoRedoManagerRef.current = new UndoRedoManager();
+        undoRedoManagerRef.current.subscribe(() => {
+          setCanUndo(undoRedoManagerRef.current?.canUndo() || false);
+          setCanRedo(undoRedoManagerRef.current?.canRedo() || false);
+        });
         errorHandlerRef.current = new ErrorHandler();
         dataStoreRef.current = new DataStore();
 
@@ -257,15 +270,22 @@ const App: React.FC = () => {
           // Step 1: Check data version before attempting to load
           const dataVersion = (rawData as any).version;
 
-          
+
           if (dataVersion === '3.0.0') {
             // New data model (v3.0.0) - use DataStore
             console.log("Raw Data Hierarchy:", JSON.parse(JSON.stringify(rawData.hierarchy)));
             const loadedData = dataStoreRef.current.loadData(rawData);
 
-                                    
+            // Initialize project name from metadata if available
+            if (loadedData.metadata?.projectName) {
+              setProjectName(loadedData.metadata.projectName);
+            }
+
+
             // Populate managers with loaded data
             if (loadedData) {
+              undoRedoManagerRef.current?.mute();
+              
               // Load assets - create new manager and populate
               assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
               const existingAssets = Object.values(loadedData.assets);
@@ -283,7 +303,7 @@ const App: React.FC = () => {
               // Load workOrderLines - create new manager and populate
               workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
               const existingWorkOrderLines = Object.values(loadedData.workOrderLines || {});
-                            let wolSuccessCount = 0;
+              let wolSuccessCount = 0;
               let wolErrorCount = 0;
               existingWorkOrderLines.forEach((wol: any) => {
                 try {
@@ -294,8 +314,8 @@ const App: React.FC = () => {
                   console.error('[App] DEBUG: createWorkOrderLine error for', wol?.id, ':', e.message);
                 }
               });
-                            const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
-                            (window as any).__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
+              const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
+              (window as any).__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
 
               // Reinitialize EditHandlers with the new WorkOrderLineManager
               editHandlersRef.current = new EditHandlers(workOrderLineManagerRef.current);
@@ -319,10 +339,10 @@ const App: React.FC = () => {
                   }))
                 };
 
-                                hierarchyManagerRef.current?.setHierarchyDefinition(hierarchyDefinition);
+                hierarchyManagerRef.current?.setHierarchyDefinition(hierarchyDefinition);
 
                 // アセットの階層パスはそのまま使用（変換不要）
-                
+
                 // ViewModeManagerを階層定義で初期化
                 viewModeManagerRef.current = new ViewModeManager(
                   existingAssets,
@@ -332,14 +352,14 @@ const App: React.FC = () => {
               }
 
               // Build data indexes for O(1) lookups - Requirements 10.1, 10.2, 10.3
-                            dataIndexManagerRef.current.buildAll({
+              dataIndexManagerRef.current.buildAll({
                 assets: existingAssets,
                 workOrders: existingWorkOrders,
                 associations: existingWorkOrderLines
               });
 
               const indexStats = dataIndexManagerRef.current.getStats();
-              
+
               // Update time headers based on data range
               // Requirements 6.4: Auto-scale time range based on data
               const years = new Set<number>();
@@ -361,14 +381,19 @@ const App: React.FC = () => {
 
               const sortedYears = Array.from(years).sort((a, b) => a - b);
               const headerStrings = sortedYears.map(y => y.toString());
-                            setTimeHeaders(headerStrings);
+              setTimeHeaders(headerStrings);
+
+              setTimeout(() => {
+                undoRedoManagerRef.current?.unmute();
+                undoRedoManagerRef.current?.clear();
+              }, 100);
 
               announce('データモデル (v3.0.0) が読み込まれました');
             }
           } else {
             // Legacy data (no version or different version) - use legacy transformation
             // Requirements 9.1: Detect and handle legacy data
-                        
+
             const [flatData, headers, filterTree] = transformData(rawData as unknown as { [id: string]: RawEquipment }, timeScale);
             setMaintenanceData(flatData);
             setTimeHeaders(headers);
@@ -494,7 +519,7 @@ const App: React.FC = () => {
   // Memoized data transformation functions - Requirements 10.1, 10.2, 10.3
   const transformEquipmentData = useMemo(() => {
     return createMemoizedSelector((equipmentData: any[]) => {
-            
+
       return equipmentData.map(row => {
         if (row.type === 'hierarchy') {
           // Hierarchy header row (帯部分)
@@ -553,7 +578,7 @@ const App: React.FC = () => {
           };
         } else {
           // Fallback for unknown row types
-                    return {
+          return {
             id: `unknown_${row.id || 'no-id'}`,
             task: row.hierarchyValue || row.assetName || 'Unknown',
             bomCode: '',
@@ -575,7 +600,7 @@ const App: React.FC = () => {
   // Helper function to load data from ViewModeManager with explicit mode parameter
   // This avoids state synchronization issues when switching modes
   const loadDataFromViewModeManagerWithMode = useCallback((mode: 'asset-based' | 'workorder-based', timeScaleOverride?: 'year' | 'month' | 'week' | 'day') => {
-    
+
     if (!isServicesInitialized || !viewModeManagerRef.current || !assetManagerRef.current) {
       return;
     }
@@ -587,7 +612,7 @@ const App: React.FC = () => {
         const assets = assetManagerRef.current.getAllAssets();
         const workOrderLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
 
-        
+
         dataIndexManagerRef.current.buildAll({
           assets,
           workOrders,
@@ -616,7 +641,7 @@ const App: React.FC = () => {
             ? hookEquipmentData
             : viewModeManagerRef.current.getAssetBasedData();
 
-          
+
           // Transform to legacy format for grid compatibility using memoized function
           // Requirements 10.1, 10.2, 10.3: Memoized transformation for performance
           const transformedData = transformEquipmentData(equipmentData);
@@ -624,13 +649,13 @@ const App: React.FC = () => {
           // DEBUG: Expose data to window for headless inspection
           (window as any).__DEBUG_EQUIPMENT = equipmentData;
           (window as any).__DEBUG_TRANS = transformedData;
-          
+
           const newActiveHeaders = new Set<string>();
           transformedData.forEach(item => {
             if (item.results) {
               Object.keys(item.results).forEach(k => {
                 if (item.results![k].planned || item.results![k].actual) {
-                   newActiveHeaders.add(k);
+                  newActiveHeaders.add(k);
                 }
               });
             }
@@ -668,7 +693,7 @@ const App: React.FC = () => {
           const effectiveTimeScale = timeScaleOverride || timeScale;
           const taskBasedData = viewModeManagerRef.current.getWorkOrderBasedData(effectiveTimeScale);
 
-          
+
           // Transform task-based data to legacy format for grid compatibility
           const transformedData = taskBasedData.map(row => {
             if (row.type === 'workOrder') {
@@ -709,28 +734,28 @@ const App: React.FC = () => {
               return row as any;
             }
           });
-          
+
           const newActiveHeaders = new Set<string>();
           transformedData.forEach(item => {
             if (item.results) {
               Object.keys(item.results).forEach(k => {
                 if (item.results![k].planned || item.results![k].actual) {
-                   newActiveHeaders.add(k);
+                  newActiveHeaders.add(k);
                 }
               });
             }
           });
           setActiveTimeHeaders(Array.from(newActiveHeaders));
-          
+
           setMaintenanceData(transformedData);
 
           // Generate time headers dynamically based on the transformed data
           const generatedHeaders = generateTimeHeadersFromData(transformedData);
-          
+
 
           // Use standard unique filtering before pushing to state
           const uniqueHeaders = Array.from(new Set(generatedHeaders)).sort();
-          
+
           if (uniqueHeaders.length > 0) {
             setTimeHeaders(generateFullTimeRange(uniqueHeaders[0], uniqueHeaders[uniqueHeaders.length - 1], effectiveTimeScale));
           } else {
@@ -772,10 +797,10 @@ const App: React.FC = () => {
     // AssetManager(マスターデータ)に変更を保存する（タブ切り替えなどで失われないようにするため）
     if (assetManagerRef.current && updatedItem.specifications) {
       // idが 'asset_123' のような書式の場合はプレフィックスを外す
-      const cleanAssetId = updatedItem.id.startsWith('asset_') 
-        ? updatedItem.id.substring(6) 
+      const cleanAssetId = updatedItem.id.startsWith('asset_')
+        ? updatedItem.id.substring(6)
         : updatedItem.id;
-        
+
       if (assetManagerRef.current.hasAsset(cleanAssetId)) {
         try {
           assetManagerRef.current.updateSpecifications(cleanAssetId, updatedItem.specifications);
@@ -864,7 +889,7 @@ const App: React.FC = () => {
     const bomCodes = new Set<string>();
     maintenanceData.forEach(item => {
       if (item.isGroupHeader) return; // Do not include hierarchy strings in the checkbox filter
-      
+
       // Avoid inserting blank strings as checkbox options if they logically don't have this property in UI
       if (item.task) tasks.add(item.task);
       if (item.bomCode) bomCodes.add(item.bomCode);
@@ -1016,7 +1041,7 @@ const App: React.FC = () => {
       const taskSet = new Set(selectedTasks);
       filteredData = filteredData.filter(item => taskSet.has(item.task) || item.isGroupHeader);
     }
-    
+
     if (selectedBomCodes.length > 0) {
       const bomCodeSet = new Set(selectedBomCodes);
       filteredData = filteredData.filter(item => (item.bomCode && bomCodeSet.has(item.bomCode)) || item.isGroupHeader);
@@ -1040,7 +1065,7 @@ const App: React.FC = () => {
     filteredData = filteredData.filter(item => {
       if (item.isGroupHeader) {
         // A group header row stores its exact path natively in 'task'
-        return survivingHierarchyPaths.has(item.task); 
+        return survivingHierarchyPaths.has(item.task);
       }
       return true;
     });
@@ -1176,7 +1201,7 @@ const App: React.FC = () => {
   // Handle specification editing
   // Requirements 4.2: Use EditHandlers for specification editing
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
-    
+
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && assetManagerRef.current && undoRedoManagerRef.current) {
       try {
@@ -1190,7 +1215,7 @@ const App: React.FC = () => {
           undoRedoManagerRef.current
         );
 
-        
+
         // Reload data to reflect changes
         loadDataFromViewModeManager();
 
@@ -1233,7 +1258,7 @@ const App: React.FC = () => {
 
   // Handle specification column reordering (affects all equipment)
   const handleSpecificationColumnReorder = (fromIndex: number, toIndex: number) => {
-    
+
     // 仕様を現在の順序（orderプロパティ）に基づいて収集
     const specKeysMap = new Map<string, number>();
     maintenanceData.forEach(item => {
@@ -1257,9 +1282,9 @@ const App: React.FC = () => {
       })
       .map(entry => entry[0]);
 
-    
+
     if (fromIndex < 0 || fromIndex >= sortedKeys.length || toIndex < 0 || toIndex >= sortedKeys.length) {
-            return;
+      return;
     }
 
     // 並び替え
@@ -1267,7 +1292,7 @@ const App: React.FC = () => {
     const [movedKey] = reorderedKeys.splice(fromIndex, 1);
     reorderedKeys.splice(toIndex, 0, movedKey);
 
-        
+
     // 全機器の仕様を新しい順序で並び替え
     // 1. Local state (maintenanceData)
     setMaintenanceData(prevData =>
@@ -1307,7 +1332,7 @@ const App: React.FC = () => {
       const allAssets = assetManagerRef.current.getAllAssets();
       allAssets.forEach(asset => {
         if (!asset.specifications || asset.specifications.length === 0) return;
-        
+
         const specMap = new Map<string, { key: string; value: string; order: number }>();
         asset.specifications.forEach(spec => {
           if (spec.key) specMap.set(spec.key, spec);
@@ -1332,7 +1357,7 @@ const App: React.FC = () => {
         try {
           assetManagerRef.current?.updateSpecifications(asset.id, reorderedSpecs);
         } catch (e) {
-                  }
+        }
       });
     }
 
@@ -1344,7 +1369,7 @@ const App: React.FC = () => {
   // Handle cell editing for EnhancedMaintenanceGrid
   // Requirements 4.2, 4.8, 5.7: Use EditHandlers for schedule editing with view mode awareness
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-    
+
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
       try {
@@ -1357,7 +1382,7 @@ const App: React.FC = () => {
         let actualAssetId = rowId;
         let associatedTaskId: string | null = null;
         let associatedWolId: string | null = null;
-        
+
         if (rowId.startsWith('asset_')) {
           actualAssetId = rowId.replace('asset_', '');
         } else if (rowId.startsWith('task_')) {
@@ -1365,11 +1390,11 @@ const App: React.FC = () => {
           const parts = rowId.split('_asset_');
           if (parts.length === 2) {
             associatedTaskId = parts[0].replace('task_', '');
-            
+
             // Check if there's a wol suffix
             const assetParts = parts[1].split('_wol_');
             actualAssetId = assetParts[0];
-            
+
             if (assetParts.length === 2) {
               associatedWolId = assetParts[1];
             }
@@ -1463,7 +1488,7 @@ const App: React.FC = () => {
         // Truncating this array was breaking the DateJumpDialog min/max limits.
         return generateFullTimeRange(startBoundStr, endBoundStr, timeScale);
       } catch (error) {
-                return sortedHeaders;
+        return sortedHeaders;
       }
     } else {
       // If no data, generate headers for current year and next few years
@@ -1506,7 +1531,7 @@ const App: React.FC = () => {
     }
 
     // Fallback if parsing fails (should roughly match old logic but safer)
-        return [startPeriod, endPeriod]; // Return minimum
+    return [startPeriod, endPeriod]; // Return minimum
   };
 
   const handleAddYearConfirm = () => {
@@ -1621,6 +1646,7 @@ const App: React.FC = () => {
         assetClassification: (rawData as any)?.assetClassification || { levels: [] },
         metadata: {
           lastModified: new Date(),
+          projectName: projectName
         }
       });
 
@@ -1640,15 +1666,17 @@ const App: React.FC = () => {
   };
 
   const handleExportData = () => {
-        if (!isServicesInitialized || !dataStoreRef.current) {
+    if (!isServicesInitialized || !dataStoreRef.current) {
       // Fallback to legacy export
-            const dataToExport = { timeHeaders, maintenanceData, timeScale };
+      const dataToExport = { timeHeaders, maintenanceData, timeScale };
       const jsonString = JSON.stringify(dataToExport, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'hoshitori_data_legacy.json';
+      // Sanitize project name for filesystem
+      const sanitizedProjectName = projectName.replace(/[/\\?%*:|"<>]/g, '-');
+      a.download = `${sanitizedProjectName}_legacy.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1659,7 +1687,7 @@ const App: React.FC = () => {
 
     try {
       // Export new data model (v3.0.0)
-            const assets = assetManagerRef.current?.getAllAssets() || [];
+      const assets = assetManagerRef.current?.getAllAssets() || [];
       const workOrders = workOrderManagerRef.current?.getAllWorkOrders() || [];
       const workOrderLines = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
       const hierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
@@ -1697,16 +1725,19 @@ const App: React.FC = () => {
         hierarchy: hierarchy || { levels: [] },
         metadata: {
           lastModified: new Date(),
+          projectName: projectName
         }
       };
 
-      
+
       const jsonString = JSON.stringify(dataToExport, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'hoshitori_data_v3.json';
+      // Sanitize project name for filesystem
+      const sanitizedProjectName = projectName.replace(/[/\\?%*:|"<>]/g, '-');
+      a.download = `${sanitizedProjectName}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1735,25 +1766,26 @@ const App: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
+        const fileName = file.name.replace(/\.[^/.]+$/, "");
         const imported = JSON.parse(e.target?.result as string);
 
         // Detect v3.0.0 format
         if (imported.version === '3.0.0' && imported.assets) {
-          
+
           // Validate with DataStore
           if (dataStoreRef.current) {
             try {
               dataStoreRef.current.loadData(imported);
-                          } catch (validationError: any) {
+            } catch (validationError: any) {
               throw new Error(`v3.0.0バリデーションエラー: ${validationError.message}`);
             }
           }
 
-          setImportedFileData({ ...imported, _format: 'v3' });
+          setImportedFileData({ ...imported, _format: 'v3', _fileName: fileName });
           setImportConfirmDialogOpen(true);
         } else if (imported.timeHeaders && Array.isArray(imported.timeHeaders) && imported.maintenanceData && Array.isArray(imported.maintenanceData)) {
           // Legacy format
-                    setImportedFileData({ ...imported, _format: 'legacy' });
+          setImportedFileData({ ...imported, _format: 'legacy' });
           setImportConfirmDialogOpen(true);
         } else {
           throw new Error('サポートされていないファイル形式です。v3.0.0またはレガシー形式のJSONファイルを選択してください。');
@@ -1777,9 +1809,11 @@ const App: React.FC = () => {
     if (!importedFileData) return;
 
     try {
+      undoRedoManagerRef.current?.mute();
+      
       if (importedFileData._format === 'v3') {
         // v3.0.0 import: reload all managers with imported data
-        
+
         const importData = { ...importedFileData };
         delete importData._format;
 
@@ -1808,6 +1842,13 @@ const App: React.FC = () => {
           existingWorkOrderLines.forEach((wol: any) => {
             workOrderLineManagerRef.current!.createWorkOrderLine(wol);
           });
+        }
+
+        // Update project name from imported metadata or filename
+        if (importData.metadata?.projectName) {
+          setProjectName(importData.metadata.projectName);
+        } else if ((importedFileData as any)._fileName) {
+          setProjectName((importedFileData as any)._fileName);
         }
 
         // Reinitialize EditHandlers
@@ -1854,13 +1895,16 @@ const App: React.FC = () => {
         setTimeHeaders(sortedYears.map(y => y.toString()));
         // Update the GUI
         loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
-        
+
         showSnackbar(`v3.0.0データをインポートしました（機器:${existingAssets.length}件, 作業指示:${existingWorkOrders.length}件）`, 'success');
       } else {
         // Legacy import
         setTimeHeaders(importedFileData.timeHeaders);
         setMaintenanceData(importedFileData.maintenanceData);
         setTimeScale(importedFileData.timeScale || 'year');
+        if (importedFileData._fileName) {
+          setProjectName(importedFileData._fileName);
+        }
         showSnackbar('レガシーデータをインポートしました。', 'success');
       }
     } catch (error: any) {
@@ -1868,6 +1912,8 @@ const App: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
       showSnackbar(`インポートエラー: ${errorMessage}`, 'error');
     } finally {
+      undoRedoManagerRef.current?.unmute();
+      undoRedoManagerRef.current?.clear();
       setImportConfirmDialogOpen(false);
       setImportedFileData(null);
     }
@@ -1904,7 +1950,7 @@ const App: React.FC = () => {
       return;
     }
 
-    
+
     setTaskEditAssetId(assetId);
     setTaskEditDateKey(dateKey);
     setTaskEditTaskId(taskId);
@@ -1919,7 +1965,7 @@ const App: React.FC = () => {
   };
 
   const handleSaveTaskEdits = (updates: WorkOrderLineUpdate[]) => {
-    
+
     if (!workOrderLineManagerRef.current || !undoRedoManagerRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -1928,12 +1974,11 @@ const App: React.FC = () => {
     try {
       // Save current state for undo
       const currentState = {
-        workOrderLines: workOrderLineManagerRef.current.getAllWorkOrderLines()
+        workOrderLines: workOrderLineManagerRef.current.getAllWorkOrderLines(),
+        workOrders: workOrderManagerRef.current!.getAllWorkOrders()
       };
 
-      undoRedoManagerRef.current.pushState('UPDATE_WORK_ORDER_LINE', {
-        previousState: currentState
-      });
+      undoRedoManagerRef.current.mute();
 
       let totalUpdated = 0;
 
@@ -1948,22 +1993,22 @@ const App: React.FC = () => {
 
           if (draft && draft.isNew) {
             if (newWoIdMap.has(draft.id)) {
-               workOrderId = newWoIdMap.get(draft.id)!;
+              workOrderId = newWoIdMap.get(draft.id)!;
             } else {
-               const newWo = workOrderManagerRef.current!.createWorkOrder({
-                 name: draft.name || '新規作業',
-                 ClassificationId: draft.classificationId || '01'
-               });
-               workOrderId = newWo.id;
-               newWoIdMap.set(draft.id, workOrderId);
+              const newWo = workOrderManagerRef.current!.createWorkOrder({
+                name: draft.name || '新規作業',
+                ClassificationId: draft.classificationId || '01'
+              });
+              workOrderId = newWo.id;
+              newWoIdMap.set(draft.id, workOrderId);
             }
           } else if (draft && !draft.isNew) {
             const existingWo = workOrderManagerRef.current!.getWorkOrder(workOrderId!);
             if (existingWo && (existingWo.name !== draft.name || existingWo.ClassificationId !== draft.classificationId)) {
-               workOrderManagerRef.current!.updateWorkOrder(workOrderId!, {
-                  name: draft.name,
-                  ClassificationId: draft.classificationId
-               });
+              workOrderManagerRef.current!.updateWorkOrder(workOrderId!, {
+                name: draft.name,
+                ClassificationId: draft.classificationId
+              });
             }
           }
 
@@ -1977,14 +2022,14 @@ const App: React.FC = () => {
           if (draft && !draft.isNew && workOrderId) {
             const existingWo = workOrderManagerRef.current!.getWorkOrder(workOrderId);
             if (existingWo && (existingWo.name !== draft.name || existingWo.ClassificationId !== draft.classificationId)) {
-               workOrderManagerRef.current!.updateWorkOrder(workOrderId, {
-                  name: draft.name,
-                  ClassificationId: draft.classificationId
-               });
+              workOrderManagerRef.current!.updateWorkOrder(workOrderId, {
+                name: draft.name,
+                ClassificationId: draft.classificationId
+              });
             }
           }
           delete (update.data as any).__workOrderDraft;
-          
+
           // Direct update for the flat WorkOrderLine record
           workOrderLineManagerRef.current!.updateWorkOrderLine(update.lineId, update.data);
           totalUpdated++;
@@ -1992,6 +2037,17 @@ const App: React.FC = () => {
           workOrderLineManagerRef.current!.deleteWorkOrderLine(update.lineId);
           totalUpdated++;
         }
+      });
+
+      const updatedState = {
+        workOrderLines: workOrderLineManagerRef.current.getAllWorkOrderLines(),
+        workOrders: workOrderManagerRef.current!.getAllWorkOrders()
+      };
+
+      undoRedoManagerRef.current.unmute();
+      undoRedoManagerRef.current.pushState('UPDATE_WORK_ORDER_LINE', {
+        previousState: currentState,
+        updatedState: updatedState
       });
 
       // Update ViewModeManager with new data (avoid re-initialization to prevent layout breakage)
@@ -2005,7 +2061,7 @@ const App: React.FC = () => {
         // This preserves memoization cache and prevents layout breakage
         viewModeManagerRef.current.updateData(assets, workOrderLines, hierarchyDefinition, workOrders);
 
-        
+
         // Update hook data as well
         if (hookUpdateData) {
           hookUpdateData([], assets, workOrderLines, hierarchyDefinition);
@@ -2013,11 +2069,11 @@ const App: React.FC = () => {
       }
 
       // Reload data to reflect changes
-            loadDataFromViewModeManager();
+      loadDataFromViewModeManager();
 
       // Show feedback with edit scope information
       const scopeDescription = editScope === 'all-assets' ? '全機器' : '単一機器';
-            showSnackbar(`作業を更新しました (${totalUpdated}件の関連付け, ${scopeDescription}モード)`, 'success');
+      showSnackbar(`作業を更新しました (${totalUpdated}件の関連付け, ${scopeDescription}モード)`, 'success');
       handleCloseTaskEditDialog();
     } catch (error) {
       console.error('[App] Error saving task edits:', error);
@@ -2113,7 +2169,7 @@ const App: React.FC = () => {
 
   // Handle full asset edits from AssetDetailsDialog
   const handleAssetEdit = useCallback((assetId: string, updates: any) => {
-    
+
     if (!isServicesInitialized || !assetManagerRef.current) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -2133,15 +2189,15 @@ const App: React.FC = () => {
       if (updates.specifications !== undefined) assetUpdates.specifications = updates.specifications;
 
       if (updates.bomCode !== undefined && updates.bomCode !== assetId) {
-              }
+      }
 
       // Update asset via manager
       assetManagerRef.current.updateAsset(assetId, assetUpdates);
-      
+
       // Reload data to reflect changes
       loadDataFromViewModeManagerWithMode(dataViewMode);
       showSnackbar('機器情報を更新しました', 'success');
-      
+
     } catch (error) {
       console.error('Failed to update asset:', error);
       if (errorHandlerRef.current) {
@@ -2209,20 +2265,20 @@ const App: React.FC = () => {
 
       // Extract raw event pool
       const allLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
-      
+
       const sourceLines = allLines.filter(line => {
         if (line.AssetId !== source.assetId) return false;
-        const date = typeof line.PlanScheduleStart === 'string' 
-            ? new Date(line.PlanScheduleStart) 
-            : line.PlanScheduleStart;
+        const date = typeof line.PlanScheduleStart === 'string'
+          ? new Date(line.PlanScheduleStart)
+          : line.PlanScheduleStart;
         if (isNaN(date.getTime())) return false;
-        
+
         return getTimeKey(date, timeScale) === sourceTimeKey;
       });
 
       // Filter by specific task if copied from WorkOrder-based mode
-      const linesToCopy = source.taskId 
-        ? sourceLines.filter(l => l.WorkOrderId === source.taskId) 
+      const linesToCopy = source.taskId
+        ? sourceLines.filter(l => l.WorkOrderId === source.taskId)
         : sourceLines;
 
       if (linesToCopy.length === 0) {
@@ -2235,10 +2291,10 @@ const App: React.FC = () => {
       linesToCopy.forEach(line => {
         const originalDate = new Date(line.PlanScheduleStart);
         const shiftedStart = shiftDateByTimeScale(originalDate, sourceTimeKey, targetTimeKey, timeScale);
-        
-        const shiftedEnd = line.PlanScheduleEnd 
-            ? shiftDateByTimeScale(new Date(line.PlanScheduleEnd), sourceTimeKey, targetTimeKey, timeScale) 
-            : undefined;
+
+        const shiftedEnd = line.PlanScheduleEnd
+          ? shiftDateByTimeScale(new Date(line.PlanScheduleEnd), sourceTimeKey, targetTimeKey, timeScale)
+          : undefined;
 
         let shiftedActualStart: Date | undefined;
         let shiftedActualEnd: Date | undefined;
@@ -2249,7 +2305,7 @@ const App: React.FC = () => {
         if (line.ActualScheduleEnd) {
           shiftedActualEnd = shiftDateByTimeScale(new Date(line.ActualScheduleEnd), sourceTimeKey, targetTimeKey, timeScale);
         }
-        
+
         const newLine = {
           ...line,
           id: undefined, // Manager will assign fresh UUID
@@ -2260,7 +2316,7 @@ const App: React.FC = () => {
           ActualScheduleStart: shiftedActualStart ? shiftedActualStart.toISOString() : undefined,
           ActualScheduleEnd: shiftedActualEnd ? shiftedActualEnd.toISOString() : undefined
         };
-        
+
         workOrderLineManagerRef.current?.createWorkOrderLine(newLine as any);
         successCount++;
       });
@@ -2341,7 +2397,130 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isServicesInitialized, timeScale]);
+  }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode]);
+
+  // History state applier
+  const applyHistoryState = useCallback((state: any, isUndo: boolean) => {
+    if (!assetManagerRef.current || !workOrderManagerRef.current || !workOrderLineManagerRef.current || !hierarchyManagerRef.current || !undoRedoManagerRef.current) return;
+
+    undoRedoManagerRef.current.mute();
+    try {
+      const { action, data } = state;
+      switch (action) {
+        case 'CREATE_WORK_ORDER_LINE':
+          if (isUndo) workOrderLineManagerRef.current.deleteLine(data.line.id);
+          else workOrderLineManagerRef.current.createLine(data.line);
+          break;
+        case 'DELETE_WORK_ORDER_LINE':
+          if (isUndo) workOrderLineManagerRef.current.createLine(data.line);
+          else workOrderLineManagerRef.current.deleteLine(data.line.id);
+          break;
+        case 'UPDATE_WORK_ORDER_LINE':
+          if (data.previousLine && data.updatedLine) {
+            workOrderLineManagerRef.current.updateLine(
+               isUndo ? data.previousLine.id : data.updatedLine.id, 
+               isUndo ? data.previousLine : data.updatedLine
+            );
+          } else if (data.previousState) {
+            // Bulk update
+            const targetState = isUndo ? data.previousState : data.updatedState;
+            if (targetState) {
+              if (targetState.workOrderLines) workOrderLineManagerRef.current.loadLines(targetState.workOrderLines);
+              // Simple loadWorkOrders isn't available, but we can do it manually
+              if (targetState.workOrders) {
+                // Clear and recreate since WorkOrderManager doesn't have loadWorkOrders
+                targetState.workOrders.forEach((wo: any) => {
+                   try {
+                     if (workOrderManagerRef.current!.getWorkOrder(wo.id)) {
+                        workOrderManagerRef.current!.updateWorkOrder(wo.id, wo);
+                     } else {
+                        workOrderManagerRef.current!.createWorkOrder(wo);
+                     }
+                   } catch (e) {
+                      // fallback
+                   }
+                });
+              }
+            }
+          }
+          break;
+        case 'UPDATE_WORK_ORDER':
+          if (data.previousWo && data.updatedWo) {
+             workOrderManagerRef.current.updateWorkOrder(
+               isUndo ? data.previousWo.id : data.updatedWo.id,
+               isUndo ? data.previousWo : data.updatedWo
+             );
+          }
+          break;
+        case 'CREATE_WORK_ORDER':
+          if (isUndo) workOrderManagerRef.current.deleteWorkOrder(data.wo.id);
+          else workOrderManagerRef.current.createWorkOrder(data.wo);
+          break;
+        case 'DELETE_WORK_ORDER':
+          if (isUndo) workOrderManagerRef.current.createWorkOrder(data.wo);
+          else workOrderManagerRef.current.deleteWorkOrder(data.wo.id);
+          break;
+        case 'UPDATE_ASSET':
+          if (data.isCreate) {
+             if (isUndo) assetManagerRef.current.deleteAsset(data.asset.id);
+             else assetManagerRef.current.createAsset(data.asset);
+          } else if (data.previousAsset && data.updatedAsset) {
+             assetManagerRef.current.updateAsset(
+               isUndo ? data.previousAsset.id : data.updatedAsset.id,
+               isUndo ? data.previousAsset : data.updatedAsset
+             );
+          }
+          break;
+        case 'UPDATE_HIERARCHY':
+          hierarchyManagerRef.current.setHierarchyDefinition(isUndo ? data.previousHierarchy : data.updatedHierarchy);
+          break;
+      }
+
+      viewModeManagerRef.current?.updateData(
+        assetManagerRef.current.getAllAssets(),
+        workOrderLineManagerRef.current.getAllWorkOrderLines(),
+        hierarchyManagerRef.current.getHierarchyDefinition(),
+        workOrderManagerRef.current.getAllWorkOrders()
+      );
+    } catch (err) {
+      console.error("Undo/Redo apply error:", err);
+    } finally {
+      undoRedoManagerRef.current.unmute();
+    }
+  }, []);
+
+  // Handle explicit Undo from UI
+  const handleUndo = useCallback(() => {
+    if (undoRedoManagerRef.current?.canUndo()) {
+      const state = undoRedoManagerRef.current.undo();
+      if (state) {
+         applyHistoryState(state, true);
+         loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+         showSnackbar('操作を元に戻しました', 'info');
+         announce('操作を元に戻しました');
+      }
+    }
+  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
+
+  // Handle explicit Redo from UI
+  const handleRedo = useCallback(() => {
+    if (undoRedoManagerRef.current?.canRedo()) {
+      const state = undoRedoManagerRef.current.redo();
+      if (state) {
+         applyHistoryState(state, false);
+         loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+         showSnackbar('操作をやり直しました', 'info');
+         announce('操作をやり直しました');
+      }
+    }
+  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
+
+  // Handle grid scroll state sync
+  const handleGridScroll = useCallback((dateKey: string) => {
+    if (currentVisibleDate !== dateKey) {
+      setCurrentVisibleDate(dateKey);
+    }
+  }, [currentVisibleDate]);
 
   return (
     <ThemeProvider theme={darkTheme}>
@@ -2366,92 +2545,95 @@ const App: React.FC = () => {
           {displayedMaintenanceData.length === 0 ? (
             <EmptyState onImportClick={handleImportDataClick} />
           ) : (
-          <div
-            ref={gridRef}
-            className="grid-container-responsive grid-performance"
-            style={{
-              paddingLeft: `${containerPadding}px`,
-              paddingRight: `${containerPadding}px`,
-              paddingTop: `${containerPadding}px`,
-              paddingBottom: '12px',
-              height: '100%',
-              overflow: 'hidden',
-              width: mainContentWidth,
-              transition: 'width 0.3s ease',
-              margin: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              backgroundColor: '#000000',
-            }}
-            role="grid"
-            aria-label="保全計画データグリッド"
-            aria-rowcount={displayedMaintenanceData.length}
-            aria-colcount={timeHeaders.length + 3}
-          >
+            <div
+              ref={gridRef}
+              className="grid-container-responsive grid-performance"
+              style={{
+                paddingLeft: `${containerPadding}px`,
+                paddingRight: `${containerPadding}px`,
+                paddingTop: '54px',
+                paddingBottom: '12px',
+                height: '100%',
+                overflow: 'hidden',
+                width: mainContentWidth,
+                transition: 'width 0.3s ease',
+                margin: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: '#000000',
+              }}
+              role="grid"
+              aria-label="保全計画データグリッド"
+              aria-rowcount={displayedMaintenanceData.length}
+              aria-colcount={timeHeaders.length + 3}
+            >
 
-            {/* Enhanced Maintenance Grid - Production Version */}
-            <EnhancedMaintenanceGrid
-              data={displayedMaintenanceData}
-              timeHeaders={timeHeaders}
-              onCellEdit={handleCellEdit}
-              onSpecificationEdit={handleSpecificationEdit}
-              onSpecificationColumnReorder={handleSpecificationColumnReorder}
-              onUpdateItem={handleUpdateItem}
-              onJumpToDate={handleJumpToDate}
-              onAssetSelectionChange={handleAssetSelectionChange}
-              onOpenTaskEditDialog={handleOpenTaskEditDialog}
-              viewMode={viewMode}
-              timeScale={timeScale}
-              searchTerm={searchTerm}
-              showBomCode={showBomCode}
-              displayMode={displayMode}
-              dataViewMode={dataViewMode}
-              editScope={editScope}
-              onEditScopeChange={handleEditScopeChange}
-              workOrders={workOrderManagerRef.current?.getAllWorkOrders() || []}
-              assets={assetManagerRef.current?.getAllAssets() || []}
-              associations={workOrderLineManagerRef.current?.getAllWorkOrderLines() || []}
-              hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition()}
-              onHierarchyEdit={handleHierarchyEdit}
-              selectedAssets={selectedAssets}
-              onAssetEdit={handleAssetEdit}
-              onCellCopy={handleCellCopy}
-              onCellPaste={handleCellPaste}
-              // Header props - restored to original structure
-              onSearchChange={setSearchTerm}
-              uniqueTasks={uniqueTasks}
-              selectedTasks={selectedTasks}
-              onSelectedTasksChange={setSelectedTasks}
-              uniqueBomCodes={uniqueBomCodes}
-              selectedBomCodes={selectedBomCodes}
-              onSelectedBomCodesChange={setSelectedBomCodes}
-              onViewModeChange={(mode) => setViewMode(mode)}
-              onDataViewModeChange={handleDataViewModeChange}
-              onTimeScaleChange={(scale) => {
-                setTimeScale(scale);
-                loadDataFromViewModeManager(scale);
-              }}
-              level1Filter={level1Filter}
-              level2Filter={level2Filter}
-              level3Filter={level3Filter}
-              onLevel1FilterChange={handleLevel1FilterChange}
-              onLevel2FilterChange={handleLevel2FilterChange}
-              onLevel3FilterChange={(value) => {
-                const val = typeof value === 'string' ? value : (value as any).target?.value;
-                setLevel3Filter(val);
-              }}
-              hierarchyFilterTree={hierarchyFilterTree}
-              level2Options={level2Options}
-              level3Options={level3Options}
-              onAddYear={handleAddYearClick}
-              onDeleteYear={handleDeleteYearClick}
-              onExportData={handleExportData}
-              onImportData={handleImportDataClick}
-              onResetData={handleResetDataClick}
-              onShowBomCodeChange={setShowBomCode}
-              onDisplayModeChange={setDisplayMode}
-            />
-          </div>
+              {/* Enhanced Maintenance Grid - Production Version */}
+              <EnhancedMaintenanceGrid
+                data={displayedMaintenanceData}
+                timeHeaders={timeHeaders}
+                onCellEdit={handleCellEdit}
+                onSpecificationEdit={handleSpecificationEdit}
+                onSpecificationColumnReorder={handleSpecificationColumnReorder}
+                onUpdateItem={handleUpdateItem}
+                onJumpToDate={handleJumpToDate}
+                onScroll={handleGridScroll}
+                onAssetSelectionChange={handleAssetSelectionChange}
+                onOpenTaskEditDialog={handleOpenTaskEditDialog}
+                viewMode={viewMode}
+                timeScale={timeScale}
+                searchTerm={searchTerm}
+                showBomCode={showBomCode}
+                displayMode={displayMode}
+                dataViewMode={dataViewMode}
+                editScope={editScope}
+                onEditScopeChange={handleEditScopeChange}
+                workOrders={workOrderManagerRef.current?.getAllWorkOrders() || []}
+                assets={assetManagerRef.current?.getAllAssets() || []}
+                associations={workOrderLineManagerRef.current?.getAllWorkOrderLines() || []}
+                hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition()}
+                onHierarchyEdit={handleHierarchyEdit}
+                selectedAssets={selectedAssets}
+                onAssetEdit={handleAssetEdit}
+                onCellCopy={handleCellCopy}
+                onCellPaste={handleCellPaste}
+                // Header props - restored to original structure
+                onSearchChange={setSearchTerm}
+                uniqueTasks={uniqueTasks}
+                selectedTasks={selectedTasks}
+                onSelectedTasksChange={setSelectedTasks}
+                uniqueBomCodes={uniqueBomCodes}
+                selectedBomCodes={selectedBomCodes}
+                onSelectedBomCodesChange={setSelectedBomCodes}
+                onViewModeChange={(mode) => setViewMode(mode)}
+                onDataViewModeChange={handleDataViewModeChange}
+                onTimeScaleChange={(scale) => {
+                  setTimeScale(scale);
+                  loadDataFromViewModeManager(scale);
+                }}
+                level1Filter={level1Filter}
+                level2Filter={level2Filter}
+                level3Filter={level3Filter}
+                onLevel1FilterChange={handleLevel1FilterChange}
+                onLevel2FilterChange={handleLevel2FilterChange}
+                onLevel3FilterChange={(value) => {
+                  const val = typeof value === 'string' ? value : (value as any).target?.value;
+                  setLevel3Filter(val);
+                }}
+                hierarchyFilterTree={hierarchyFilterTree}
+                level2Options={level2Options}
+                level3Options={level3Options}
+                onAddYear={handleAddYearClick}
+                onDeleteYear={handleDeleteYearClick}
+                onExportData={handleExportData}
+                onImportData={handleImportDataClick}
+                onResetData={handleResetDataClick}
+                onShowBomCodeChange={setShowBomCode}
+                onDisplayModeChange={setDisplayMode}
+                projectName={projectName}
+                onProjectNameChange={handleProjectNameChange}
+              />
+            </div>
           )}
         </div>
 
@@ -2459,6 +2641,7 @@ const App: React.FC = () => {
         <AgentBar
           timeHeaders={timeHeaders}
           activeTimeHeaders={activeTimeHeaders}
+          currentVisibleDate={currentVisibleDate}
           onTimeScaleChange={(scale) => {
             setTimeScale(scale);
             loadDataFromViewModeManager(scale);
@@ -2470,6 +2653,10 @@ const App: React.FC = () => {
           dataViewMode={dataViewMode}
           onImportData={handleImportDataClick}
           onExportData={handleExportData}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
           onHierarchyEdit={() => setHierarchyEditDialogOpen(true)}
           onSuggestionApply={(suggestion) => {
             handleCellEdit(
@@ -2489,6 +2676,8 @@ const App: React.FC = () => {
             try {
               const loadedData = dataStoreRef.current?.loadData(dataModel);
               if (loadedData && assetManagerRef.current && workOrderManagerRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
+                undoRedoManagerRef.current.mute();
+                
                 assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
                 Object.values(loadedData.assets).forEach(a => assetManagerRef.current!.createAsset(a));
                 workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
@@ -2497,13 +2686,17 @@ const App: React.FC = () => {
                 Object.values(loadedData.workOrderLines || {}).forEach(l => {
                   try { workOrderLineManagerRef.current!.createWorkOrderLine(l as any); } catch (e) { console.error('Import Line Error:', e); }
                 });
-                hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || {levels:[]});
+                hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || { levels: [] });
                 viewModeManagerRef.current?.updateData(
                   assetManagerRef.current.getAllAssets(),
                   workOrderLineManagerRef.current.getAllWorkOrderLines(),
-                  loadedData.hierarchy || {levels:[]},
+                  loadedData.hierarchy || { levels: [] },
                   workOrderManagerRef.current.getAllWorkOrders()
                 );
+                
+                undoRedoManagerRef.current.unmute();
+                undoRedoManagerRef.current.clear();
+                
                 loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
                 showSnackbar('データの取り込みが完了し、画面を更新しました', 'success');
               }
@@ -2517,76 +2710,6 @@ const App: React.FC = () => {
             workOrderLines: workOrderLineManagerRef.current?.getAllWorkOrderLines() || [],
           }}
         />
-
-        {/* Add Year Dialog */}
-        <Dialog open={addYearDialogOpen} onClose={() => setAddYearDialogOpen(false)}>
-          <DialogTitle>年度追加</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              追加する年度を入力してください。
-              {timeScale === 'month' && '（12ヶ月分が追加されます）'}
-              {timeScale === 'week' && '（52週分が追加されます）'}
-              {timeScale === 'day' && '（365日分が追加されます）'}
-            </DialogContentText>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="年度"
-              type="number"
-              fullWidth
-              variant="outlined"
-              value={newYearInput}
-              onChange={(e) => setNewYearInput(e.target.value)}
-              error={!!addYearError}
-              helperText={addYearError}
-              placeholder="2024"
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setAddYearDialogOpen(false)}>キャンセル</Button>
-            <Button onClick={handleAddYearConfirm} variant="contained">追加</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Delete Year Dialog */}
-        <Dialog open={deleteYearDialogOpen} onClose={() => setDeleteYearDialogOpen(false)}>
-          <DialogTitle>年度削除</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              削除する年度を選択してください。
-              {timeScale === 'month' && '（12ヶ月分が削除されます）'}
-              {timeScale === 'week' && '（52週分が削除されます）'}
-              {timeScale === 'day' && '（365日分が削除されます）'}
-            </DialogContentText>
-            <FormControl fullWidth margin="dense">
-              <Select
-                value={yearToDelete}
-                onChange={(e) => setYearToDelete(e.target.value)}
-                displayEmpty
-              >
-                <option value="">選択してください</option>
-                {/* Extract unique years from timeHeaders */}
-                {Array.from(new Set(
-                  timeHeaders.map(period => {
-                    const yearMatch = period.match(/^(\d{4})/);
-                    return yearMatch ? yearMatch[1] : '';
-                  }).filter(y => y !== '')
-                )).sort().map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </Select>
-            </FormControl>
-            {deleteYearError && (
-              <DialogContentText color="error">
-                {deleteYearError}
-              </DialogContentText>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteYearDialogOpen(false)}>キャンセル</Button>
-            <Button onClick={handleDeleteYearConfirm} variant="contained" color="error">削除</Button>
-          </DialogActions>
-        </Dialog>
 
         {/* Import File Input */}
         <input
@@ -2632,9 +2755,9 @@ const App: React.FC = () => {
             assetId={taskEditAssetId}
             dateKey={taskEditDateKey}
             workOrderId={taskEditTaskId}
-            associations={(taskEditAssetId 
+            associations={(taskEditAssetId
               ? workOrderLineManagerRef.current?.getWorkOrderLinesByAsset(taskEditAssetId)
-              : taskEditTaskId 
+              : taskEditTaskId
                 ? workOrderLineManagerRef.current?.getAllWorkOrderLines().filter(l => l.WorkOrderId === taskEditTaskId)
                 : []) || []}
             allWorkOrders={workOrderManagerRef.current?.getAllWorkOrders() || []}

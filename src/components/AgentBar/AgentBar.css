@@ -99,14 +99,20 @@
   transition: all 0.2s ease !important;
 }
 
-.tb-icon:hover {
+.tb-icon:hover, .tb-icon.active {
   color: #fff !important;
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-.tb-icon.active {
-  color: #2196f3 !important;
-  background-color: rgba(33, 150, 243, 0.15) !important;
+.tb-icon:disabled, .tb-icon.Mui-disabled, .tb-icon[disabled] {
+  color: #666 !important;
+  pointer-events: none !important;
+}
+
+.tb-icon:disabled *, .tb-icon.Mui-disabled *, .tb-icon[disabled] *,
+.tb-icon:disabled svg, .tb-icon.Mui-disabled svg, .tb-icon[disabled] svg {
+  color: #666 !important;
+  fill: #666 !important;
 }
 
 .divider {
@@ -216,8 +222,8 @@
 }
 
 .menu-item.selected {
-  color: #2196f3;
-  background-color: rgba(33, 150, 243, 0.1);
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.15);
   font-weight: bold;
 }
 

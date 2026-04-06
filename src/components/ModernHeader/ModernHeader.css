@@ -122,6 +122,16 @@
   color: white;
 }
 
+.modern-header .MuiIconButton-root:disabled,
+.modern-header .MuiIconButton-root.Mui-disabled,
+.modern-header .MuiIconButton-root:disabled *,
+.modern-header .MuiIconButton-root.Mui-disabled *,
+.modern-header .MuiIconButton-root:disabled svg,
+.modern-header .MuiIconButton-root.Mui-disabled svg {
+  color: #666666 !important;
+  fill: #666666 !important;
+}
+
 .modern-header .MuiSvgIcon-root {
   color: rgba(255, 255, 255, 0.8);
 }

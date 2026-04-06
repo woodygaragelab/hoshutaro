@@ -16,6 +16,39 @@ export class UndoRedoManager {
   private undoStack: HistoryState[] = [];
   private redoStack: HistoryState[] = [];
   private readonly maxStackSize: number = 50;
+  private listeners: (() => void)[] = [];
+  private muted: boolean = false;
+
+  /**
+   * 履歴の記録を一時停止する
+   */
+  mute(): void {
+    this.muted = true;
+  }
+
+  /**
+   * 履歴の記録を再開する
+   */
+  unmute(): void {
+    this.muted = false;
+  }
+
+  /**
+   * 状態変更リスナーを登録
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  /**
+   * リスナーへ通知
+   */
+  private notify(): void {
+    this.listeners.forEach(listener => listener());
+  }
 
   /**
    * 新しい状態を履歴スタックに追加
@@ -24,6 +57,8 @@ export class UndoRedoManager {
    * @param data - 操作に関連するデータ
    */
   pushState(action: HistoryAction, data: any): void {
+    if (this.muted) return;
+    
     const state: HistoryState = {
       timestamp: new Date(),
       action,
@@ -40,6 +75,8 @@ export class UndoRedoManager {
     if (this.undoStack.length > this.maxStackSize) {
       this.undoStack.shift(); // 最も古い状態を削除
     }
+    
+    this.notify();
   }
 
   /**
@@ -55,6 +92,7 @@ export class UndoRedoManager {
     const state = this.undoStack.pop()!;
     this.redoStack.push(state);
 
+    this.notify();
     return state;
   }
 
@@ -71,6 +109,7 @@ export class UndoRedoManager {
     const state = this.redoStack.pop()!;
     this.undoStack.push(state);
 
+    this.notify();
     return state;
   }
 
@@ -116,6 +155,7 @@ export class UndoRedoManager {
   clear(): void {
     this.undoStack = [];
     this.redoStack = [];
+    this.notify();
   }
 
   /**

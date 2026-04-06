@@ -19,7 +19,9 @@ import {
   FileDownload as DownloadFileIcon,
   ChatBubbleOutline as ChatIcon,
   Apps as ToolsIcon,
-  Event as DateRangeIcon
+  Event as DateRangeIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
@@ -49,6 +51,12 @@ interface AgentBarProps {
   dataContext: any;
   timeHeaders?: string[];
   activeTimeHeaders?: string[];
+  
+  // Undo/Redo
+  canUndo?: boolean;
+  onUndo?: () => void;
+  canRedo?: boolean;
+  onRedo?: () => void;
 }
 
 export const AgentBar: React.FC<AgentBarProps> = ({
@@ -66,7 +74,11 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   onImportComplete,
   dataContext,
   timeHeaders = [],
-  activeTimeHeaders = []
+  activeTimeHeaders = [],
+  canUndo = false,
+  onUndo,
+  canRedo = false,
+  onRedo
 }) => {
   // --- AI Assistant State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -408,8 +420,30 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
           {/* Grid Tools Row (Bottom) */}
           <div className="agent-bar-grid-row">
-            {/* Grid Tools */}
-            {/* Grid Tools */}
+            {/* Undo / Redo Buttons */}
+            <div className={`agent-tool-anim-wrapper ${!canUndo && !canRedo && !hasData ? 'hidden' : ''}`}>
+              <IconButton 
+                className="tb-icon" 
+                onClick={onUndo} 
+                disabled={!canUndo} 
+                title="元に戻す (Ctrl+Z)"
+                sx={{ color: canUndo ? '#ffffff !important' : '#666666 !important' }}
+              >
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </div>
+            <div className={`agent-tool-anim-wrapper ${!canUndo && !canRedo && !hasData ? 'hidden' : ''}`}>
+              <IconButton 
+                className="tb-icon" 
+                onClick={onRedo} 
+                disabled={!canRedo} 
+                title="やり直す (Ctrl+Y)"
+                sx={{ color: canRedo ? '#ffffff !important' : '#666666 !important' }}
+              >
+                <RedoIcon fontSize="small" />
+              </IconButton>
+            </div>
+
             {/* Display Mode Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
               <div 
@@ -480,6 +514,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 )}
               </div>
             )}
+
+
 
             {/* View Mode Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
