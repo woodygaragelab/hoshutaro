@@ -16,6 +16,8 @@ import {
   SelectChangeEvent,
   ButtonGroup,
   Popover,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -116,6 +118,14 @@ interface ModernHeaderProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+
+  // Classification filters
+  assetClassification?: { levels: Array<{ key: string; order: number; values: string[] }> };
+  workOrderClassifications?: Array<{ id: string; name: string }>;
+  classificationFilter?: { [key: string]: string };
+  onClassificationFilterChange?: (filter: { [key: string]: string }) => void;
+  woClassificationFilter?: string;
+  onWoClassificationFilterChange?: (classificationId: string) => void;
 }
 
 // Create a new integrated toolbar component that will be used within the grid
@@ -161,12 +171,19 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   canRedo = false,
   onUndo,
   onRedo,
+  assetClassification,
+  workOrderClassifications = [],
+  classificationFilter = {},
+  onClassificationFilterChange,
+  woClassificationFilter = 'all',
+  onWoClassificationFilterChange,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dateJumpAnchorEl, setDateJumpAnchorEl] = useState<HTMLElement | null>(null);
   const [hierarchyEditOpen, setHierarchyEditOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(dayjs());
   const [calendarView, setCalendarView] = useState<'year' | 'month' | 'day'>('day');
+  const [filterTab, setFilterTab] = useState(0); // 0=hierarchy, 1=classification
 
   const handleDateJumpClick = (event: React.MouseEvent<HTMLElement>) => {
     setSelectedDate(dayjs());
@@ -643,71 +660,156 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
               />
             </Box>
 
-            {/* Hierarchy Filters - Requirements 6.5 */}
+            {/* Filters */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-                {dataViewMode === 'workorder-based' ? '階層・作業分類フィルター' : '階層フィルター'}
+                フィルター
               </Typography>
               
-              {/* Show task classification filter in task-based mode */}
-              {dataViewMode === 'workorder-based' && (
-                <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-                  <InputLabel>作業分類</InputLabel>
-                  <Select
-                    value="all"
-                    label="作業分類"
-                    onChange={() => {}}
+              {dataViewMode === 'asset-based' ? (
+                <>
+                  {/* Tab switch: 階層 / 機器分類 */}
+                  <Tabs
+                    value={filterTab}
+                    onChange={(_, v) => setFilterTab(v)}
+                    sx={{ mb: 1.5, borderBottom: 1, borderColor: 'divider', minHeight: 36 }}
                   >
-                    <MenuItem value="all">すべて</MenuItem>
-                    <MenuItem value="01">01 - 定期点検</MenuItem>
-                    <MenuItem value="02">02 - 予防保全</MenuItem>
-                    <MenuItem value="03">03 - 修理</MenuItem>
-                    <MenuItem value="04">04 - 改造</MenuItem>
-                  </Select>
-                </FormControl>
+                    <Tab label="階層" sx={{ minHeight: 36, py: 0.5, fontSize: '0.8rem' }} />
+                    <Tab label="機器分類" sx={{ minHeight: 36, py: 0.5, fontSize: '0.8rem' }} />
+                  </Tabs>
+
+                  {filterTab === 0 && (
+                    <>
+                      {/* Hierarchy filter (existing) */}
+                      <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                        <InputLabel>レベル1</InputLabel>
+                        <Select value={level1Filter} label="レベル1" onChange={onLevel1FilterChange}>
+                          <MenuItem value="all">すべて</MenuItem>
+                          {hierarchyFilterTree && Object.keys(hierarchyFilterTree.children).map(name => (
+                            <MenuItem key={name} value={name}>{name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl fullWidth size="small" sx={{ mb: 1 }} disabled={level1Filter === 'all'}>
+                        <InputLabel>レベル2</InputLabel>
+                        <Select value={level2Filter} label="レベル2" onChange={onLevel2FilterChange}>
+                          <MenuItem value="all">すべて</MenuItem>
+                          {level2Options.map(name => (
+                            <MenuItem key={name} value={name}>{name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl fullWidth size="small" disabled={level2Filter === 'all'}>
+                        <InputLabel>レベル3</InputLabel>
+                        <Select value={level3Filter} label="レベル3" onChange={onLevel3FilterChange}>
+                          <MenuItem value="all">すべて</MenuItem>
+                          {level3Options.map(name => (
+                            <MenuItem key={name} value={name}>{name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </>
+                  )}
+
+                  {filterTab === 1 && (
+                    <>
+                      {/* Asset classification filter (cascade) */}
+                      {assetClassification && assetClassification.levels.length > 0 ? (
+                        assetClassification.levels
+                          .slice()
+                          .sort((a, b) => a.order - b.order)
+                          .map((level, idx, sortedLevels) => {
+                            // Cascade: disable if parent level is not selected
+                            const parentSelected = idx === 0 || sortedLevels.slice(0, idx).every(
+                              parentLevel => classificationFilter[parentLevel.key] && classificationFilter[parentLevel.key] !== ''
+                            );
+                            const currentValue = classificationFilter[level.key] || '';
+                            
+                            return (
+                              <FormControl key={level.key} fullWidth size="small" sx={{ mb: 1 }} disabled={!parentSelected}>
+                                <InputLabel>{level.key}</InputLabel>
+                                <Select
+                                  value={currentValue}
+                                  label={level.key}
+                                  onChange={(e) => {
+                                    if (!onClassificationFilterChange) return;
+                                    const newFilter = { ...classificationFilter };
+                                    const val = e.target.value;
+                                    if (val === '') {
+                                      delete newFilter[level.key];
+                                      // Clear child levels
+                                      sortedLevels.slice(idx + 1).forEach(child => delete newFilter[child.key]);
+                                    } else {
+                                      newFilter[level.key] = val;
+                                      // Clear child levels on parent change
+                                      sortedLevels.slice(idx + 1).forEach(child => delete newFilter[child.key]);
+                                    }
+                                    onClassificationFilterChange(newFilter);
+                                  }}
+                                >
+                                  <MenuItem value="">すべて</MenuItem>
+                                  {level.values.map(v => (
+                                    <MenuItem key={v} value={v}>{v}</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            );
+                          })
+                      ) : (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          機器分類が定義されていません。マスター管理で設定してください。
+                        </Typography>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Work order classification filter (workorder-based mode) */}
+                  <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                    <InputLabel>作業分類</InputLabel>
+                    <Select
+                      value={woClassificationFilter}
+                      label="作業分類"
+                      onChange={(e) => onWoClassificationFilterChange?.(e.target.value)}
+                    >
+                      <MenuItem value="all">すべて</MenuItem>
+                      {workOrderClassifications.map(wc => (
+                        <MenuItem key={wc.id} value={wc.id}>{wc.id} - {wc.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {/* Hierarchy filter (also available in workorder mode) */}
+                  <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                    <InputLabel>レベル1</InputLabel>
+                    <Select value={level1Filter} label="レベル1" onChange={onLevel1FilterChange}>
+                      <MenuItem value="all">すべて</MenuItem>
+                      {hierarchyFilterTree && Object.keys(hierarchyFilterTree.children).map(name => (
+                        <MenuItem key={name} value={name}>{name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth size="small" sx={{ mb: 1 }} disabled={level1Filter === 'all'}>
+                    <InputLabel>レベル2</InputLabel>
+                    <Select value={level2Filter} label="レベル2" onChange={onLevel2FilterChange}>
+                      <MenuItem value="all">すべて</MenuItem>
+                      {level2Options.map(name => (
+                        <MenuItem key={name} value={name}>{name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth size="small" disabled={level2Filter === 'all'}>
+                    <InputLabel>レベル3</InputLabel>
+                    <Select value={level3Filter} label="レベル3" onChange={onLevel3FilterChange}>
+                      <MenuItem value="all">すべて</MenuItem>
+                      {level3Options.map(name => (
+                        <MenuItem key={name} value={name}>{name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </>
               )}
-              
-              <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-                <InputLabel>レベル1</InputLabel>
-                <Select
-                  value={level1Filter}
-                  label="レベル1"
-                  onChange={onLevel1FilterChange}
-                >
-                  <MenuItem value="all">すべて</MenuItem>
-                  {hierarchyFilterTree && Object.keys(hierarchyFilterTree.children).map(name => (
-                    <MenuItem key={name} value={name}>{name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth size="small" sx={{ mb: 1 }} disabled={level1Filter === 'all'}>
-                <InputLabel>レベル2</InputLabel>
-                <Select
-                  value={level2Filter}
-                  label="レベル2"
-                  onChange={onLevel2FilterChange}
-                >
-                  <MenuItem value="all">すべて</MenuItem>
-                  {level2Options.map(name => (
-                    <MenuItem key={name} value={name}>{name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth size="small" disabled={level2Filter === 'all'}>
-                <InputLabel>レベル3</InputLabel>
-                <Select
-                  value={level3Filter}
-                  label="レベル3"
-                  onChange={onLevel3FilterChange}
-                >
-                  <MenuItem value="all">すべて</MenuItem>
-                  {level3Options.map(name => (
-                    <MenuItem key={name} value={name}>{name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
             </Box>
 
             <Divider sx={{ my: 2 }} />

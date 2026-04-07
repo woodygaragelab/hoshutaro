@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
-import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, InputLabel, FormControl, Checkbox, FormGroup, FormControlLabel, List, ListItem, Divider } from '@mui/material';
+import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, InputLabel, FormControl, Checkbox, FormGroup, FormControlLabel, List, ListItem, Divider, Tabs, Tab } from '@mui/material';
 import { DragIndicator as DragIcon, FilterList as FilterIcon, Search as SearchIcon } from '@mui/icons-material';
 import { GridColumn, GridState } from './types';
 import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
@@ -33,6 +33,15 @@ interface MaintenanceTableHeaderProps {
   selectedBomCodes?: string[];
   onSelectedBomCodesChange?: (bomCodes: string[]) => void;
   isTaskBasedMode?: boolean;
+  
+  // Classification Filter props
+  assetClassification?: any;
+  workOrderClassifications?: any[];
+  classificationFilter?: { [levelKey: string]: string };
+  onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
+  woClassificationFilter?: string;
+  onWoClassificationFilterChange?: (classificationId: string) => void;
+  assets?: any[];
 }
 
 const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = ({
@@ -62,8 +71,16 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
   selectedBomCodes = [],
   onSelectedBomCodesChange,
   isTaskBasedMode = false,
+  assetClassification,
+  workOrderClassifications = [],
+  classificationFilter = {},
+  onClassificationFilterChange,
+  woClassificationFilter = 'all',
+  onWoClassificationFilterChange,
+  assets = [],
 }) => {
   const [resizing, setResizing] = useState<{ columnId: string; startX: number; startWidth: number } | null>(null);
+  const [filterTab, setFilterTab] = useState<number>(0);
   
   // Filter popover state
   const [filterAnchorEl, setFilterAnchorEl] = useState<{ [columnId: string]: HTMLElement | null }>({});
@@ -501,6 +518,15 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         PaperProps={{ sx: { bgcolor: '#242424', color: 'white', border: '1px solid #333' } }}
+        slotProps={{
+          backdrop: {
+            sx: {
+              backgroundColor: 'transparent',
+              backdropFilter: 'none',
+              WebkitBackdropFilter: 'none',
+            }
+          }
+        }}
       >
         <Box sx={{ p: 2, minWidth: 280, maxWidth: 350, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 500 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>テキスト検索</Typography>
@@ -513,48 +539,157 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
             sx={{ '& .MuiInputBase-root': { color: 'white', bgcolor: '#1e1e1e' } }}
           />
 
-          {!isTaskBasedMode && (
+          {!isTaskBasedMode ? (
             <>
               <Divider sx={{ borderColor: '#333' }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>階層フィルタ</Typography>
+              <Tabs
+                value={filterTab}
+                onChange={(_, v) => setFilterTab(v)}
+                variant="fullWidth"
+                sx={{ 
+                  minHeight: 36, 
+                  borderBottom: '1px solid #333',
+                  '& .MuiTab-root': { color: 'rgba(255,255,255,0.7)', minHeight: 36, py: 0.5 },
+                  '& .Mui-selected': { color: '#90caf9' },
+                  '& .MuiTabs-indicator': { backgroundColor: '#90caf9' }
+                }}
+              >
+                <Tab label="階層" />
+                <Tab label="機器分類" />
+              </Tabs>
+
+              {filterTab === 0 && (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 1 }}>階層フィルタ</Typography>
+                  <Select
+                    size="small"
+                    value={level1Filter}
+                    onChange={onLevel1FilterChange}
+                    displayEmpty
+                    MenuProps={{ slotProps: { backdrop: { sx: { backgroundColor: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' } } } }}
+                    sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
+                  >
+                    <MenuItem value="all"><em>すべての機器分類</em></MenuItem>
+                    {hierarchyFilterTree && hierarchyFilterTree.children && Object.keys(hierarchyFilterTree.children).map((l1) => (
+                      <MenuItem key={l1} value={l1}>{l1}</MenuItem>
+                    ))}
+                  </Select>
+                  
+                  <Select
+                    size="small"
+                    value={level2Filter}
+                    onChange={onLevel2FilterChange}
+                    displayEmpty
+                    disabled={level1Filter === 'all'}
+                    MenuProps={{ slotProps: { backdrop: { sx: { backgroundColor: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' } } } }}
+                    sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
+                  >
+                    <MenuItem value="all"><em>すべての大分類</em></MenuItem>
+                    {level2Options.map((l2) => (
+                      <MenuItem key={l2} value={l2}>{l2}</MenuItem>
+                    ))}
+                  </Select>
+                  
+                  <Select
+                    size="small"
+                    value={level3Filter}
+                    onChange={onLevel3FilterChange}
+                    displayEmpty
+                    disabled={level1Filter === 'all' || level2Filter === 'all'}
+                    MenuProps={{ slotProps: { backdrop: { sx: { backgroundColor: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' } } } }}
+                    sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
+                  >
+                    <MenuItem value="all"><em>すべての詳細分類</em></MenuItem>
+                    {level3Options.map((l3) => (
+                      <MenuItem key={l3} value={l3}>{l3}</MenuItem>
+                    ))}
+                  </Select>
+                </>
+              )}
+
+              {filterTab === 1 && (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 1 }}>機器分類フィルタ</Typography>
+                  {assetClassification && assetClassification.levels && assetClassification.levels.length > 0 ? (
+                    assetClassification.levels
+                      .slice()
+                      .sort((a: any, b: any) => a.order - b.order)
+                      .map((level: any, idx: number, sortedLevels: any[]) => {
+                        const parentSelected = idx === 0 || sortedLevels.slice(0, idx).every(
+                          parentLevel => classificationFilter[parentLevel.key] && classificationFilter[parentLevel.key] !== ''
+                        );
+                        const currentValue = classificationFilter[level.key] || '';
+                        
+                        let availableValues = level.values || [];
+                        if (idx > 0) {
+                          const matchingAssets = assets.filter(asset => {
+                            if (!asset.classificationPath) return false;
+                            return sortedLevels.slice(0, idx).every(parentLevel => {
+                              const parentVal = classificationFilter[parentLevel.key];
+                              if (!parentVal || parentVal === 'all') return true;
+                              return asset.classificationPath[parentLevel.key] === parentVal;
+                            });
+                          });
+                          const validSet = new Set<string>();
+                          matchingAssets.forEach(asset => {
+                            if (asset.classificationPath[level.key]) {
+                              validSet.add(asset.classificationPath[level.key]);
+                            }
+                          });
+                          availableValues = availableValues.filter((v: string) => validSet.has(v));
+                        }
+                        
+                        return (
+                          <Select
+                            key={level.key}
+                            size="small"
+                            value={currentValue}
+                            onChange={(e) => {
+                              if (!onClassificationFilterChange) return;
+                              const newFilter = { ...classificationFilter };
+                              const val = e.target.value as string;
+                              if (val === 'all') {
+                                delete newFilter[level.key];
+                                sortedLevels.slice(idx + 1).forEach(child => delete newFilter[child.key]);
+                              } else {
+                                newFilter[level.key] = val;
+                                sortedLevels.slice(idx + 1).forEach(child => delete newFilter[child.key]);
+                              }
+                              onClassificationFilterChange(newFilter);
+                            }}
+                            displayEmpty
+                            disabled={!parentSelected}
+                            MenuProps={{ slotProps: { backdrop: { sx: { backgroundColor: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' } } } }}
+                            sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
+                          >
+                            <MenuItem value="all"><em>すべての{level.key}</em></MenuItem>
+                            {availableValues.map((v: string) => (
+                              <MenuItem key={v} value={v}>{v}</MenuItem>
+                            ))}
+                          </Select>
+                        );
+                      })
+                  ) : (
+                    <Typography variant="body2" sx={{ color: '#888' }}>機器分類が定義されていません。</Typography>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <Divider sx={{ borderColor: '#333' }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>作業分類フィルタ</Typography>
               <Select
                 size="small"
-                value={level1Filter}
-                onChange={onLevel1FilterChange}
+                value={woClassificationFilter}
+                onChange={(e) => onWoClassificationFilterChange?.(e.target.value as string)}
                 displayEmpty
+                MenuProps={{ slotProps: { backdrop: { sx: { backgroundColor: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' } } } }}
                 sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
               >
-                <MenuItem value="all"><em>すべての機器分類</em></MenuItem>
-                {hierarchyFilterTree && hierarchyFilterTree.children && Object.keys(hierarchyFilterTree.children).map((l1) => (
-                  <MenuItem key={l1} value={l1}>{l1}</MenuItem>
-                ))}
-              </Select>
-              
-              <Select
-                size="small"
-                value={level2Filter}
-                onChange={onLevel2FilterChange}
-                displayEmpty
-                disabled={level1Filter === 'all'}
-                sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
-              >
-                <MenuItem value="all"><em>すべての大分類</em></MenuItem>
-                {level2Options.map((l2) => (
-                  <MenuItem key={l2} value={l2}>{l2}</MenuItem>
-                ))}
-              </Select>
-              
-              <Select
-                size="small"
-                value={level3Filter}
-                onChange={onLevel3FilterChange}
-                displayEmpty
-                disabled={level1Filter === 'all' || level2Filter === 'all'}
-                sx={{ color: 'white', bgcolor: '#1e1e1e', '& .MuiSelect-icon': { color: 'white' } }}
-              >
-                <MenuItem value="all"><em>すべての詳細分類</em></MenuItem>
-                {level3Options.map((l3) => (
-                  <MenuItem key={l3} value={l3}>{l3}</MenuItem>
+                <MenuItem value="all"><em>すべての作業分類</em></MenuItem>
+                {workOrderClassifications.map(wc => (
+                  <MenuItem key={wc.id} value={wc.id}>{wc.id} - {wc.name}</MenuItem>
                 ))}
               </Select>
             </>
@@ -604,6 +739,15 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         PaperProps={{ sx: { bgcolor: '#242424', color: 'white', border: '1px solid #333' } }}
+        slotProps={{
+          backdrop: {
+            sx: {
+              backgroundColor: 'transparent',
+              backdropFilter: 'none',
+              WebkitBackdropFilter: 'none',
+            }
+          }
+        }}
       >
         <Box sx={{ p: 2, minWidth: 280, maxWidth: 350, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 500 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>テキスト検索</Typography>

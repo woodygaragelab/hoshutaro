@@ -60,6 +60,14 @@ interface MaintenanceGridLayoutProps {
   selectedBomCodes?: string[];
   onSelectedBomCodesChange?: (bomCodes: string[]) => void;
   onScroll?: (dateKey: string) => void;
+  // Classification Filter props
+  assetClassification?: any;
+  workOrderClassifications?: any[];
+  classificationFilter?: { [levelKey: string]: string };
+  onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
+  woClassificationFilter?: string;
+  onWoClassificationFilterChange?: (classificationId: string) => void;
+  assets?: any[];
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -110,6 +118,13 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   selectedBomCodes,
   onSelectedBomCodesChange,
   onScroll,
+  assetClassification,
+  workOrderClassifications,
+  classificationFilter,
+  onClassificationFilterChange,
+  woClassificationFilter,
+  onWoClassificationFilterChange,
+  assets,
 }) => {
     // Container width for horizontal virtual scrolling
   const [containerWidth, setContainerWidth] = useState(1920);
@@ -830,6 +845,13 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               selectedBomCodes={selectedBomCodes}
               onSelectedBomCodesChange={onSelectedBomCodesChange}
               isTaskBasedMode={isTaskBasedMode}
+              assetClassification={assetClassification}
+              workOrderClassifications={workOrderClassifications}
+              classificationFilter={classificationFilter}
+              onClassificationFilterChange={onClassificationFilterChange}
+              woClassificationFilter={woClassificationFilter}
+              onWoClassificationFilterChange={onWoClassificationFilterChange}
+              assets={assets}
             />
           </Box>
           <Box

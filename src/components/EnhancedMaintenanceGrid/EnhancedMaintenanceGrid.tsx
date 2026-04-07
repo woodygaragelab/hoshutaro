@@ -97,6 +97,14 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   // Project Name Props
   projectName?: string;
   onProjectNameChange?: (newName: string) => void;
+
+  // Classification Filter props
+  assetClassification?: any;
+  workOrderClassifications?: any[];
+  classificationFilter?: { [levelKey: string]: string };
+  onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
+  woClassificationFilter?: string;
+  onWoClassificationFilterChange?: (classificationId: string) => void;
 }
 
 export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = ({
@@ -170,7 +178,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onScroll,
   // Project Name Props
   projectName = '無題のプロジェクト',
-  onProjectNameChange
+  onProjectNameChange,
+  
+  // Classification filters
+  assetClassification,
+  workOrderClassifications,
+  classificationFilter,
+  onClassificationFilterChange,
+  woClassificationFilter,
+  onWoClassificationFilterChange,
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -1128,6 +1144,13 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         uniqueBomCodes={uniqueBomCodes}
         selectedBomCodes={selectedBomCodes}
         onSelectedBomCodesChange={onSelectedBomCodesChange}
+        assetClassification={assetClassification}
+        workOrderClassifications={workOrderClassifications}
+        classificationFilter={classificationFilter}
+        onClassificationFilterChange={onClassificationFilterChange}
+        woClassificationFilter={woClassificationFilter}
+        onWoClassificationFilterChange={onWoClassificationFilterChange}
+        assets={assets}
       />
     );
   }, [

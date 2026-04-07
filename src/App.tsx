@@ -166,6 +166,9 @@ const App: React.FC = () => {
   const [level1Filter, setLevel1Filter] = useState<string>('all');
   const [level2Filter, setLevel2Filter] = useState<string>('all');
   const [level3Filter, setLevel3Filter] = useState<string>('all');
+  // Classification filter states
+  const [classificationFilter, setClassificationFilter] = useState<{[key: string]: string}>({});
+  const [woClassificationFilter, setWoClassificationFilter] = useState<string>('all');
 
   // UI component states (dialogs only)
   const [addYearDialogOpen, setAddYearDialogOpen] = useState(false);
@@ -1040,6 +1043,44 @@ const App: React.FC = () => {
       }
     }
 
+    // Apply asset classification filter (equipment-based mode)
+    if (dataViewMode === 'asset-based' && Object.keys(classificationFilter).length > 0 && isServicesInitialized && assetManagerRef.current) {
+      const allAssets = assetManagerRef.current.getAllAssets();
+      const matchingAssetIds = new Set<string>();
+      allAssets.forEach(asset => {
+        if (!asset.classificationPath) return;
+        const matches = Object.entries(classificationFilter).every(([key, value]) =>
+          asset.classificationPath && asset.classificationPath[key] === value
+        );
+        if (matches) matchingAssetIds.add(asset.id);
+      });
+      filteredData = filteredData.filter(item => {
+        if (item.isGroupHeader) return true;
+        if (item.assetId) return matchingAssetIds.has(item.assetId);
+        if (item.bomCode) return matchingAssetIds.has(item.bomCode);
+        return false;
+      });
+    }
+
+    // Apply work order classification filter (workorder-based mode)
+    if (dataViewMode === 'workorder-based' && woClassificationFilter !== 'all' && isServicesInitialized && workOrderManagerRef.current) {
+      const allWorkOrders = workOrderManagerRef.current.getAllWorkOrders();
+      const matchingWoIds = new Set<string>();
+      allWorkOrders.forEach(wo => {
+        if (wo.ClassificationId === woClassificationFilter) matchingWoIds.add(wo.id);
+      });
+      filteredData = filteredData.filter(item => {
+        if (item.isGroupHeader) {
+          // Group header in workorder mode: workOrderId is stored in the item
+          if (item.workOrderId) return matchingWoIds.has(item.workOrderId);
+          return true;
+        }
+        // Child rows: check parent workOrderId
+        if (item.workOrderId) return matchingWoIds.has(item.workOrderId);
+        return true;
+      });
+    }
+
     // Apply spreadsheet-style checkbox filtering
     if (selectedTasks.length > 0) {
       const taskSet = new Set(selectedTasks);
@@ -1075,7 +1116,7 @@ const App: React.FC = () => {
     });
 
     return filteredData;
-  }, [maintenanceData, searchTerm, level1Filter, level2Filter, level3Filter, isServicesInitialized, selectedTasks, selectedBomCodes]);
+  }, [maintenanceData, searchTerm, level1Filter, level2Filter, level3Filter, isServicesInitialized, selectedTasks, selectedBomCodes, classificationFilter, woClassificationFilter, dataViewMode]);
 
   // Group data for rendering
   const groupedData = useMemo(() => {
@@ -2641,6 +2682,12 @@ const App: React.FC = () => {
                 hierarchyFilterTree={hierarchyFilterTree}
                 level2Options={level2Options}
                 level3Options={level3Options}
+                assetClassification={dataStoreRef.current?.getAssetClassification()}
+                workOrderClassifications={dataStoreRef.current?.getWorkOrderClassifications() || []}
+                classificationFilter={classificationFilter}
+                onClassificationFilterChange={setClassificationFilter}
+                woClassificationFilter={woClassificationFilter}
+                onWoClassificationFilterChange={setWoClassificationFilter}
                 onAddYear={handleAddYearClick}
                 onDeleteYear={handleDeleteYearClick}
                 onExportData={handleExportData}
