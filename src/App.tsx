@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-// HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
+// HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component changes - 20260407
 import './App.css';
 import './styles/responsive.css';
 import './styles/grid-text-fix.css';
@@ -34,6 +34,8 @@ import { AgentBar } from './components/AgentBar/AgentBar';
 import { EmptyState } from './components/EmptyState';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
 import { HierarchyEditDialog } from './components/HierarchyEditDialog/HierarchyEditDialog';
+import { AssetClassificationEditDialog } from './components/AssetClassificationEditDialog';
+import { WorkOrderClassificationEditDialog } from './components/WorkOrderClassificationEditDialog';
 import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
 import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
 import { transformData } from './utils/dataTransformer';
@@ -181,6 +183,8 @@ const App: React.FC = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('info');
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [isHierarchyManagerOpen, setIsHierarchyManagerOpen] = useState(false);
+  const [isAssetClassificationEditOpen, setIsAssetClassificationEditOpen] = useState(false);
+  const [isWorkOrderClassificationEditOpen, setIsWorkOrderClassificationEditOpen] = useState(false);
 
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
@@ -1642,8 +1646,8 @@ const App: React.FC = () => {
         workOrders: workOrdersObj,
         workOrderLines: workOrderLinesObj,
         hierarchy: hierarchy || { levels: [] },
-        workOrderClassifications: (rawData as any)?.taskClassifications || [],
-        assetClassification: (rawData as any)?.assetClassification || { levels: [] },
+        workOrderClassifications: dataStoreRef.current.getWorkOrderClassifications(),
+        assetClassification: dataStoreRef.current.getAssetClassification(),
         metadata: {
           lastModified: new Date(),
           projectName: projectName
@@ -1711,9 +1715,9 @@ const App: React.FC = () => {
         return acc;
       }, {} as any);
 
-      // Include workOrderClassifications and assetClassification from source data
-      const sourceWorkOrderClassifications = (rawData as any)?.workOrderClassifications || (rawData as any)?.taskClassifications || [];
-      const sourceAssetClassification = (rawData as any)?.assetClassification || { levels: [] };
+      // Include workOrderClassifications and assetClassification from DataStore
+      const sourceWorkOrderClassifications = dataStoreRef.current?.getWorkOrderClassifications() || [];
+      const sourceAssetClassification = dataStoreRef.current?.getAssetClassification() || { levels: [] };
 
       const dataToExport = {
         version: '3.0.0',
@@ -1860,6 +1864,20 @@ const App: React.FC = () => {
         const hierarchyDef = importData.hierarchy || { levels: [] };
         if (hierarchyManagerRef.current) {
           hierarchyManagerRef.current.setHierarchyDefinition(hierarchyDef);
+        }
+
+        // Reload classification data into DataStore
+        if (dataStoreRef.current) {
+          const fullData = {
+            ...importData,
+            _fileName: undefined,
+          };
+          delete fullData._fileName;
+          try {
+            dataStoreRef.current.loadData(fullData);
+          } catch (e) {
+            console.warn('[App] DataStore reload after import had validation issue:', e);
+          }
         }
 
         // Reinitialize ViewModeManager
@@ -2657,7 +2675,9 @@ const App: React.FC = () => {
           canRedo={canRedo}
           onUndo={handleUndo}
           onRedo={handleRedo}
-          onHierarchyEdit={() => setHierarchyEditDialogOpen(true)}
+          onHierarchyEdit={() => setIsHierarchyManagerOpen(true)}
+          onAssetClassificationEdit={() => setIsAssetClassificationEditOpen(true)}
+          onWorkOrderClassificationEdit={() => setIsWorkOrderClassificationEditOpen(true)}
           onSuggestionApply={(suggestion) => {
             handleCellEdit(
               suggestion.equipmentId,
@@ -2786,6 +2806,59 @@ const App: React.FC = () => {
             }
           }}
         />
+
+        {/* Asset Classification Edit Dialog */}
+        {dataStoreRef.current && (
+          <AssetClassificationEditDialog
+            open={isAssetClassificationEditOpen}
+            onClose={() => setIsAssetClassificationEditOpen(false)}
+            assetClassification={dataStoreRef.current.getAssetClassification()}
+            assetCount={assetManagerRef.current?.getAllAssets().length || 0}
+            assets={assetManagerRef.current?.getAllAssets() || []}
+            onSave={(newClassification) => {
+              if (dataStoreRef.current) {
+                // Update datastore
+                const currentData = dataStoreRef.current.exportData();
+                currentData.assetClassification = newClassification;
+                dataStoreRef.current.loadData(currentData);
+                showSnackbar('機器分類マスタを更新しました', 'success');
+              }
+            }}
+            onSaveLinkedAssets={(updatedAssets) => {
+              if (assetManagerRef.current) {
+                undoRedoManagerRef.current?.mute();
+                updatedAssets.forEach(update => {
+                  assetManagerRef.current!.updateAsset(update.id, {
+                    classificationPath: update.classificationPath
+                  });
+                });
+                undoRedoManagerRef.current?.unmute();
+                loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+                showSnackbar(`${updatedAssets.length}件の機器の分類紐づけを更新しました`, 'success');
+              }
+            }}
+          />
+        )}
+
+        {/* Work Order Classification Edit Dialog */}
+        {dataStoreRef.current && (
+          <WorkOrderClassificationEditDialog
+            open={isWorkOrderClassificationEditOpen}
+            onClose={() => setIsWorkOrderClassificationEditOpen(false)}
+            classifications={dataStoreRef.current.getWorkOrderClassifications()}
+            workOrders={workOrderManagerRef.current?.getAllWorkOrders() || []}
+            onSave={(newClassifications) => {
+              if (dataStoreRef.current) {
+                // Update datastore
+                const currentData = dataStoreRef.current.exportData();
+                currentData.workOrderClassifications = newClassifications;
+                dataStoreRef.current.loadData(currentData);
+                showSnackbar('作業分類マスタを更新しました', 'success');
+              }
+            }}
+          />
+        )}
+
         {/* Snackbar */}
         <Snackbar
           open={snackbarOpen}

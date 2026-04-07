@@ -108,6 +108,30 @@ export class DataStore {
   }
 
   /**
+   * 現在のデータを書き出し・加工用にディープコピーして取得
+   */
+  exportData(): DataModel {
+    if (!this.data) {
+      throw new ValidationError('データがロードされていません');
+    }
+    return JSON.parse(JSON.stringify(this.data));
+  }
+
+  /**
+   * 機器分類マスタを取得
+   */
+  getAssetClassification(): AssetClassificationDefinition {
+    return this.data?.assetClassification || { levels: [] };
+  }
+
+  /**
+   * 作業分類マスタを取得
+   */
+  getWorkOrderClassifications(): WorkOrderClassification[] {
+    return this.data?.workOrderClassifications || [];
+  }
+
+  /**
    * データモデルのバリデーション
    */
   private validateDataModel(data: any): asserts data is DataModel {
@@ -156,6 +180,45 @@ export class DataStore {
 
     if (data.workOrderClassifications) {
       this.validateWorkOrderClassifications(data.workOrderClassifications);
+    }
+    if (data.assetClassification) {
+      this.validateAssetClassification(data.assetClassification);
+    }
+  }
+
+  /**
+   * 機器分類マスタのバリデーション
+   */
+  private validateAssetClassification(classification: any): asserts classification is AssetClassificationDefinition {
+    if (!classification.levels || !Array.isArray(classification.levels)) {
+      throw new ValidationError('機器分類のlevelsが必要です');
+    }
+    if (classification.levels.length > 10) {
+      throw new ValidationError(`機器分類のレベル数は10以下の範囲である必要があります: ${classification.levels.length}`);
+    }
+    const seenKeys = new Set<string>();
+    const seenOrders = new Set<number>();
+    for (const level of classification.levels) {
+      if (!level || typeof level !== 'object') {
+        throw new ValidationError('機器分類のレベルが無効です');
+      }
+      if (!level.key || typeof level.key !== 'string') {
+        throw new ValidationError('機器分類レベルのキーが必要です');
+      }
+      if (seenKeys.has(level.key)) {
+        throw new ValidationError(`重複した機器分類レベルキー: ${level.key}`);
+      }
+      seenKeys.add(level.key);
+      if (typeof level.order !== 'number' || level.order < 1) {
+        throw new ValidationError(`機器分類レベル ${level.key} の順序が無効です`);
+      }
+      if (seenOrders.has(level.order)) {
+        throw new ValidationError(`重複した機器分類レベル順序: ${level.order}`);
+      }
+      seenOrders.add(level.order);
+      if (!Array.isArray(level.values)) {
+        throw new ValidationError(`機器分類レベル ${level.key} の値が配列である必要があります`);
+      }
     }
   }
 

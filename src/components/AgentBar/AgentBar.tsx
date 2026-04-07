@@ -43,6 +43,8 @@ interface AgentBarProps {
   onImportData: () => void;
   onExportData: () => void;
   onHierarchyEdit?: () => void;
+  onAssetClassificationEdit?: () => void;
+  onWorkOrderClassificationEdit?: () => void;
   
   // AI related passing upwards if necessary
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
@@ -69,6 +71,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   onImportData,
   onExportData,
   onHierarchyEdit,
+  onAssetClassificationEdit,
+  onWorkOrderClassificationEdit,
   onSuggestionApply,
   onExcelImport,
   onImportComplete,
@@ -98,6 +102,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const [showDisplayModeMenu, setShowDisplayModeMenu] = useState(false);
   const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
+  const [showMasterMenu, setShowMasterMenu] = useState(false);
   const [lastJumpDate, setLastJumpDate] = useState<string | undefined>();
 
   // Scroll to bottom when messages update
@@ -528,18 +533,25 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               </IconButton>
             </div>
 
-            {/* Hierarchy Edit Toggle */}
-            {onHierarchyEdit && (
-              <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
-                <IconButton 
-                  className="tb-icon" 
-                  onClick={onHierarchyEdit}
-                  title="機器階層設定"
-                >
+            {/* Master Data Management Menu */}
+            <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
+              <div 
+                className="control-hover-group"
+                onMouseEnter={() => setShowMasterMenu(true)}
+                onMouseLeave={() => setShowMasterMenu(false)}
+              >
+                <IconButton className={`tb-icon ${showMasterMenu ? 'active' : ''}`} title="マスタ管理">
                   <HierarchyIcon fontSize="small" />
                 </IconButton>
+                {showMasterMenu && (
+                  <div className="hover-menu-vertical">
+                    <div className="menu-item" onClick={() => { onHierarchyEdit?.(); setShowMasterMenu(false); }}>階層構造</div>
+                    <div className="menu-item" onClick={() => { onAssetClassificationEdit?.(); setShowMasterMenu(false); }}>機器分類</div>
+                    <div className="menu-item" onClick={() => { onWorkOrderClassificationEdit?.(); setShowMasterMenu(false); }}>作業分類</div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Download Data Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
