@@ -32,6 +32,8 @@ import { useViewModeTransition } from './hooks/useViewModeTransition';
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
 import { AgentBar } from './components/AgentBar/AgentBar';
 import { EmptyState } from './components/EmptyState';
+import { CostTrendGraph } from './components/CostTrendGraph';
+import { AnimatePresence } from 'framer-motion';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
 import { HierarchyEditDialog } from './components/HierarchyEditDialog/HierarchyEditDialog';
 import { AssetClassificationEditDialog } from './components/AssetClassificationEditDialog';
@@ -91,6 +93,7 @@ const App: React.FC = () => {
   const [timeScale, setTimeScale] = useState<'year' | 'month' | 'week' | 'day'>('year');
   const [viewMode, setViewMode] = useState<'status' | 'cost'>('status');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showGraph, setShowGraph] = useState(false);
 
   // Spreadsheet-style checkbox filters
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -2627,8 +2630,17 @@ const App: React.FC = () => {
               aria-colcount={timeHeaders.length + 3}
             >
 
-              {/* Enhanced Maintenance Grid - Production Version */}
-              <EnhancedMaintenanceGrid
+              <AnimatePresence>
+                {showGraph && (
+                  <div style={{ flex: 1, paddingBottom: '16px', overflow: 'hidden' }}>
+                    <CostTrendGraph data={displayedMaintenanceData} timeHeaders={timeHeaders} />
+                  </div>
+                )}
+              </AnimatePresence>
+
+              <div style={{ flex: showGraph ? 1 : 'unset', minHeight: 0, height: showGraph ? 'unset' : '100%', overflow: 'hidden' }}>
+                {/* Enhanced Maintenance Grid - Production Version */}
+                <EnhancedMaintenanceGrid
                 data={displayedMaintenanceData}
                 timeHeaders={timeHeaders}
                 onCellEdit={handleCellEdit}
@@ -2698,6 +2710,7 @@ const App: React.FC = () => {
                 projectName={projectName}
                 onProjectNameChange={handleProjectNameChange}
               />
+              </div>
             </div>
           )}
         </div>
@@ -2707,6 +2720,8 @@ const App: React.FC = () => {
           timeHeaders={timeHeaders}
           activeTimeHeaders={activeTimeHeaders}
           currentVisibleDate={currentVisibleDate}
+          showGraph={showGraph}
+          onToggleGraph={() => setShowGraph(!showGraph)}
           onTimeScaleChange={(scale) => {
             setTimeScale(scale);
             loadDataFromViewModeManager(scale);

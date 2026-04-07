@@ -21,7 +21,8 @@ import {
   Apps as ToolsIcon,
   Event as DateRangeIcon,
   Undo as UndoIcon,
-  Redo as RedoIcon
+  Redo as RedoIcon,
+  BarChart as BarChartIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
@@ -59,6 +60,10 @@ interface AgentBarProps {
   onUndo?: () => void;
   canRedo?: boolean;
   onRedo?: () => void;
+  
+  // Graph Toggle
+  showGraph?: boolean;
+  onToggleGraph?: () => void;
 }
 
 export const AgentBar: React.FC<AgentBarProps> = ({
@@ -82,7 +87,9 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   canUndo = false,
   onUndo,
   canRedo = false,
-  onRedo
+  onRedo,
+  showGraph = false,
+  onToggleGraph
 }) => {
   // --- AI Assistant State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -531,6 +538,17 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               >
                 <ViewModeIcon fontSize="small" />
               </IconButton>
+            </div>
+
+            {/* Graph Toggle */}
+            <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
+               <IconButton 
+                 className={`tb-icon ${showGraph ? 'active' : ''}`}
+                 onClick={onToggleGraph}
+                 title={showGraph ? 'グラフを非表示' : 'コスト推移グラフを表示'}
+               >
+                 <BarChartIcon fontSize="small" />
+               </IconButton>
             </div>
 
             {/* Master Data Management Menu */}
