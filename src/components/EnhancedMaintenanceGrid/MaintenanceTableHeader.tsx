@@ -618,7 +618,7 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                         const parentSelected = idx === 0 || sortedLevels.slice(0, idx).every(
                           parentLevel => classificationFilter[parentLevel.key] && classificationFilter[parentLevel.key] !== ''
                         );
-                        const currentValue = classificationFilter[level.key] || '';
+                        const currentValue = classificationFilter[level.key] || 'all';
                         
                         let availableValues = level.values || [];
                         if (idx > 0) {
