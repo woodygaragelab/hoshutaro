@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
+import {
   Box, IconButton, Typography, CircularProgress, Avatar, Paper, Button, Chip
 } from '@mui/material';
 import {
@@ -39,14 +39,14 @@ interface AgentBarProps {
   displayMode: 'specifications' | 'maintenance' | 'both';
   onDataViewModeChange: (mode: 'asset-based' | 'workorder-based') => void;
   dataViewMode: 'asset-based' | 'workorder-based';
-  
+
   // Data Operations
   onImportData: () => void;
   onExportData: () => void;
   onHierarchyEdit?: () => void;
   onAssetClassificationEdit?: () => void;
   onWorkOrderClassificationEdit?: () => void;
-  
+
   // AI related passing upwards if necessary
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
@@ -54,13 +54,13 @@ interface AgentBarProps {
   dataContext: any;
   timeHeaders?: string[];
   activeTimeHeaders?: string[];
-  
+
   // Undo/Redo
   canUndo?: boolean;
   onUndo?: () => void;
   canRedo?: boolean;
   onRedo?: () => void;
-  
+
   // Graph Toggle
   showGraph?: boolean;
   onToggleGraph?: () => void;
@@ -267,10 +267,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
         const result = await confirmExcelImport(sessionId);
         setMessages(prev => prev.map(m => m.id === statusMsg.id ? {
           ...m,
-          content: `✅ インポート完了！\n機器: ${result.imported_assets}件\n作業: ${result.imported_work_orders}件\n明細: ${result.imported_lines}件` 
+          content: `✅ インポート完了！\n機器: ${result.imported_assets}件\n作業: ${result.imported_work_orders}件\n明細: ${result.imported_lines}件`
             + (result.error_count > 0 ? `\n⚠️ エラー: ${result.error_count}件` : '')
         } : m));
-        
+
         if (result.data_model && onImportComplete) {
           onImportComplete(result.data_model);
         }
@@ -292,7 +292,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   return (
     <>
       <LLMSettingsDialog open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      
+
       {/* Floating Agent Bar */}
       <div className="agent-bar-container">
         {/* Main Bar */}
@@ -301,29 +301,29 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           {/* Expandable Chat History */}
           <div className={`agent-chat-window ${isChatExpanded ? 'expanded' : ''}`}>
             <div className="agent-chat-header">
-              <span className="agent-chat-title"><AIIcon sx={{ fontSize: 18, mr: 1}}/> HOSHUTARO</span>
-              <IconButton size="small" sx={{color: '#999'}} onClick={() => setIsChatExpanded(false)}>
-                <CloseIcon fontSize="small"/>
+              <span className="agent-chat-title"><AIIcon sx={{ fontSize: 18, mr: 1 }} /> HOSHUTARO</span>
+              <IconButton size="small" sx={{ color: '#999' }} onClick={() => setIsChatExpanded(false)}>
+                <CloseIcon fontSize="small" />
               </IconButton>
             </div>
             <div className="agent-chat-messages">
               {messages.map((message) => (
                 <div key={message.id} className={`agent-msg-row ${message.type}`}>
                   <Avatar sx={{ width: 24, height: 24, bgcolor: message.type === 'user' ? '#444' : '#111', mr: 1 }}>
-                    {message.type === 'user' ? <PersonIcon fontSize="small"/> : <AIIcon fontSize="small"/>}
+                    {message.type === 'user' ? <PersonIcon fontSize="small" /> : <AIIcon fontSize="small" />}
                   </Avatar>
                   <div className="agent-msg-content">
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#fff', fontSize: '13px' }}>
                       {message.content}
                     </Typography>
-                    
+
                     {/* Render actions/suggestions if any */}
                     {message.actions && (
                       <div className="agent-msg-actions">
                         {message.actions.map(action => (
-                          <Button 
-                            key={action.id} 
-                            size="small" 
+                          <Button
+                            key={action.id}
+                            size="small"
                             variant={action.variant === 'confirm' ? 'contained' : 'outlined'}
                             onClick={() => handleAction(action.id, message.id)}
                             sx={{ mt: 1, mr: 1, textTransform: 'none', fontSize: '11px', p: '2px 8px' }}
@@ -338,51 +338,51 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 </div>
               ))}
               {isLoading && (
-                 <div className="agent-msg-row assistant">
-                   <Avatar sx={{ width: 24, height: 24, bgcolor: '#111', mr: 1 }}><AIIcon fontSize="small"/></Avatar>
-                   <CircularProgress size={16} sx={{color: '#999', mt: 0.5, mr: 1}} />
-                   <Button 
-                      size="small" 
-                      variant="outlined" 
-                      color="error"
-                      onClick={async () => {
-                        try {
-                          await cancelExcelImport(sessionId);
-                          setMessages(prev => [...prev, {
-                            id: Date.now().toString(),
-                            type: 'system',
-                            content: '処理を中止しました。',
-                            timestamp: new Date()
-                          }]);
-                        } catch(e) {
-                          console.error(e);
-                        }
-                        setIsLoading(false);
-                      }}
-                      sx={{ textTransform: 'none', fontSize: '11px', p: '2px 8px', borderColor: '#444', color: '#ffaaaa' }}
-                    >
-                      🛑 中止
-                    </Button>
-                 </div>
+                <div className="agent-msg-row assistant">
+                  <Avatar sx={{ width: 24, height: 24, bgcolor: '#111', mr: 1 }}><AIIcon fontSize="small" /></Avatar>
+                  <CircularProgress size={16} sx={{ color: '#999', mt: 0.5, mr: 1 }} />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    onClick={async () => {
+                      try {
+                        await cancelExcelImport(sessionId);
+                        setMessages(prev => [...prev, {
+                          id: Date.now().toString(),
+                          type: 'system',
+                          content: '処理を中止しました。',
+                          timestamp: new Date()
+                        }]);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                      setIsLoading(false);
+                    }}
+                    sx={{ textTransform: 'none', fontSize: '11px', p: '2px 8px', borderColor: '#444', color: '#ffaaaa' }}
+                  >
+                    🛑 中止
+                  </Button>
+                </div>
               )}
               <div ref={messagesEndRef} />
             </div>
           </div>
-          
+
           {/* Expandable AI Row (Middle) */}
           <div className={`agent-bar-ai-row ${isAIAreaExpanded ? 'expanded' : ''}`}>
-            
+
             {/* AI Input Box */}
             <div className="agent-input-wrapper">
-               <input
+              <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileUpload}
                 accept=".xlsx,.xls,.csv"
                 style={{ display: 'none' }}
               />
-              <IconButton 
-                className="tb-icon attach-btn" 
+              <IconButton
+                className="tb-icon attach-btn"
                 onClick={() => fileInputRef.current?.click()}
                 title="ファイル添付"
               >
@@ -390,10 +390,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               </IconButton>
 
               {pendingFile && (
-                <Chip label={pendingFile.name} size="small" onDelete={() => setPendingFile(null)} sx={{color: '#fff', bgcolor: '#333', mr: 1, height: '20px', fontSize: '11px'}}/>
+                <Chip label={pendingFile.name} size="small" onDelete={() => setPendingFile(null)} sx={{ color: '#fff', bgcolor: '#333', mr: 1, height: '20px', fontSize: '11px' }} />
               )}
 
-              <input 
+              <input
                 className="agent-text-input"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
@@ -406,8 +406,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 }}
               />
 
-              <IconButton 
-                className="send-btn" 
+              <IconButton
+                className="send-btn"
                 onClick={handleSendMessage}
                 disabled={(!inputMessage.trim() && !pendingFile) || isLoading}
               >
@@ -417,16 +417,16 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* Right Controls */}
             <div className="agent-bar-right">
-               <IconButton 
-                 className={`tb-icon ${isChatExpanded ? 'active' : ''}`}
-                 onClick={() => setIsChatExpanded(!isChatExpanded)} 
-                 title="AIチャット履歴の表示切替"
-               >
-                 <ChatIcon fontSize="small"/>
-               </IconButton>
-               <IconButton className="tb-icon" onClick={() => setIsSettingsOpen(true)} title="LLM設定">
-                 <SettingsIcon fontSize="small"/>
-               </IconButton>
+              <IconButton
+                className={`tb-icon ${isChatExpanded ? 'active' : ''}`}
+                onClick={() => setIsChatExpanded(!isChatExpanded)}
+                title="AIチャット履歴の表示切替"
+              >
+                <ChatIcon fontSize="small" />
+              </IconButton>
+              <IconButton className="tb-icon" onClick={() => setIsSettingsOpen(true)} title="LLM設定">
+                <SettingsIcon fontSize="small" />
+              </IconButton>
             </div>
           </div>
 
@@ -434,10 +434,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           <div className="agent-bar-grid-row">
             {/* Undo / Redo Buttons */}
             <div className={`agent-tool-anim-wrapper ${!canUndo && !canRedo && !hasData ? 'hidden' : ''}`}>
-              <IconButton 
-                className="tb-icon" 
-                onClick={onUndo} 
-                disabled={!canUndo} 
+              <IconButton
+                className="tb-icon"
+                onClick={onUndo}
+                disabled={!canUndo}
                 title="元に戻す (Ctrl+Z)"
                 sx={{ color: canUndo ? '#ffffff !important' : '#666666 !important' }}
               >
@@ -445,10 +445,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               </IconButton>
             </div>
             <div className={`agent-tool-anim-wrapper ${!canUndo && !canRedo && !hasData ? 'hidden' : ''}`}>
-              <IconButton 
-                className="tb-icon" 
-                onClick={onRedo} 
-                disabled={!canRedo} 
+              <IconButton
+                className="tb-icon"
+                onClick={onRedo}
+                disabled={!canRedo}
                 title="やり直す (Ctrl+Y)"
                 sx={{ color: canRedo ? '#ffffff !important' : '#666666 !important' }}
               >
@@ -458,7 +458,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* Display Mode Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
-              <div 
+              <div
                 className="control-hover-group"
                 onMouseEnter={() => setShowDisplayModeMenu(true)}
                 onMouseLeave={() => setShowDisplayModeMenu(false)}
@@ -478,7 +478,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* Time Scale Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
-              <div 
+              <div
                 className="control-hover-group"
                 onMouseEnter={() => setShowTimeScaleMenu(true)}
                 onMouseLeave={() => setShowTimeScaleMenu(false)}
@@ -499,12 +499,12 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* Date Jump Toggle (Hidden in Year mode) */}
             {timeScale !== 'year' && (
-              <div 
+              <div
                 className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''} control-hover-group`}
                 onMouseEnter={() => setShowDateJumpMenu(true)}
                 onMouseLeave={() => setShowDateJumpMenu(false)}
               >
-                <IconButton 
+                <IconButton
                   className={`tb-icon ${showDateJumpMenu ? 'active' : ''}`}
                   title="指定日付へジャンプ"
                 >
@@ -531,8 +531,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* View Mode Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
-              <IconButton 
-                className="tb-icon" 
+              <IconButton
+                className="tb-icon"
                 onClick={() => onDataViewModeChange(dataViewMode === 'asset-based' ? 'workorder-based' : 'asset-based')}
                 title={dataViewMode === 'asset-based' ? '現在：機器ベース (クリックで作業ベースへ)' : '現在：作業ベース (クリックで機器ベースへ)'}
               >
@@ -542,18 +542,18 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* Graph Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
-               <IconButton 
-                 className={`tb-icon ${showGraph ? 'active' : ''}`}
-                 onClick={onToggleGraph}
-                 title={showGraph ? 'グラフを非表示' : 'コスト推移グラフを表示'}
-               >
-                 <BarChartIcon fontSize="small" />
-               </IconButton>
+              <IconButton
+                className={`tb-icon ${showGraph ? 'active' : ''}`}
+                onClick={onToggleGraph}
+                title={showGraph ? 'グラフを非表示' : 'コスト推移グラフを表示'}
+              >
+                <BarChartIcon fontSize="small" />
+              </IconButton>
             </div>
 
             {/* Master Data Management Menu */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
-              <div 
+              <div
                 className="control-hover-group"
                 onMouseEnter={() => setShowMasterMenu(true)}
                 onMouseLeave={() => setShowMasterMenu(false)}
@@ -563,7 +563,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 </IconButton>
                 {showMasterMenu && (
                   <div className="hover-menu-vertical">
-                    <div className="menu-item" onClick={() => { onHierarchyEdit?.(); setShowMasterMenu(false); }}>階層構造</div>
+                    <div className="menu-item" onClick={() => { onHierarchyEdit?.(); setShowMasterMenu(false); }}>機器階層</div>
                     <div className="menu-item" onClick={() => { onAssetClassificationEdit?.(); setShowMasterMenu(false); }}>機器分類</div>
                     <div className="menu-item" onClick={() => { onWorkOrderClassificationEdit?.(); setShowMasterMenu(false); }}>作業分類</div>
                   </div>
@@ -573,22 +573,22 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* Download Data Toggle */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>
-              <IconButton 
-                className="tb-icon" 
+              <IconButton
+                className="tb-icon"
                 onClick={onExportData}
                 title="データをダウンロード"
               >
-                <DownloadFileIcon fontSize="small"/>
+                <DownloadFileIcon fontSize="small" />
               </IconButton>
             </div>
 
             {/* Upload Data Toggle (Always visible) */}
             <div className="agent-tool-anim-wrapper">
-              <IconButton 
+              <IconButton
                 onClick={onImportData}
                 className="tb-icon"
                 title="データをアップロード"
-                sx={{ 
+                sx={{
                   bgcolor: !hasData ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
                   '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.15)' }
                 }}
@@ -599,13 +599,13 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
             {/* AI Toggle / Favicon (Always visible) */}
             <div className="agent-tool-anim-wrapper">
-               <IconButton 
-                 className={`tb-icon favicon-toggle ${isAIAreaExpanded ? 'active' : ''}`} 
-                 onClick={() => setIsAIAreaExpanded(!isAIAreaExpanded)}
-                 title="HOSHUTARO AI アシスタント"
-               >
-                 <img src="/favicon.svg" alt="AI Agent" style={{ width: 24, height: 24, filter: isAIAreaExpanded ? 'none' : 'grayscale(100%) brightness(2)' }} />
-               </IconButton>
+              <IconButton
+                className={`tb-icon favicon-toggle ${isAIAreaExpanded ? 'active' : ''}`}
+                onClick={() => setIsAIAreaExpanded(!isAIAreaExpanded)}
+                title="HOSHUTARO AI アシスタント"
+              >
+                <img src="/favicon.svg" alt="AI Agent" style={{ width: 24, height: 24, filter: isAIAreaExpanded ? 'none' : 'grayscale(100%) brightness(2)' }} />
+              </IconButton>
             </div>
           </div>
         </div>

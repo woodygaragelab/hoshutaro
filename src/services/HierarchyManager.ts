@@ -57,7 +57,7 @@ export class HierarchyManager {
    * @param order - Display order for the level
    * @throws Error if level already exists or max levels exceeded
    */
-  addHierarchyLevel(levelKey: string, order: number): void {
+  addHierarchyLevel(levelKey: string): void {
     // Validate level key
     if (!levelKey || typeof levelKey !== 'string' || levelKey.trim() === '') {
       throw new Error('階層レベルのキーは必須です。');
@@ -73,28 +73,20 @@ export class HierarchyManager {
       throw new Error('階層レベルの最大数（10）に達しました。');
     }
 
-    // Validate order
-    if (typeof order !== 'number' || !Number.isInteger(order) || order < 1) {
-      throw new Error('階層レベルの順序は1以上の整数である必要があります。');
-    }
-
     // Create new level
     const newLevel: HierarchyLevel = {
       key: levelKey,
-      order,
       values: [],
     };
 
-    // Add level and re-sort by order
+    // Add level
     this.hierarchy.levels.push(newLevel);
-    this.hierarchy.levels.sort((a, b) => a.order - b.order);
 
     // Push state to undo/redo manager
     if (this.undoRedoManager) {
       this.undoRedoManager.pushState('UPDATE_HIERARCHY', {
         action: 'ADD_LEVEL',
-        levelKey,
-        order
+        levelKey
       });
     }
   }
@@ -155,50 +147,6 @@ export class HierarchyManager {
   }
 
   /**
-   * Reorder a hierarchy level
-   * Requirement 3.5: Change hierarchy level order
-   * 
-   * @param levelKey - Key of the level to reorder
-   * @param newOrder - New order value
-   * @throws Error if level not found
-   */
-  reorderHierarchyLevel(levelKey: string, newOrder: number): void {
-    // Validate level key
-    if (!levelKey || typeof levelKey !== 'string' || levelKey.trim() === '') {
-      throw new Error('階層レベルのキーは必須です。');
-    }
-
-    // Find level
-    const level = this.hierarchy.levels.find(l => l.key === levelKey);
-    if (!level) {
-      throw new Error(`階層レベル "${levelKey}" が見つかりません。`);
-    }
-
-    // Validate new order
-    if (typeof newOrder !== 'number' || !Number.isInteger(newOrder) || newOrder < 1) {
-      throw new Error('階層レベルの順序は1以上の整数である必要があります。');
-    }
-
-    // Store old order for undo
-    const oldOrder = level.order;
-
-    // Update order
-    level.order = newOrder;
-
-    // Re-sort levels by order
-    this.hierarchy.levels.sort((a, b) => a.order - b.order);
-
-    // Push state to undo/redo manager
-    if (this.undoRedoManager) {
-      this.undoRedoManager.pushState('UPDATE_HIERARCHY', {
-        action: 'REORDER_LEVEL',
-        levelKey,
-        oldOrder,
-        newOrder
-      });
-    }
-  }
-
   /**
    * Update a hierarchy level key (rename)
    * Requirement 3.1: Edit hierarchy level names
@@ -616,10 +564,6 @@ export class HierarchyManager {
 
       if (!level.key || typeof level.key !== 'string' || level.key.trim() === '') {
         throw new Error('すべての階層レベルにはキーが必要です。');
-      }
-
-      if (typeof level.order !== 'number' || !Number.isInteger(level.order) || level.order < 1) {
-        throw new Error(`階層レベル "${level.key}" の順序は1以上の整数である必要があります。`);
       }
 
       if (!Array.isArray(level.values)) {

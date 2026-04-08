@@ -27,12 +27,19 @@ export interface WorkOrderClassification {
 }
 
 /**
+ * TreeLevelValue — common interface for tree node value in hierarchy/classification
+ */
+export interface TreeLevelValue {
+  value: string;         // e.g. "Aエリア", "第一製油所"
+  parentValue?: string;  // Value of the parent node in the level above
+}
+
+/**
  * AssetClassificationLevel — one level in the equipment classification hierarchy
  */
 export interface AssetClassificationLevel {
   key: string;       // e.g. "機器大分類", "機器種別", "機器型式"
-  order: number;
-  values: string[];
+  values: TreeLevelValue[];
 }
 
 /**
@@ -134,8 +141,7 @@ export interface WorkOrderLine {
  */
 export interface HierarchyLevel {
   key: string;       // e.g. "製油所", "エリア", "ユニット"
-  order: number;
-  values: string[];
+  values: TreeLevelValue[];
 }
 
 /**

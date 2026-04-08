@@ -197,7 +197,6 @@ export class DataStore {
       throw new ValidationError(`機器分類のレベル数は10以下の範囲である必要があります: ${classification.levels.length}`);
     }
     const seenKeys = new Set<string>();
-    const seenOrders = new Set<number>();
     for (const level of classification.levels) {
       if (!level || typeof level !== 'object') {
         throw new ValidationError('機器分類のレベルが無効です');
@@ -209,13 +208,6 @@ export class DataStore {
         throw new ValidationError(`重複した機器分類レベルキー: ${level.key}`);
       }
       seenKeys.add(level.key);
-      if (typeof level.order !== 'number' || level.order < 1) {
-        throw new ValidationError(`機器分類レベル ${level.key} の順序が無効です`);
-      }
-      if (seenOrders.has(level.order)) {
-        throw new ValidationError(`重複した機器分類レベル順序: ${level.order}`);
-      }
-      seenOrders.add(level.order);
       if (!Array.isArray(level.values)) {
         throw new ValidationError(`機器分類レベル ${level.key} の値が配列である必要があります`);
       }
@@ -396,7 +388,6 @@ export class DataStore {
     }
 
     const seenKeys = new Set<string>();
-    const seenOrders = new Set<number>();
 
     for (const level of hierarchy.levels) {
       if (!level || typeof level !== 'object') {
@@ -411,15 +402,6 @@ export class DataStore {
         throw new ValidationError(`重複した階層レベルキー: ${level.key}`);
       }
       seenKeys.add(level.key);
-
-      if (typeof level.order !== 'number' || level.order < 1) {
-        throw new ValidationError(`階層レベル ${level.key} の順序が無効です`);
-      }
-
-      if (seenOrders.has(level.order)) {
-        throw new ValidationError(`重複した階層レベル順序: ${level.order}`);
-      }
-      seenOrders.add(level.order);
 
       if (!Array.isArray(level.values)) {
         throw new ValidationError(`階層レベル ${level.key} の値が配列である必要があります`);

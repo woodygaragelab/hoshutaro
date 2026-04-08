@@ -35,8 +35,7 @@ import { EmptyState } from './components/EmptyState';
 import { CostTrendGraph } from './components/CostTrendGraph';
 import { AnimatePresence } from 'framer-motion';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
-import { HierarchyEditDialog } from './components/HierarchyEditDialog/HierarchyEditDialog';
-import { AssetClassificationEditDialog } from './components/AssetClassificationEditDialog';
+import { TreeClassificationEditDialog } from './components/TreeClassificationEditDialog';
 import { WorkOrderClassificationEditDialog } from './components/WorkOrderClassificationEditDialog';
 import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
 import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
@@ -345,7 +344,7 @@ const App: React.FC = () => {
                     key: level.key, // 日本語キーをそのまま使用
                     name: level.key, // 日本語名を保持
                     order: level.order, // 1ベースのまま維持
-                    values: level.values
+                    values: level.values.map((v: any) => typeof v === 'string' ? { value: v } : v) // 互換性: string[] -> TreeLevelValue[] に変換
                   }))
                 };
 
@@ -2855,31 +2854,50 @@ const App: React.FC = () => {
         )}
 
         {/* Hierarchy Edit Dialog */}
-        <HierarchyEditDialog
-          open={isHierarchyManagerOpen}
-          onClose={() => setIsHierarchyManagerOpen(false)}
-          hierarchy={hierarchyManagerRef.current?.getHierarchyDefinition() || { levels: [] }}
-          assetCount={assetManagerRef.current?.getAllAssets().length || 0}
-          onSave={(newHierarchy) => {
-            if (hierarchyManagerRef.current) {
-              hierarchyManagerRef.current.setHierarchyDefinition({ levels: newHierarchy.levels });
-              // Trigger a basic re-load of hierarchy visuals
-              loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
-            }
-          }}
-        />
+        {hierarchyManagerRef.current && (
+          <TreeClassificationEditDialog
+            open={isHierarchyManagerOpen}
+            title="機器階層の編集"
+            definition={hierarchyManagerRef.current.getHierarchyDefinition()}
+            assetCount={assetManagerRef.current?.getAllAssets().length || 0}
+            assets={assetManagerRef.current?.getAllAssets() || []}
+            pathKey="hierarchyPath"
+            onClose={() => setIsHierarchyManagerOpen(false)}
+            onSave={(newHierarchy) => {
+              if (hierarchyManagerRef.current) {
+                hierarchyManagerRef.current.setHierarchyDefinition({ levels: newHierarchy.levels });
+                loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+                showSnackbar('階層構造情報を更新しました', 'success');
+              }
+            }}
+            onSaveLinkedAssets={(updatedAssets) => {
+              if (assetManagerRef.current) {
+                undoRedoManagerRef.current?.mute();
+                updatedAssets.forEach(update => {
+                  assetManagerRef.current!.updateAsset(update.id, {
+                    hierarchyPath: update.path
+                  });
+                });
+                undoRedoManagerRef.current?.unmute();
+                loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+                showSnackbar(`${updatedAssets.length}件の機器の階層紐づけを更新しました`, 'success');
+              }
+            }}
+          />
+        )}
 
         {/* Asset Classification Edit Dialog */}
         {dataStoreRef.current && (
-          <AssetClassificationEditDialog
+          <TreeClassificationEditDialog
             open={isAssetClassificationEditOpen}
-            onClose={() => setIsAssetClassificationEditOpen(false)}
-            assetClassification={dataStoreRef.current.getAssetClassification()}
+            title="機器分類の編集"
+            definition={dataStoreRef.current.getAssetClassification()}
             assetCount={assetManagerRef.current?.getAllAssets().length || 0}
             assets={assetManagerRef.current?.getAllAssets() || []}
+            pathKey="classificationPath"
+            onClose={() => setIsAssetClassificationEditOpen(false)}
             onSave={(newClassification) => {
               if (dataStoreRef.current) {
-                // Update datastore
                 const currentData = dataStoreRef.current.exportData();
                 currentData.assetClassification = newClassification;
                 dataStoreRef.current.loadData(currentData);
@@ -2891,7 +2909,7 @@ const App: React.FC = () => {
                 undoRedoManagerRef.current?.mute();
                 updatedAssets.forEach(update => {
                   assetManagerRef.current!.updateAsset(update.id, {
-                    classificationPath: update.classificationPath
+                    classificationPath: update.path
                   });
                 });
                 undoRedoManagerRef.current?.unmute();

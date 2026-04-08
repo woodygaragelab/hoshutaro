@@ -280,7 +280,9 @@ export class DataIntegrityChecker {
     // Build lookup map from hierarchy definition
     const hierarchyLevels = new Map<string, Set<string>>();
     for (const level of hierarchy.levels) {
-      hierarchyLevels.set(level.key, new Set(level.values));
+      // level.values is now an array of TreeLevelValue objects: { value: string, parentValue?: string }
+      const strings = level.values.map(v => typeof v === 'string' ? v : v.value);
+      hierarchyLevels.set(level.key, new Set(strings));
     }
 
     // Check each asset's hierarchy path

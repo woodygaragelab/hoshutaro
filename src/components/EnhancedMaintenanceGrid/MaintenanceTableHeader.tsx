@@ -476,7 +476,7 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                     ml: 0.5, 
                     p: 0.25, 
                     color: filterAnchorEl[column.id] || (column.id === 'task' && selectedTasks?.length) || (column.id === 'bomCode' && selectedBomCodes?.length) || searchTerm 
-                      ? '#90caf9' 
+                      ? '#ffffff' 
                       : 'rgba(255, 255, 255, 0.5)',
                     '&:hover': { color: '#ffffff' }
                   }}
@@ -550,8 +550,8 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                   minHeight: 36, 
                   borderBottom: '1px solid #333',
                   '& .MuiTab-root': { color: 'rgba(255,255,255,0.7)', minHeight: 36, py: 0.5 },
-                  '& .Mui-selected': { color: '#90caf9' },
-                  '& .MuiTabs-indicator': { backgroundColor: '#90caf9' }
+                  '& .Mui-selected': { color: '#ffffff' },
+                  '& .MuiTabs-indicator': { backgroundColor: '#ffffff' }
                 }}
               >
                 <Tab label="階層" />
@@ -613,14 +613,15 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                   {assetClassification && assetClassification.levels && assetClassification.levels.length > 0 ? (
                     assetClassification.levels
                       .slice()
-                      .sort((a: any, b: any) => a.order - b.order)
                       .map((level: any, idx: number, sortedLevels: any[]) => {
                         const parentSelected = idx === 0 || sortedLevels.slice(0, idx).every(
                           parentLevel => classificationFilter[parentLevel.key] && classificationFilter[parentLevel.key] !== ''
                         );
                         const currentValue = classificationFilter[level.key] || 'all';
                         
-                        let availableValues = level.values || [];
+                        // Extract string values, handling both old string array format and new object array {value, parentValue} format
+                        let availableValues = (level.values || []).map((v: any) => typeof v === 'string' ? v : v.value);
+                        
                         if (idx > 0) {
                           const matchingAssets = assets.filter(asset => {
                             if (!asset.classificationPath) return false;
@@ -719,7 +720,7 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                       size="small"
                       checked={selectedTasks.indexOf(taskStr) !== -1}
                       onChange={() => handleTaskToggle(taskStr)}
-                      sx={{ color: 'rgba(255,255,255,0.7)', '&.Mui-checked': { color: '#90caf9' } }}
+                      sx={{ color: 'rgba(255,255,255,0.7)', '&.Mui-checked': { color: '#ffffff' } }}
                     />
                   }
                   label={<Typography variant="body2">{taskStr}</Typography>}
@@ -784,7 +785,7 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                       size="small"
                       checked={selectedBomCodes.indexOf(bomCodeStr) !== -1}
                       onChange={() => handleBomCodeToggle(bomCodeStr)}
-                      sx={{ color: 'rgba(255,255,255,0.7)', '&.Mui-checked': { color: '#90caf9' } }}
+                      sx={{ color: 'rgba(255,255,255,0.7)', '&.Mui-checked': { color: '#ffffff' } }}
                     />
                   }
                   label={<Typography variant="body2">{bomCodeStr}</Typography>}

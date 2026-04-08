@@ -1379,32 +1379,63 @@
     "levels": [
       {
         "key": "製油所",
-        "order": 1,
         "values": [
-          "第一製油所",
-          "第二製油所"
+          {
+            "value": "第一製油所"
+          },
+          {
+            "value": "第二製油所"
+          }
         ]
       },
       {
         "key": "エリア",
-        "order": 2,
         "values": [
-          "Aエリア",
-          "Bエリア",
-          "Cエリア",
-          "Dエリア",
-          "Eエリア"
+          {
+            "value": "Aエリア",
+            "parentValue": "第一製油所"
+          },
+          {
+            "value": "Bエリア",
+            "parentValue": "第一製油所"
+          },
+          {
+            "value": "Cエリア",
+            "parentValue": "第一製油所"
+          },
+          {
+            "value": "Dエリア",
+            "parentValue": "第二製油所"
+          },
+          {
+            "value": "Eエリア",
+            "parentValue": "第二製油所"
+          }
         ]
       },
       {
         "key": "ユニット",
-        "order": 3,
         "values": [
-          "原油蒸留ユニット",
-          "接触改質ユニット",
-          "製品貯蔵エリア",
-          "流動接触分解ユニット",
-          "ガス回収ユニット"
+          {
+            "value": "原油蒸留ユニット",
+            "parentValue": "Aエリア"
+          },
+          {
+            "value": "接触改質ユニット",
+            "parentValue": "Bエリア"
+          },
+          {
+            "value": "製品貯蔵エリア",
+            "parentValue": "Cエリア"
+          },
+          {
+            "value": "流動接触分解ユニット",
+            "parentValue": "Dエリア"
+          },
+          {
+            "value": "ガス回収ユニット",
+            "parentValue": "Eエリア"
+          }
         ]
       }
     ]
@@ -1460,38 +1491,86 @@
     "levels": [
       {
         "key": "機器大分類",
-        "order": 1,
         "values": [
-          "回転機器",
-          "静止機器",
-          "計装機器"
+          {
+            "value": "回転機器"
+          },
+          {
+            "value": "静止機器"
+          },
+          {
+            "value": "計装機器"
+          }
         ]
       },
       {
         "key": "機器種別",
-        "order": 2,
         "values": [
-          "ポンプ",
-          "コンプレッサー",
-          "塔",
-          "熱交換器",
-          "反応器",
-          "タンク"
+          {
+            "value": "ポンプ",
+            "parentValue": "回転機器"
+          },
+          {
+            "value": "コンプレッサー",
+            "parentValue": "回転機器"
+          },
+          {
+            "value": "塔",
+            "parentValue": "静止機器"
+          },
+          {
+            "value": "熱交換器",
+            "parentValue": "静止機器"
+          },
+          {
+            "value": "反応器",
+            "parentValue": "静止機器"
+          },
+          {
+            "value": "タンク",
+            "parentValue": "静止機器"
+          }
         ]
       },
       {
         "key": "機器型式",
-        "order": 3,
         "values": [
-          "遠心式",
-          "容積式",
-          "多管円筒式",
-          "空冷式",
-          "プレート式",
-          "固定床式",
-          "充填塔",
-          "浮き屋根式",
-          "コーンルーフ式"
+          {
+            "value": "遠心式",
+            "parentValue": "ポンプ"
+          },
+          {
+            "value": "容積式",
+            "parentValue": "ポンプ"
+          },
+          {
+            "value": "多管円筒式",
+            "parentValue": "熱交換器"
+          },
+          {
+            "value": "空冷式",
+            "parentValue": "熱交換器"
+          },
+          {
+            "value": "プレート式",
+            "parentValue": "熱交換器"
+          },
+          {
+            "value": "固定床式",
+            "parentValue": "反応器"
+          },
+          {
+            "value": "充填塔",
+            "parentValue": "塔"
+          },
+          {
+            "value": "浮き屋根式",
+            "parentValue": "タンク"
+          },
+          {
+            "value": "コーンルーフ式",
+            "parentValue": "タンク"
+          }
         ]
       }
     ]
