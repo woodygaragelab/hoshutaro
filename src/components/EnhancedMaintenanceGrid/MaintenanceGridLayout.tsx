@@ -68,6 +68,11 @@ interface MaintenanceGridLayoutProps {
   woClassificationFilter?: string;
   onWoClassificationFilterChange?: (classificationId: string) => void;
   assets?: any[];
+  isDragging?: boolean;
+  startDragSelection?: (rowId: string, columnId: string) => void;
+  updateDragSelection?: (rowId: string, columnId: string) => void;
+  endDragSelection?: () => void;
+  isCellInSelectedRange?: (rowId: string, columnId: string) => boolean;
 }
 import MaintenanceTableHeader from './MaintenanceTableHeader';
 import MaintenanceTableBody from './MaintenanceTableBody';
@@ -99,6 +104,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   isTaskBasedMode = false,
   expandedWorkOrders = new Set(),
   onToggleWorkOrderExpanded,
+  isDragging,
+  startDragSelection,
+  updateDragSelection,
+  endDragSelection,
+  isCellInSelectedRange,
   // Filter props
   searchTerm,
   onSearchChange,
@@ -137,6 +147,42 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   const prevViewModeRef = useRef<'status' | 'cost'>(viewMode);
   const scrollPositionBeforeModeChangeRef = useRef<number>(0);
 
+  // --- Date Semantic Jump Logic ---
+  const parseAnyTimeKey = useCallback((key: string): number => {
+    let match = key.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) return Date.UTC(+match[1], +match[2]-1, +match[3]);
+    
+    match = key.match(/^(\d{4})-(\d{2})$/);
+    if (match) return Date.UTC(+match[1], +match[2]-1, 1);
+    
+    match = key.match(/^(\d{4})-W(\d{2})$/);
+    if (match) {
+      const year = +match[1];
+      const week = +match[2];
+      const jan4 = new Date(Date.UTC(year, 0, 4));
+      const jan4Day = (jan4.getUTCDay() + 6) % 7; 
+      const week1Start = jan4.getTime() - jan4Day * 86400000;
+      return week1Start + (week - 1) * 7 * 86400000;
+    }
+    
+    match = key.match(/^(\d{4})$/);
+    if (match) return Date.UTC(+match[1], 0, 1);
+    
+    return 0;
+  }, []);
+
+  const getTimeScaleType = useCallback((key: string) => {
+    if (key.match(/^\d{4}-\d{2}-\d{2}$/)) return 'day';
+    if (key.match(/^\d{4}-W\d{2}$/)) return 'week';
+    if (key.match(/^\d{4}-\d{2}$/)) return 'month';
+    if (key.match(/^\d{4}$/)) return 'year';
+    return 'unknown';
+  }, []);
+
+  const semanticTrackerRef = useRef<{ type: string; timestamp: number }>({ type: 'unknown', timestamp: 0 });
+  const stableTimeScaleRef = useRef<string>('unknown');
+
+
   // Update container width on resize
   useEffect(() => {
     if (!containerRef.current) return;
@@ -164,20 +210,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   const maintenanceHeaderRef = useRef<HTMLDivElement>(null);
   const isScrollingSyncRef = useRef(false);
 
-  // Reset horizontal scroll when columns change significantly (like changing time scale)
-  useEffect(() => {
-    // Reset scroll state
-    setHorizontalScrollLeft(0);
-    scrollPositionBeforeModeChangeRef.current = 0;
-    
-    // Reset actual DOM scroll position
-    if (maintenanceAreaRef.current) {
-      maintenanceAreaRef.current.scrollLeft = 0;
-    }
-    if (maintenanceHeaderRef.current) {
-      maintenanceHeaderRef.current.scrollLeft = 0;
-    }
-  }, [columns.length, isTaskBasedMode]);
+  // Note: Horizontal scroll reset logic has been completely removed based on user preference to never reset scroll position.
 
   // Enhanced editing state
   const [editDialogState, setEditDialogState] = useState<{
@@ -240,6 +273,54 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
     return { fixed, specifications, maintenance };
   }, [columns, displayAreaConfig]);
+
+  // Date Position Jump Effect for TimeScale changes
+  useEffect(() => {
+    if (columnsByArea.maintenance.length === 0) return;
+    
+    const firstCol = columnsByArea.maintenance[0].id;
+    if (!firstCol.startsWith('time_')) return;
+    
+    const newType = getTimeScaleType(firstCol.substring(5));
+    const tracker = semanticTrackerRef.current;
+    
+    // Check if timescale type changed
+    if (stableTimeScaleRef.current !== 'unknown' && stableTimeScaleRef.current !== newType && tracker.timestamp > 0) {
+      let closestIndex = 0;
+      let minDiff = Infinity;
+      
+      for (let i = 0; i < columnsByArea.maintenance.length; i++) {
+        const key = columnsByArea.maintenance[i].id.substring(5);
+        const ts = parseAnyTimeKey(key);
+        const diff = Math.abs(ts - tracker.timestamp);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = i;
+        }
+      }
+      
+      const colWidth = viewMode === 'cost' ? 120 : 80;
+      const newScrollLeft = closestIndex * colWidth;
+      
+      requestAnimationFrame(() => {
+        if (maintenanceAreaRef.current) maintenanceAreaRef.current.scrollLeft = newScrollLeft;
+        if (maintenanceHeaderRef.current) maintenanceHeaderRef.current.scrollLeft = newScrollLeft;
+        setHorizontalScrollLeft(newScrollLeft);
+        scrollPositionBeforeModeChangeRef.current = newScrollLeft;
+      });
+      
+      const targetColKey = columnsByArea.maintenance[closestIndex].id.substring(5);
+      semanticTrackerRef.current = {
+        type: newType,
+        timestamp: parseAnyTimeKey(targetColKey)
+      };
+      document.body.setAttribute('data-visible-time-key', targetColKey);
+    } else if (stableTimeScaleRef.current === 'unknown') {
+      semanticTrackerRef.current.type = newType;
+    }
+    
+    stableTimeScaleRef.current = newType;
+  }, [columnsByArea.maintenance, viewMode, getTimeScaleType, parseAnyTimeKey]);
 
   // Resizable area widths state
   const [fixedAreaWidth, setFixedAreaWidth] = useState<number>(250);
@@ -683,21 +764,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     const currentRowId = gridState.selectedCell?.rowId || null;
     const currentColumnId = gridState.selectedCell?.columnId || null;
     const isEditing = gridState.editingCell?.rowId !== null && gridState.editingCell?.columnId !== null;
-
-    // Handle copy & paste shortcuts
-    if (event.ctrlKey || event.metaKey) {
-      if (event.key === 'c' || event.key === 'C') {
-        event.preventDefault();
-        handleCopy();
-        return;
-      }
-      if (event.key === 'v' || event.key === 'V') {
-        event.preventDefault();
-        handlePaste();
-        return;
-      }
-    }
-
     // Handle escape key to cancel editing
     if (event.key === 'Escape' && isEditing) {
       event.preventDefault();
@@ -897,6 +963,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               isTaskBasedMode={isTaskBasedMode}
               expandedWorkOrders={expandedWorkOrders}
               onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
+              isDragging={isDragging}
+              startDragSelection={startDragSelection}
+              updateDragSelection={updateDragSelection}
+              endDragSelection={endDragSelection}
+              isCellInSelectedRange={isCellInSelectedRange}
             />
           </Box>
         </Box>
@@ -965,6 +1036,26 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 // Save scroll position before viewMode change
                 scrollPositionBeforeModeChangeRef.current = scrollLeft;
 
+                // Update semantic tracker
+                if (columnsByArea.maintenance.length > 0) {
+                  const colWidth = viewMode === 'cost' ? 120 : 80;
+                  const visibleColIndex = Math.floor(scrollLeft / colWidth);
+                  if (visibleColIndex >= 0 && visibleColIndex < columnsByArea.maintenance.length) {
+                    const timeHeaderId = columnsByArea.maintenance[visibleColIndex].id;
+                    if (timeHeaderId.startsWith('time_')) {
+                      const timeKey = timeHeaderId.substring(5);
+                      const currentViewedType = getTimeScaleType(timeKey);
+                      if (currentViewedType === stableTimeScaleRef.current || stableTimeScaleRef.current === 'unknown') {
+                        semanticTrackerRef.current = {
+                          type: currentViewedType,
+                          timestamp: parseAnyTimeKey(timeKey)
+                        };
+                        document.body.setAttribute('data-visible-time-key', timeKey);
+                      }
+                    }
+                  }
+                }
+
                 // Update horizontal scroll position for virtual scrolling
                 setHorizontalScrollLeft(scrollLeft);
 
@@ -997,6 +1088,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
                 isTaskBasedMode={isTaskBasedMode}
                 expandedWorkOrders={expandedWorkOrders}
                 onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
+                isDragging={isDragging}
+                startDragSelection={startDragSelection}
+                updateDragSelection={updateDragSelection}
+                endDragSelection={endDragSelection}
+                isCellInSelectedRange={isCellInSelectedRange}
               />
             </Box>
           </Box>
@@ -1091,6 +1187,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
               isTaskBasedMode={isTaskBasedMode}
               expandedWorkOrders={expandedWorkOrders}
               onToggleWorkOrderExpanded={onToggleWorkOrderExpanded}
+              isDragging={isDragging}
+              startDragSelection={startDragSelection}
+              updateDragSelection={updateDragSelection}
+              endDragSelection={endDragSelection}
+              isCellInSelectedRange={isCellInSelectedRange}
             />
           </Box>
         </Box>
@@ -1280,6 +1381,26 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
                   // Save scroll position before viewMode change
                   scrollPositionBeforeModeChangeRef.current = scrollLeft;
+
+                  // Update semantic tracker
+                  if (columnsByArea.maintenance.length > 0) {
+                    const colWidth = viewMode === 'cost' ? 120 : 80;
+                    const visibleColIndex = Math.floor(scrollLeft / colWidth);
+                    if (visibleColIndex >= 0 && visibleColIndex < columnsByArea.maintenance.length) {
+                      const timeHeaderId = columnsByArea.maintenance[visibleColIndex].id;
+                      if (timeHeaderId.startsWith('time_')) {
+                        const timeKey = timeHeaderId.substring(5);
+                        const currentViewedType = getTimeScaleType(timeKey);
+                        if (currentViewedType === stableTimeScaleRef.current || stableTimeScaleRef.current === 'unknown') {
+                          semanticTrackerRef.current = {
+                            type: currentViewedType,
+                            timestamp: parseAnyTimeKey(timeKey)
+                          };
+                          document.body.setAttribute('data-visible-time-key', timeKey);
+                        }
+                      }
+                    }
+                  }
 
                   // Update horizontal scroll position for virtual scrolling
                   setHorizontalScrollLeft(scrollLeft);

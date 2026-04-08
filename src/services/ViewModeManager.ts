@@ -278,6 +278,7 @@ export class ViewModeManager {
             assetId: asset.id,
             assetName: asset.name,
             hierarchyPath: asset.hierarchyPath,
+            specifications: asset.specifications,
             task: asset.name,
             bomCode: asset.id,
             aggregatedSchedule: childAggregatedSchedule,

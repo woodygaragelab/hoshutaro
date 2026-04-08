@@ -12,11 +12,15 @@ import {
   WorkOrderLine,
   HierarchyDefinition,
   WorkOrderLineUpdate,
-  AssetBasedRow,
   WorkOrderBasedRow,
   TimeScale,
+  SpecificationChange,
 } from '../../types/maintenanceTask';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
 import './EnhancedMaintenanceGrid.css';
+import { writeToClipboard, readFromClipboard, generateTSV, parseTSV } from './utils/clipboardUtils';
+import { extractIdsFromRowId } from './utils/gridIdUtils';
 
 // Edit context for tracking edit scope
 export interface EditContext {
@@ -63,6 +67,7 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   displayMode?: 'both' | 'specifications' | 'maintenance';
   showBomCode?: boolean;
   onSpecificationEdit?: (rowId: string, specIndex: number, field: string, value: any) => void;
+  onSpecificationBatchUpdate?: (changes: SpecificationChange[]) => void;
   onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
   onColumnResize?: (columnId: string, width: number) => void;
   onRowResize?: (rowId: string, height: number) => void;
@@ -115,6 +120,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   showBomCode,
   onCellEdit,
   onSpecificationEdit,
+  onSpecificationBatchUpdate,
   onSpecificationColumnReorder,
   onColumnResize,
   onRowResize,
@@ -189,8 +195,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onWoClassificationFilterChange,
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
-  const [clipboardMessage, setClipboardMessage] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
   const [currentDisplayAreaConfig, setCurrentDisplayAreaConfig] = useState<DisplayAreaConfig | null>(null);
+
+  // Internal Clipboard for Specifications
+  const [specClipboard, setSpecClipboard] = useState<{
+    sourceRows: {
+      relativeRowIdx: number;
+      specs: { relativeColIdx: number; specKey: string; specName: string; value: string }[];
+    }[];
+  } | null>(null);
 
   // Task edit dialog state
   const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
@@ -539,6 +552,34 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     };
   }, [showBomCode, columns, displayMode, viewMode]);
 
+  // Calculate visible row IDs in the exact order they appear in the UI for range selection
+  const visibleRowIds = useMemo(() => {
+    const ids: string[] = [];
+    if (isTaskBasedMode && taskBasedData.length > 0) {
+      const visibleRows = taskBasedData.filter(row => {
+        if (row.type === 'hierarchy' || row.type === 'asset' || row.type === 'workOrder') return true;
+        if ((row.type === 'workOrderLine' || row.type === 'assetChild') && row.workOrderId) {
+          return expandedWorkOrders?.has(row.workOrderId);
+        }
+        return true; 
+      });
+      visibleRows.forEach(row => ids.push(row.id));
+    } else {
+      const renderData = groupedData ? Object.entries(groupedData) : [['', data]];
+      renderData.forEach(([hierarchyPath, items]) => {
+        if (hierarchyPath) {
+          // Add group header if visual match
+          // IDs of group headers aren't selectable via specifications usually, but necessary for accurate distance
+          ids.push(`hierarchy_${hierarchyPath}`); 
+        }
+        items.forEach((item: HierarchicalData) => {
+          ids.push(item.id);
+        });
+      });
+    }
+    return ids;
+  }, [data, groupedData, isTaskBasedMode, taskBasedData, expandedWorkOrders]);
+
   const {
     gridState,
     updateColumnWidth,
@@ -546,8 +587,13 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     setSelectedCell,
     setSelectedRange,
     setEditingCell,
-    navigateToCell
-  } = useMaintenanceGridState(columns, data);
+    navigateToCell,
+    isDragging,
+    startDragSelection,
+    updateDragSelection,
+    endDragSelection,
+    isCellInSelectedRange
+  } = useMaintenanceGridState(columns, visibleRowIds);
 
   // Auto-enable virtual scrolling for large column counts (week/day views)
   const autoVirtualScrolling = useMemo(() => {
@@ -563,9 +609,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const processedData = dataForProcessing;
   const processedColumns = columns;
   const debouncedUpdate = useCallback((fn: () => void) => fn(), []);
-  const startRenderMeasurement = useCallback(() => {}, []);
-  const endRenderMeasurement = useCallback(() => {}, []);
-  const getPerformanceMetrics = useCallback(() => ({ renderTime: 0, fps: 60, droppedFrames: 0 }), []);
   const shouldUseVirtualScrolling = columns.length > 20;
 
   // Handle cell double click - opens TaskEditDialog for both modes
@@ -805,91 +848,293 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   }, [gridState.selectedCell, processedColumns, displayAreaConfig]);
 
   // Handle copy operation with cross-area support
-  const handleCopy = useCallback(async () => {
+  const handleSystemCopy = useCallback(async () => {
     if (!gridState.selectedCell) return;
+    const { rowId, columnId } = gridState.selectedCell;
+
+    // Is it a specification string?
+    if (columnId.startsWith('spec_')) {
+      // TSV logic for selectedRange
+      const startCell = gridState.selectedRange?.start || gridState.selectedCell;
+      const endCell = gridState.selectedRange?.end || gridState.selectedCell;
+      
+      // Get exact coordinates using visibleRowIds to match what user sees
+      const startRowIdx = visibleRowIds.indexOf(startCell.rowId);
+      const endRowIdx = visibleRowIds.indexOf(endCell.rowId);
+      const minRow = Math.min(startRowIdx, endRowIdx);
+      const maxRow = Math.max(startRowIdx, endRowIdx);
+      
+      const startColIdx = processedColumns.findIndex(c => c.id === startCell.columnId);
+      const endColIdx = processedColumns.findIndex(c => c.id === endCell.columnId);
+      const minCol = Math.min(startColIdx, endColIdx);
+      const maxCol = Math.max(startColIdx, endColIdx);
+      
+      if (minRow >= 0 && minCol >= 0) {
+        const rowsToCopy: string[][] = [];
+        const internalClipboardRows: {
+          relativeRowIdx: number;
+          specs: { relativeColIdx: number; specKey: string; specName: string; value: string }[];
+        }[] = [];
+
+        for (let r = minRow; r <= maxRow; r++) {
+          const targetRowId = visibleRowIds[r];
+          const rowData = processedData.find((d: any) => d.id === targetRowId);
+          if (!rowData) continue; // Skip group header rows that don't have specifications
+          
+          const rowValues: string[] = [];
+          const currentInternalRow: { relativeColIdx: number; specKey: string; specName: string; value: string }[] = [];
+          
+          for (let c = minCol; c <= maxCol; c++) {
+            const colDef = processedColumns[c];
+            if (colDef.id.startsWith('spec_')) {
+              const specKey = colDef.id.replace('spec_', '');
+              const spec = rowData.specifications?.find((s: any) => s.key === specKey);
+              const val = spec?.value || '';
+              rowValues.push(val);
+              currentInternalRow.push({
+                relativeColIdx: c - minCol,
+                specKey,
+                specName: colDef.header,
+                value: val
+              });
+            } else {
+              rowValues.push('');
+            }
+          }
+          rowsToCopy.push(rowValues);
+          if (currentInternalRow.length > 0) {
+            internalClipboardRows.push({
+              relativeRowIdx: r - minRow,
+              specs: currentInternalRow
+            });
+          }
+        }
+        
+        try {
+          const tsv = generateTSV(rowsToCopy);
+          await writeToClipboard(tsv);
+          // Set internal specification clipboard state
+          setSpecClipboard({ sourceRows: internalClipboardRows });
+        } catch (e) {
+          console.error('Failed to copy', e);
+        }
+      }
+      return;
+    }
 
     if (onCellCopy) {
       onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
-      setClipboardMessage({ message: `コピーしました`, severity: 'success' });
     }
-  }, [gridState.selectedCell, onCellCopy, viewMode]);
+  }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns]);
 
   // Handle paste operation with cross-area support
-  const handlePaste = useCallback(async () => {
+  const handleSystemPaste = useCallback(async () => {
     if (!gridState.selectedCell || readOnly) return;
-
-    if (onCellPaste) {
-      onCellPaste(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
-      // Optional: notification will be triggered internally by App.tsx if successful
-    }
-  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode]);
-
-  // Handle delete operation
-  const handleDelete = useCallback(() => {
-    if (!gridState.selectedCell || readOnly) return;
-
     const { rowId, columnId } = gridState.selectedCell;
-    const currentColumn = processedColumns.find(col => col.id === columnId);
 
-    // Only delete if the cell is editable
-    if (!currentColumn?.editable) return;
-
-
-    // Check if this is a specification column
     if (columnId.startsWith('spec_')) {
-      const specKey = columnId.replace('spec_', '');
-      const updatedItem = processedData.find(item => item.id === rowId);
+      try {
+        const startRowIdx = visibleRowIds.indexOf(rowId);
+        const startColIdx = processedColumns.findIndex(c => c.id === columnId);
+        
+        if (startRowIdx >= 0 && startColIdx >= 0) {
+          const batchChanges: SpecificationChange[] = [];
+          
+          if (specClipboard && specClipboard.sourceRows.length > 0) {
+            // Priority: Use internal clipboard with metadata
+            specClipboard.sourceRows.forEach((srcRow) => {
+              const targetRowIdx = startRowIdx + srcRow.relativeRowIdx;
+              if (targetRowIdx >= visibleRowIds.length) return;
+              
+              const targetRowId = visibleRowIds[targetRowIdx];
+              const targetRow = processedData.find((d: any) => d.id === targetRowId);
+              if (!targetRow) return;
 
-      if (updatedItem && onSpecificationEdit) {
-        const newSpecs = [...(updatedItem.specifications || [])];
-        const existingSpecIndex = newSpecs.findIndex(s => s.key === specKey);
+              // Parse asset ID robustly using common utility
+              const { assetId: actualAssetId } = extractIdsFromRowId(targetRow.id, targetRow.assetId);
 
-        if (existingSpecIndex >= 0) {
-          // Clear the specification value
-          onSpecificationEdit(rowId, existingSpecIndex, 'value', '');
+              let rowModified = false;
+              let newSpecs = [...(targetRow.specifications || [])];
 
-          if (onUpdateItem) {
-            newSpecs[existingSpecIndex] = {
-              ...newSpecs[existingSpecIndex],
-              value: ''
-            };
-            onUpdateItem({
-              ...updatedItem,
-              specifications: newSpecs
+              srcRow.specs.forEach((srcSpec) => {
+                const targetColIdx = startColIdx + srcSpec.relativeColIdx;
+                if (targetColIdx >= processedColumns.length) return;
+                
+                const targetCol = processedColumns[targetColIdx];
+                if (targetCol.id.startsWith('spec_') && targetCol.editable) {
+                  const specKey = targetCol.id.replace('spec_', '');
+                  const existingIndex = newSpecs.findIndex(s => s.key === specKey);
+                  
+                  if (existingIndex >= 0) {
+                    newSpecs[existingIndex] = { ...newSpecs[existingIndex], value: srcSpec.value };
+                  } else {
+                    newSpecs.push({ key: specKey, name: targetCol.header, value: srcSpec.value, order: newSpecs.length + 1 });
+                  }
+                  rowModified = true;
+                }
+              });
+
+              if (rowModified) {
+                batchChanges.push({
+                  assetId: actualAssetId,
+                  specifications: newSpecs
+                });
+              }
+            });
+
+          } else {
+            // Fallback: Read raw TSV from clipboard (e.g. from Excel)
+            const tsvText = await readFromClipboard();
+            if (!tsvText) return;
+            
+            const clipRows = parseTSV(tsvText);
+            if (clipRows.length === 0) return;
+            
+            clipRows.forEach((rowVals, rOffset) => {
+              const targetRowIdx = startRowIdx + rOffset;
+              if (targetRowIdx >= visibleRowIds.length) return;
+              const targetRowId = visibleRowIds[targetRowIdx];
+              const targetRow = processedData.find((d: any) => d.id === targetRowId);
+              if (!targetRow) return;
+              
+              // Parse asset ID robustly using common utility
+              const { assetId: actualAssetId } = extractIdsFromRowId(targetRow.id, targetRow.assetId);
+
+              let rowModified = false;
+              let newSpecs = [...(targetRow.specifications || [])];
+              
+              rowVals.forEach((val, cOffset) => {
+                const targetColIdx = startColIdx + cOffset;
+                if (targetColIdx >= processedColumns.length) return;
+                const targetCol = processedColumns[targetColIdx];
+                
+                if (targetCol.id.startsWith('spec_') && targetCol.editable) {
+                  const specKey = targetCol.id.replace('spec_', '');
+                  const existingIndex = newSpecs.findIndex(s => s.key === specKey);
+                  
+                  if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '')) {
+                    // Empty value: remove the specification if it exists
+                    if (existingIndex >= 0) {
+                      newSpecs.splice(existingIndex, 1);
+                      rowModified = true;
+                    }
+                  } else {
+                    if (existingIndex >= 0) {
+                      newSpecs[existingIndex] = { ...newSpecs[existingIndex], value: val };
+                    } else {
+                      newSpecs.push({ key: specKey, name: targetCol.header, value: val, order: newSpecs.length + 1 });
+                    }
+                    rowModified = true;
+                  }
+                }
+              });
+
+              if (rowModified) {
+                batchChanges.push({
+                  assetId: actualAssetId,
+                  specifications: newSpecs
+                });
+              }
             });
           }
 
-          setClipboardMessage({ message: '機器仕様を削除しました', severity: 'success' });
+          // Trigger batch update once with all changes
+          if (batchChanges.length > 0 && onSpecificationBatchUpdate) {
+            onSpecificationBatchUpdate(batchChanges);
+          } else if (batchChanges.length > 0 && onUpdateItem) {
+            // Legacy fallback if App didn't pass the new prop
+            console.warn('onSpecificationBatchUpdate is missing, falling back to sequential UI updates (Undo/Redo disabled)');
+            batchChanges.forEach(change => {
+              const legacyRow = processedData.find((d: any) => d.id === targetRowId || d.assetId === change.assetId); // approximate
+              if (legacyRow) onUpdateItem({ ...legacyRow, specifications: change.specifications });
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to paste', e);
+      }
+      return;
+    }
+
+    if (onCellPaste) {
+      onCellPaste(rowId, columnId, viewMode as any);
+      // Optional: notification will be triggered internally by App.tsx if successful
+    }
+  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem]);
+
+  // Handle delete operation
+  const handleSystemDelete = useCallback(() => {
+    if (!gridState.selectedCell || readOnly) return;
+
+    const { rowId, columnId } = gridState.selectedCell;
+    
+    // Check if this is a specification column
+    if (columnId.startsWith('spec_')) {
+      // Determine range to delete
+      const startCell = gridState.selectedRange?.start || gridState.selectedCell;
+      const endCell = gridState.selectedRange?.end || gridState.selectedCell;
+
+      const startRowIdx = visibleRowIds.indexOf(startCell.rowId);
+      const endRowIdx = visibleRowIds.indexOf(endCell.rowId);
+      const minRow = Math.min(startRowIdx, endRowIdx);
+      const maxRow = Math.max(startRowIdx, endRowIdx);
+      
+      const startColIdx = processedColumns.findIndex(c => c.id === startCell.columnId);
+      const endColIdx = processedColumns.findIndex(c => c.id === endCell.columnId);
+      const minCol = Math.min(startColIdx, endColIdx);
+      const maxCol = Math.max(startColIdx, endColIdx);
+      
+      if (minRow >= 0 && minCol >= 0) {
+        const batchChanges: SpecificationChange[] = [];
+
+        for (let r = minRow; r <= maxRow; r++) {
+          const targetRowId = visibleRowIds[r];
+          const targetRow = processedData.find((d: any) => d.id === targetRowId);
+          if (!targetRow) continue; // Skip group headers
+          
+          // Parse asset ID robustly
+          const { assetId: actualAssetId } = extractIdsFromRowId(targetRow.id, targetRow.assetId);
+
+          let rowModified = false;
+          let newSpecs = [...(targetRow.specifications || [])];
+          
+          for (let c = minCol; c <= maxCol; c++) {
+            const colDef = processedColumns[c];
+            if (colDef.id.startsWith('spec_') && colDef.editable) {
+              const specKey = colDef.id.replace('spec_', '');
+              const existingIndex = newSpecs.findIndex(s => s.key === specKey);
+              if (existingIndex >= 0) {
+                // Delete: remove from newSpecs instead of just setting value: '' to prevent AssetManager validation errors
+                newSpecs.splice(existingIndex, 1);
+                rowModified = true;
+              }
+            }
+          }
+          
+          if (rowModified) {
+            batchChanges.push({
+              assetId: actualAssetId,
+              specifications: newSpecs
+            });
+          }
+        }
+
+        if (batchChanges.length > 0 && onSpecificationBatchUpdate) {
+          onSpecificationBatchUpdate(batchChanges);
+        } else if (batchChanges.length > 0 && onUpdateItem) {
+          batchChanges.forEach(change => {
+            const legacyRow = processedData.find((d: any) => d.id === rowId || d.assetId === change.assetId);
+            if (legacyRow) onUpdateItem({ ...legacyRow, specifications: change.specifications });
+          });
         }
       }
     } else if (columnId.startsWith('time_')) {
-      // Delete maintenance status (星取)
-      const timeHeader = columnId.replace('time_', '');
-      const updatedItem = processedData.find(item => item.id === rowId);
-
-      if (updatedItem && onUpdateItem) {
-        const emptyStatus = { planned: false, actual: false, planCost: 0, actualCost: 0 };
-        const updatedResults = {
-          ...updatedItem.results,
-          [timeHeader]: emptyStatus
-        };
-
-        onUpdateItem({
-          ...updatedItem,
-          results: updatedResults,
-          rolledUpResults: updatedResults
-        });
-
-        if (onCellEdit) {
-          onCellEdit(rowId, columnId, emptyStatus);
-        }
-
-        setClipboardMessage({ message: '星取を削除しました', severity: 'success' });
-      }
+      // Do nothing for time_ columns via keyboard delete/cut
+      // Managing schedule cells should be done via specific UI actions like DataGrid or Dialogs
+      return;
     } else {
       // Delete other editable fields
       handleCellEdit(rowId, columnId, '');
-      setClipboardMessage({ message: 'セルを削除しました', severity: 'success' });
     }
   }, [
     gridState.selectedCell,
@@ -925,11 +1170,24 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       switch (e.key.toLowerCase()) {
         case 'c':
           e.preventDefault();
-          handleCopy();
+          handleSystemCopy();
+          return;
+        case 'x':
+          e.preventDefault();
+          if (gridState.selectedCell?.columnId.startsWith('time_')) {
+            // Do not allow cut operation on time scale (schedule) cells via keyboard shortcuts
+            return;
+          }
+          // Fix for ghost lines issue: make sure copy fully resolves and states are stable before deleting
+          handleSystemCopy().then(() => {
+            setTimeout(() => {
+              handleSystemDelete();
+            }, 0);
+          });
           return;
         case 'v':
           e.preventDefault();
-          handlePaste();
+          handleSystemPaste();
           return;
         case 'p':
           if (e.shiftKey) {
@@ -952,7 +1210,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       case 'Delete':
       case 'Backspace':
         e.preventDefault();
-        handleDelete();
+        handleSystemDelete();
         break;
       case 'Tab':
         e.preventDefault();
@@ -1001,9 +1259,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     readOnly,
     setEditingCell,
     setSelectedCell,
-    handleCopy,
-    handlePaste,
-    handleDelete
+    handleSystemCopy,
+    handleSystemPaste,
+    handleSystemDelete
   ]);
 
   // Focus the grid when a cell is selected, but not if menus are open
@@ -1016,14 +1274,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       }
     }
   }, [gridState.selectedCell]);
-
-  // Performance measurement
-  useEffect(() => {
-    startRenderMeasurement();
-    return () => {
-      endRenderMeasurement();
-    };
-  }, []); // 空の依存配列を追加
 
   // Asset selection handlers - Requirements 3.2, 3.6
   const handleAssetSelectionToggle = useCallback((assetId: string, event: React.MouseEvent) => {
@@ -1116,7 +1366,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         virtualScrolling={autoVirtualScrolling || shouldUseVirtualScrolling}
         enableHorizontalVirtualScrolling={autoVirtualScrolling || shouldUseVirtualScrolling}
         readOnly={readOnly}
-        onCopy={handleCopy}
+        onCopy={handleSystemCopy}
+        onPaste={handleSystemPaste}
         isEquipmentBasedMode={isEquipmentBasedMode}
         isTaskBasedMode={isTaskBasedMode}
         // Asset selection props
@@ -1126,6 +1377,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         // WorkOrder expansion props
         expandedWorkOrders={expandedWorkOrders}
         onToggleWorkOrderExpanded={toggleWorkOrderExpanded}
+        // Drag selection props
+        isDragging={isDragging}
+        startDragSelection={startDragSelection}
+        updateDragSelection={updateDragSelection}
+        endDragSelection={endDragSelection}
+        isCellInSelectedRange={isCellInSelectedRange}
         // Filter props for MaintenanceTableHeader
         searchTerm={searchTerm}
         onSearchChange={stableOnSearchChange}
@@ -1157,7 +1414,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     processedData, processedColumns, currentDisplayAreaConfig, displayAreaConfig,
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
     onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
-    handleCopy, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
+    handleSystemCopy, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
     expandedWorkOrders, toggleWorkOrderExpanded,
     searchTerm, stableOnSearchChange, level1Filter, level2Filter, level3Filter,
     handleLevel1FilterChange, handleLevel2FilterChange, handleLevel3FilterChange,
@@ -1239,23 +1496,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         </Box>
       </Paper>
 
-      {/* Clipboard feedback */}
-      {clipboardMessage && (
-        <Snackbar
-          open={true}
-          autoHideDuration={3000}
-          onClose={() => setClipboardMessage(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert
-            onClose={() => setClipboardMessage(null)}
-            severity={clipboardMessage.severity}
-            variant="filled"
-          >
-            {clipboardMessage.message}
-          </Alert>
-        </Snackbar>
-      )}
 
       {/* WorkOrderLineDialog - Equipment-based mode */}
       {isEquipmentBasedMode && taskEditDialogOpen && (

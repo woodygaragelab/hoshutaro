@@ -162,20 +162,23 @@
   border-right: none;
 }
 
-.enhanced-maintenance-grid .grid-cell.selected {
-  background-color: #ffffff;
-  color: #000000;
+.enhanced-maintenance-grid .maintenance-cell {
+  user-select: none;
 }
 
-/* Selected cell text color override - highest priority */
-.enhanced-maintenance-grid .selected-cell,
-.enhanced-maintenance-grid .selected-cell *,
-.enhanced-maintenance-grid .selected-cell .cell-content,
-.enhanced-maintenance-grid .selected-cell .cell-content *,
-.enhanced-maintenance-grid .selected-cell .MuiBox-root,
-.enhanced-maintenance-grid .selected-cell div,
-.enhanced-maintenance-grid .selected-cell span {
+.enhanced-maintenance-grid .grid-cell.selected,
+.enhanced-maintenance-grid .selected-cell {
+  background-color: #ffffff !important;
   color: #000000 !important;
+}
+
+/* Range Selected Cells */
+.enhanced-maintenance-grid .selected-range-cell {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.enhanced-maintenance-grid .selected-range-cell:hover {
+  background-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 /* Selected cell cost colors */

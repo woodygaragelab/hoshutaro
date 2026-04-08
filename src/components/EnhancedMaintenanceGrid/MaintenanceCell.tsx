@@ -24,6 +24,10 @@ interface MaintenanceCellProps {
   isDragged?: boolean;
   isDragOver?: boolean;
   isEquipmentBasedMode?: boolean; // New prop for equipment-based mode
+  isInSelectedRange?: boolean;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onMouseEnter?: (e: React.MouseEvent) => void;
+  onMouseUp?: (e: React.MouseEvent) => void;
 }
 
 const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
@@ -40,7 +44,11 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
   showRightBorder = true,
   isDragged = false,
   isDragOver = false,
-  isEquipmentBasedMode = false
+  isEquipmentBasedMode = false,
+  isInSelectedRange = false,
+  onMouseDown,
+  onMouseEnter,
+  onMouseUp
 }) => {
   // Use value directly instead of state to prevent infinite loops
   // Only use local state when actually editing
@@ -369,7 +377,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
 
   return (
     <Box
-      className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
+      className={`${isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'} ${isInSelectedRange ? 'selected-range-cell' : ''}`}
       sx={{
         width,
         minWidth: width,
@@ -379,7 +387,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
         alignItems: 'center',
         justifyContent: column.type === 'status' || column.type === 'cost' ? 'center' : 'flex-start',
         padding: '4px 8px',
-        backgroundColor: isSelected ? '#ffffff' : 'transparent',
+        backgroundColor: 'transparent', // Handled by CSS classes to avoid white-on-white text
         cursor: readOnly ? 'default' : 'pointer',
         boxSizing: 'border-box', // Ensure borders are included in width calculation
         flexShrink: 0, // Prevent shrinking during scroll
@@ -389,15 +397,15 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
         boxShadow: isDragged ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
         borderLeft: isDragOver ? '2px solid rgba(255,255,255,0.5)' : 'none',
         borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (showRightBorder ? '1px solid #333333' : 'none'),
-        '&:hover': {
-          backgroundColor: isSelected ? '#ffffff' : 'action.hover'
-        }
       }}
       style={{
         borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (showRightBorder ? '1px solid #333333' : 'none')
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onMouseDown={onMouseDown}
+      onMouseEnter={onMouseEnter}
+      onMouseUp={onMouseUp}
     >
       {renderCellContent()}
     </Box>

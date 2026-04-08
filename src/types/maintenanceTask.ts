@@ -241,11 +241,20 @@ export interface WorkOrderBasedRow {
   assetId?: string;
   assetName?: string;
   hierarchyPath?: HierarchyPath;
+  specifications?: Specification[];
   
   // Aggregated schedules for the row
   aggregatedSchedule?: { [timeKey: string]: AggregatedStatus };
   results?: { [timeKey: string]: AggregatedStatus };
   rolledUpResults?: { [timeKey: string]: AggregatedStatus };
+}
+
+/**
+ * SpecificationChange - Event batch block for updating multiple specifications at once
+ */
+export interface SpecificationChange {
+  assetId: string;
+  specifications: Specification[];
 }
 
 // ============================================================================

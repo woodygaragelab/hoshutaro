@@ -33,6 +33,11 @@ interface MaintenanceTableBodyProps {
   isTaskBasedMode?: boolean;
   expandedWorkOrders?: Set<string>;
   onToggleWorkOrderExpanded?: (workOrderId: string) => void;
+  isDragging?: boolean;
+  startDragSelection?: (rowId: string, columnId: string) => void;
+  updateDragSelection?: (rowId: string, columnId: string) => void;
+  endDragSelection?: () => void;
+  isCellInSelectedRange?: (rowId: string, columnId: string) => boolean;
 }
 
 const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
@@ -61,6 +66,11 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   isTaskBasedMode = false,
   expandedWorkOrders,
   onToggleWorkOrderExpanded,
+  isDragging,
+  startDragSelection,
+  updateDragSelection,
+  endDragSelection,
+  isCellInSelectedRange,
 }) => {
   // Horizontal virtual scrolling enabled for performance
   const shouldUseHorizontalVirtualScrolling = enableHorizontalVirtualScrolling;
@@ -153,6 +163,11 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
             isFixedArea={isFixedArea}
             isExpanded={expandedWorkOrders?.has(taskBasedRow.workOrderId || '')}
             onToggleExpand={() => onToggleWorkOrderExpanded?.(taskBasedRow.workOrderId || '')}
+            isDragging={isDragging}
+            startDragSelection={startDragSelection}
+            updateDragSelection={updateDragSelection}
+            endDragSelection={endDragSelection}
+            isCellInSelectedRange={isCellInSelectedRange}
           />
         );
       });
@@ -191,7 +206,12 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
             displayColumns={displayColumns}
             isEquipmentBasedMode={isEquipmentBasedMode}
             isTaskBasedMode={isTaskBasedMode}
-
+            isFixedArea={isFixedArea}
+            isDragging={isDragging}
+            startDragSelection={startDragSelection}
+            updateDragSelection={updateDragSelection}
+            endDragSelection={endDragSelection}
+            isCellInSelectedRange={isCellInSelectedRange}
           />
         ))}
       </React.Fragment>

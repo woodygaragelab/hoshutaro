@@ -28,6 +28,11 @@ interface WorkOrderBasedRowProps {
   isFixedArea?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: (workOrderId: string) => void;
+  isDragging?: boolean;
+  startDragSelection?: (rowId: string, columnId: string) => void;
+  updateDragSelection?: (rowId: string, columnId: string) => void;
+  endDragSelection?: () => void;
+  isCellInSelectedRange?: (rowId: string, columnId: string) => boolean;
 }
 
 const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
@@ -48,7 +53,12 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
   displayColumns,
   isFixedArea = false,
   isExpanded = false,
-  onToggleExpand
+  onToggleExpand,
+  isDragging,
+  startDragSelection,
+  updateDragSelection,
+  endDragSelection,
+  isCellInSelectedRange
 }) => {
   // Use explicit ID matching ('task') instead of positional index (columns[0]?.id)
   // because in the scrollable area, columns[0] is the first time column, not 'task'
@@ -215,14 +225,28 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
         // For task rows, render with indentation in first column
         // Only show task name in fixed area, hide in scrollable area
         if (isFirstColumn) {
+          const isHierarchyRow = row.type === 'hierarchy' || row.type === 'workOrder';
+          
+          let cellWidth = width;
+          let cellMinWidth = width;
+          let cellMaxWidth = width;
+          
+          // 機器階層の表示の場合のみ、固定エリアであればすべての固定列をまたいで突き抜けさせる
+          if (row.type === 'hierarchy' && isFixedArea) {
+            const combinedWidth = columns.reduce((sum, col) => sum + (gridState.columnWidths[col.id] || col.width), 0);
+            cellWidth = combinedWidth;
+            cellMinWidth = combinedWidth;
+            cellMaxWidth = combinedWidth;
+          }
+
           return (
             <Box
               key={column.id}
               className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
               sx={{
-                width: isFixedArea ? width : 0,  // Hide task column heavily in scrollable area
-                minWidth: isFixedArea ? width : 0, 
-                maxWidth: isFixedArea ? width : 0,
+                width: isFixedArea ? cellWidth : 0,
+                minWidth: isFixedArea ? cellMinWidth : 0, 
+                maxWidth: isFixedArea ? cellMaxWidth : 0,
                 display: isFixedArea ? 'flex' : 'none',
                 alignItems: 'center',
                 padding: '4px 8px',
@@ -236,10 +260,11 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
                 transition: 'all 0.2s ease-in-out',
                 boxShadow: isDragged ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
                 borderLeft: isDragOver ? '2px solid rgba(255,255,255,0.5)' : 'none',
-                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333'),
+                // hierarchy行かつ固定エリアの場合は中間の縦線を消す
+                borderRight: (row.type === 'hierarchy' && isFixedArea) ? '1px solid #333333' : (isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')),
               }}
               style={{
-                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')
+                borderRight: (row.type === 'hierarchy' && isFixedArea) ? '1px solid #333333' : (isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333'))
               }}
               onClick={() => handleCellClick(column.id)}
               onDoubleClick={(e) => {
@@ -285,6 +310,11 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
           );
         }
 
+        // 階層行(hierarchy) の場合、固定エリアのtask以外の列は描画しない（task列でColspanしているため）
+        if (row.type === 'hierarchy' && isFixedArea) {
+          return null;
+        }
+
         // For other columns in task rows, use MaintenanceCell for schedule display
         // Create a mock item for MaintenanceCell compatibility
         const mockItem: HierarchicalData = {
@@ -307,6 +337,22 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
             viewMode={viewMode}
             isSelected={isSelected}
             isEditing={isEditing}
+            isInSelectedRange={isCellInSelectedRange ? isCellInSelectedRange(mockItem.id, column.id) : false}
+            onMouseDown={(e: React.MouseEvent) => {
+              if (e.button === 0 && startDragSelection) {
+                startDragSelection(mockItem.id, column.id);
+              }
+            }}
+            onMouseEnter={(e: React.MouseEvent) => {
+              if (e.buttons === 1 && isDragging && updateDragSelection) {
+                updateDragSelection(mockItem.id, column.id);
+              }
+            }}
+            onMouseUp={(e: React.MouseEvent) => {
+              if (e.button === 0 && endDragSelection) {
+                endDragSelection();
+              }
+            }}
             onCellEdit={onCellEdit}
             onCellClick={() => handleCellClick(column.id)}
             onCellDoubleClick={(event) => handleCellDoubleClick(column.id, event)}

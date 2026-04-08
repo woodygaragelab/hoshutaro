@@ -174,8 +174,9 @@ export class KeyboardNavigationManager {
   handleArrowNavigation(
     currentRowId: string | null,
     currentColumnId: string | null,
-    direction: 'up' | 'down' | 'left' | 'right'
-  ): NavigationResult {
+    direction: 'up' | 'down' | 'left' | 'right',
+    shiftKey: boolean = false
+  ): NavigationResult & { isShiftSelection?: boolean } {
     const { rowIndex, columnIndex } = this.getCurrentCellIndex(currentRowId, currentColumnId);
     
     let nextRowIndex = rowIndex;
@@ -197,8 +198,8 @@ export class KeyboardNavigationManager {
     }
     
     // 編集可能セルのスキップ
-    if (this.options.skipNonEditable) {
-      // 指定方向で最初に見つかる編集可能セルに移動
+    if (this.options.skipNonEditable && !shiftKey) {
+      // 指定方向で最初に見つかる編集可能セルに移動 (Shift押下時の範囲選択時はスキップしない)
       const searchDirection = direction === 'up' || direction === 'left' ? 'previous' : 'next';
       const nextCell = this.findNextEditableCell(nextRowIndex, nextColumnIndex, searchDirection);
       
@@ -206,6 +207,7 @@ export class KeyboardNavigationManager {
         return {
           rowId: this.data[nextCell.rowIndex].id,
           columnId: this.columns[nextCell.columnIndex].id,
+          isShiftSelection: shiftKey
         };
       }
     }
@@ -214,10 +216,11 @@ export class KeyboardNavigationManager {
       return {
         rowId: this.data[nextRowIndex].id,
         columnId: this.columns[nextColumnIndex].id,
+        isShiftSelection: shiftKey
       };
     }
     
-    return { rowId: null, columnId: null };
+    return { rowId: null, columnId: null, isShiftSelection: shiftKey };
   }
 
   /**
@@ -306,19 +309,19 @@ export class KeyboardNavigationManager {
         
       case 'ArrowUp':
         event.preventDefault();
-        return this.handleArrowNavigation(currentRowId, currentColumnId, 'up');
+        return this.handleArrowNavigation(currentRowId, currentColumnId, 'up', event.shiftKey);
         
       case 'ArrowDown':
         event.preventDefault();
-        return this.handleArrowNavigation(currentRowId, currentColumnId, 'down');
+        return this.handleArrowNavigation(currentRowId, currentColumnId, 'down', event.shiftKey);
         
       case 'ArrowLeft':
         event.preventDefault();
-        return this.handleArrowNavigation(currentRowId, currentColumnId, 'left');
+        return this.handleArrowNavigation(currentRowId, currentColumnId, 'left', event.shiftKey);
         
       case 'ArrowRight':
         event.preventDefault();
-        return this.handleArrowNavigation(currentRowId, currentColumnId, 'right');
+        return this.handleArrowNavigation(currentRowId, currentColumnId, 'right', event.shiftKey);
         
       case 'Home':
         event.preventDefault();

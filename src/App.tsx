@@ -28,6 +28,7 @@ import { dataIndexManager } from './utils/dataIndexing';
 
 // Import hooks
 import { useViewModeTransition } from './hooks/useViewModeTransition';
+import { extractIdsFromRowId } from './components/EnhancedMaintenanceGrid/utils/gridIdUtils';
 
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
 import { AgentBar } from './components/AgentBar/AgentBar';
@@ -42,7 +43,7 @@ import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTime
 import { transformData } from './utils/dataTransformer';
 import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
 import { darkTheme } from './theme/darkTheme';
-import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate } from './types/maintenanceTask';
+import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate, SpecificationChange } from './types/maintenanceTask';
 
 const rawData = {
   version: '3.0.0',
@@ -728,7 +729,7 @@ const App: React.FC = () => {
                 id: row.id,
                 task: row.assetName || '',
                 bomCode: row.assetId || '',
-                specifications: [],
+                specifications: row.specifications || [],
                 results,
                 rolledUpResults,
                 isGroupHeader: false,
@@ -805,14 +806,13 @@ const App: React.FC = () => {
 
     // AssetManager(マスターデータ)に変更を保存する（タブ切り替えなどで失われないようにするため）
     if (assetManagerRef.current && updatedItem.specifications) {
-      // idが 'asset_123' のような書式の場合はプレフィックスを外す
-      const cleanAssetId = updatedItem.id.startsWith('asset_')
-        ? updatedItem.id.substring(6)
-        : updatedItem.id;
+      const { assetId: cleanAssetId } = extractIdsFromRowId(updatedItem.id);
 
       if (assetManagerRef.current.hasAsset(cleanAssetId)) {
         try {
           assetManagerRef.current.updateSpecifications(cleanAssetId, updatedItem.specifications);
+          // Note: handleSaveData() has been removed here to improve performance.
+          // Spec updates will be persisted on manual save or other batch operations.
         } catch (e) {
           console.error('[App] Failed to persist specifications on update:', cleanAssetId, e);
         }
@@ -1248,14 +1248,26 @@ const App: React.FC = () => {
   // Handle specification editing
   // Requirements 4.2: Use EditHandlers for specification editing
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
-
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && assetManagerRef.current && undoRedoManagerRef.current) {
       try {
+        let actualAssetId = rowId;
+        if (rowId.startsWith('asset_') && rowId.includes('_wo_')) {
+          actualAssetId = rowId.split('_wo_')[0].replace('asset_', '');
+        } else if (rowId.startsWith('asset_')) {
+          actualAssetId = rowId.replace('asset_', '');
+        } else if (rowId.startsWith('workOrder_') && rowId.includes('_asset_')) {
+          const parts = rowId.split('_asset_');
+          actualAssetId = parts[1].split('_')[0] === parts[1] ? parts[1] : parts[1].split('_')[0];
+          if (parts[1].includes('_wol_')) {
+            actualAssetId = parts[1].split('_wol_')[0];
+          }
+        }
+
         // Use EditHandlers.handleSpecificationEdit
         editHandlersRef.current.handleSpecificationEdit(
           assetManagerRef.current,
-          rowId,
+          actualAssetId,
           specIndex,
           key as 'key' | 'value',
           value,
@@ -1301,6 +1313,25 @@ const App: React.FC = () => {
         return item;
       })
     );
+  };
+
+  // Handle batch specification update from copy/paste/delete
+  const handleSpecificationBatchUpdate = async (changes: SpecificationChange[]) => {
+    if (isServicesInitialized && editHandlersRef.current && assetManagerRef.current) {
+      try {
+        editHandlersRef.current.handleBatchSpecificationUpdate(
+          assetManagerRef.current,
+          changes,
+          undoRedoManagerRef.current || undefined
+        );
+        // Removed `await handleSaveData();` to prevent freezing on large spec pastes.
+        // Data is now updated in-memory. Persistence should be manually triggered.
+        loadDataFromViewModeManager();
+      } catch (error) {
+        console.error('Failed to batch update specifications:', error);
+        showSnackbar('仕様の一括更新に失敗しました', 'error');
+      }
+    }
   };
 
   // Handle specification column reordering (affects all equipment)
@@ -1425,28 +1456,8 @@ const App: React.FC = () => {
           maintenanceData: [...maintenanceData]
         };
 
-        // Parse rowId to get the actual Asset ID
-        let actualAssetId = rowId;
-        let associatedTaskId: string | null = null;
-        let associatedWolId: string | null = null;
-
-        if (rowId.startsWith('asset_')) {
-          actualAssetId = rowId.replace('asset_', '');
-        } else if (rowId.startsWith('task_')) {
-          // Format: task_{taskId}_asset_{assetId}_wol_{wolId} OR task_{taskId}_asset_{assetId}
-          const parts = rowId.split('_asset_');
-          if (parts.length === 2) {
-            associatedTaskId = parts[0].replace('task_', '');
-
-            // Check if there's a wol suffix
-            const assetParts = parts[1].split('_wol_');
-            actualAssetId = assetParts[0];
-
-            if (assetParts.length === 2) {
-              associatedWolId = assetParts[1];
-            }
-          }
-        }
+        // Parse rowId to get the actual IDs
+        const { assetId: actualAssetId, taskId: associatedTaskId, wolId: associatedWolId } = extractIdsFromRowId(rowId);
 
         // Deal with specification editing which was missing completely
         if (columnId.startsWith('spec_')) {
@@ -2299,30 +2310,8 @@ const App: React.FC = () => {
       const sourceTimeKey = internalClipboard.columnId.replace('time_', '');
       const targetTimeKey = columnId.replace('time_', '');
 
-      // Parse IDs from raw grid tags
-      const extractIds = (rawId: string) => {
-        let assetId = rawId;
-        let taskId: string | null = null;
-        if (rawId.startsWith('asset_')) {
-          assetId = rawId.replace('asset_', '');
-        } else if (rawId.startsWith('workOrder_')) {
-          const parts = rawId.split('_asset_');
-          if (parts.length === 2) {
-            taskId = parts[0].replace('workOrder_', '');
-            assetId = parts[1];
-          }
-        } else if (rawId.startsWith('task_')) {
-          const parts = rawId.split('_asset_');
-          if (parts.length === 2) {
-            taskId = parts[0].replace('task_', '');
-            assetId = parts[1].split('_wol_')[0];
-          }
-        }
-        return { assetId, taskId };
-      };
-
-      const source = extractIds(internalClipboard.rowId);
-      const target = extractIds(rowId);
+      const source = extractIdsFromRowId(internalClipboard.rowId);
+      const target = extractIdsFromRowId(rowId);
 
       // Extract raw event pool
       const allLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
@@ -2383,9 +2372,8 @@ const App: React.FC = () => {
       });
 
       if (successCount > 0) {
-        handleSaveData().then(() => {
-          loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
-        });
+        // Removed handleSaveData() here to fix performance on large pastes.
+        loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
         showSnackbar(`スケジュールを${successCount}件複製しました`, 'success');
       }
 
@@ -2665,6 +2653,7 @@ const App: React.FC = () => {
                 onHierarchyEdit={handleHierarchyEdit}
                 selectedAssets={selectedAssets}
                 onAssetEdit={handleAssetEdit}
+                onSpecificationBatchUpdate={handleSpecificationBatchUpdate}
                 onCellCopy={handleCellCopy}
                 onCellPaste={handleCellPaste}
                 // Header props - restored to original structure

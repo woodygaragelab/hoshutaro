@@ -8,6 +8,7 @@
 import {
   EditContext,
   WorkOrderLine,
+  SpecificationChange,
 } from '../types/maintenanceTask';
 import { WorkOrderLineManager } from './WorkOrderLineManager';
 import { AssetManager } from './AssetManager';
@@ -118,6 +119,40 @@ export class EditHandlers {
     }
 
     assetManager.updateAsset(assetId, { specifications: updatedSpecs });
+  }
+
+  /**
+   * Handle batch specification update for multiple assets
+   * This ensures a single undo/redo action for operations like paste or cut.
+   */
+  handleBatchSpecificationUpdate(
+    assetManager: AssetManager,
+    changes: SpecificationChange[],
+    undoRedoManager?: any
+  ): void {
+    if (changes.length === 0) return;
+
+    if (undoRedoManager) {
+      // Record previous states for all affected assets
+      const previousStates = changes.map(change => {
+        const asset = assetManager.getAsset(change.assetId);
+        return {
+          assetId: change.assetId,
+          previousSpecifications: asset ? [...asset.specifications] : [],
+        };
+      });
+
+      undoRedoManager.pushState('UPDATE_SPECIFICATIONS_BATCH', {
+        changes: previousStates,
+      });
+    }
+
+    // Apply updates
+    changes.forEach(change => {
+      if (assetManager.hasAsset(change.assetId)) {
+        assetManager.updateAsset(change.assetId, { specifications: change.specifications });
+      }
+    });
   }
 }
 

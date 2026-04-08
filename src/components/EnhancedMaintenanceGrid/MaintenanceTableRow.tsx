@@ -21,7 +21,12 @@ interface MaintenanceTableRowProps {
   displayColumns?: GridColumn[];
   isEquipmentBasedMode?: boolean;
   isTaskBasedMode?: boolean;
-
+  isFixedArea?: boolean;
+  isDragging?: boolean;
+  startDragSelection?: (rowId: string, columnId: string) => void;
+  updateDragSelection?: (rowId: string, columnId: string) => void;
+  endDragSelection?: () => void;
+  isCellInSelectedRange?: (rowId: string, columnId: string) => boolean;
 }
 import MaintenanceCell from './MaintenanceCell';
 
@@ -43,6 +48,12 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   displayColumns,
   isEquipmentBasedMode = false,
   isTaskBasedMode = false,
+  isFixedArea = false,
+  isDragging,
+  startDragSelection,
+  updateDragSelection,
+  endDragSelection,
+  isCellInSelectedRange
 }) => {
   // Use displayColumns if provided (for virtual scrolling), otherwise use all columns
   const columnsToRender = displayColumns || columns;
@@ -157,16 +168,25 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
         const isDragOver = dragOverColumnIndex !== null && dragOverColumnIndex === columnIndex;
         
         // Special handling for task, bomCode, and cycle columns to maintain existing behavior
+        const isHierarchyRow = item.isGroupHeader || item.type === 'hierarchy' || (!item.bomCode && typeof item.task === 'string' && item.task.includes(' > '));
+
         if (column.id === 'task') {
           const isLastColumn = columns.indexOf(column) === columns.length - 1;
+          let cellWidth = width;
+          
+          if (isHierarchyRow && isFixedArea) {
+            const combinedWidth = columns.reduce((sum, col) => sum + (gridState.columnWidths[col.id] || col.width), 0);
+            cellWidth = combinedWidth;
+          }
+
           return (
             <Box
               key={column.id}
               className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
               sx={{
-                width,
-                minWidth: width,
-                maxWidth: width,
+                width: cellWidth,
+                minWidth: cellWidth,
+                maxWidth: cellWidth,
                 display: 'flex',
                 alignItems: 'center',
                 padding: '4px 8px',
@@ -179,21 +199,25 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
                 transition: 'all 0.2s ease-in-out',
                 boxShadow: isDragged ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
                 borderLeft: isDragOver ? '2px solid rgba(255,255,255,0.5)' : 'none',
-                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333'),
+                borderRight: (isHierarchyRow && isFixedArea) ? '1px solid #333333' : (isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')),
               }}
               style={{
-                borderRight: isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333')
+                borderRight: (isHierarchyRow && isFixedArea) ? '1px solid #333333' : (isDragOver ? '2px solid rgba(255,255,255,0.5)' : (isLastColumn ? 'none' : '1px solid #333333'))
               }}
               onClick={() => handleCellClick(column.id)}
               onDoubleClick={(e) => handleCellDoubleClick(column.id, e)}
             >
-              <Box sx={{ width: '100%', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Box sx={{ width: '100%', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isHierarchyRow ? 600 : 400 }}>
                 <Box className="cell-content">
                   {item.task || ''}
                 </Box>
               </Box>
             </Box>
           );
+        }
+        
+        if (isHierarchyRow && isFixedArea) {
+          return null; // スキップ
         }
         
         if (column.id === 'bomCode') {
@@ -238,33 +262,52 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
         // For all other columns, use the MaintenanceCell component
         const cellValue = getCellValue(column);
         const isLastColumn = columns.indexOf(column) === columns.length - 1;
-        
-        return (
-          <MaintenanceCell
-            key={column.id}
-            item={item}
-            column={column}
-            value={cellValue}
-            viewMode={viewMode}
-            isSelected={isSelected}
-            isEditing={isEditing}
-            onCellEdit={onCellEdit}
-            onCellClick={() => handleCellClick(column.id)}
-            onCellDoubleClick={(event) => handleCellDoubleClick(column.id, event)}
-            readOnly={readOnly}
-            width={width}
-            showRightBorder={!isLastColumn}
-            isDragged={isDragged}
-            isDragOver={isDragOver}
-            isEquipmentBasedMode={isEquipmentBasedMode}
-          />
-        );
-      })}
-      {enableVirtualScrolling && (
-        <Box sx={{ flexGrow: 1, flexShrink: 0 }} />
-      )}
-    </Box>
-  );
+
+          return (
+            <MaintenanceCell
+              key={column.id}
+              item={item}
+              column={column}
+              value={cellValue}
+              viewMode={viewMode}
+              isSelected={isSelected}
+              isEditing={isEditing}
+              isInSelectedRange={isCellInSelectedRange ? isCellInSelectedRange(item.id, column.id) : false}
+              onMouseDown={(e: React.MouseEvent) => {
+                // Must be left click
+                if (e.button === 0 && startDragSelection) {
+                  // Prevent default to stop text selection / native drag
+                  e.preventDefault();
+                  startDragSelection(item.id, column.id);
+                }
+              }}
+              onMouseEnter={(e: React.MouseEvent) => {
+                if (isDragging && updateDragSelection) {
+                  updateDragSelection(item.id, column.id);
+                }
+              }}
+              onMouseUp={(e: React.MouseEvent) => {
+                if (e.button === 0 && endDragSelection) {
+                  endDragSelection();
+                }
+              }}
+              onCellEdit={onCellEdit}
+              onCellClick={() => handleCellClick(column.id)}
+              onCellDoubleClick={(event) => handleCellDoubleClick(column.id, event)}
+              readOnly={readOnly}
+              width={width}
+              showRightBorder={!isLastColumn}
+              isDragged={isDragged}
+              isDragOver={isDragOver}
+              isEquipmentBasedMode={isEquipmentBasedMode}
+            />
+          );
+        })}
+        {enableVirtualScrolling && (
+          <Box sx={{ flexGrow: 1, flexShrink: 0 }} />
+        )}
+      </Box>
+    );
 };
 
 // Memoize the component to prevent unnecessary re-renders

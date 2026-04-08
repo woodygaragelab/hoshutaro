@@ -82,8 +82,13 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
   }, [timeHeaders, timeScale]);
 
   const parsedCurrentDate = useMemo(() => {
-    if (currentDate) {
-      const parsed = parseTimeKey(currentDate, timeScale as any);
+    // 1. Try prop (if explicitly provided)
+    // 2. Try the grid's currently viewed position (tracked via DOM to avoid huge React re-renders)
+    const domTimeKey = document.body.getAttribute('data-visible-time-key');
+    const targetKey = currentDate || domTimeKey;
+
+    if (targetKey) {
+      const parsed = parseTimeKey(targetKey, timeScale as any);
       if (parsed) return dayjs(parsed);
     }
     return minDate || dayjs();

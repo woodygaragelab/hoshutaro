@@ -110,8 +110,6 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
   const [showMasterMenu, setShowMasterMenu] = useState(false);
-  const [lastJumpDate, setLastJumpDate] = useState<string | undefined>();
-
   // Scroll to bottom when messages update
   useEffect(() => {
     if (isChatExpanded && messages.length > 0) {
@@ -512,12 +510,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 </IconButton>
                 {showDateJumpMenu && (
                   <DateJumpDialog
-                    currentDate={lastJumpDate}
                     timeScale={timeScale}
                     timeHeaders={timeHeaders}
                     activeTimeHeaders={activeTimeHeaders}
                     onJump={(dateStr) => {
-                      setLastJumpDate(dateStr);
                       const event = new CustomEvent('jumpToColumn', { detail: { header: dateStr } });
                       window.dispatchEvent(event);
                       setShowDateJumpMenu(false);
