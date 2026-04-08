@@ -509,6 +509,9 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
           </Box>
         );
       })}
+      {shouldUseVirtualScrolling && (
+        <Box sx={{ flexGrow: 1, flexShrink: 0 }} />
+      )}
 
       {/* Task Filter Popover */}
       <Popover

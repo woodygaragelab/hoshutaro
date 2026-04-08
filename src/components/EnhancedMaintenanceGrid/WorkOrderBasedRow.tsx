@@ -319,6 +319,9 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
           />
         );
       })}
+      {enableVirtualScrolling && (
+        <Box sx={{ flexGrow: 1, flexShrink: 0 }} />
+      )}
     </Box>
   );
 };

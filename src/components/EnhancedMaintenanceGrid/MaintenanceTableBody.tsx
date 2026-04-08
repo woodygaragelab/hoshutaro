@@ -137,7 +137,7 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
           <WorkOrderBasedRow
             key={taskBasedRow.id}
             row={taskBasedRow}
-            columns={displayColumns}
+            columns={columns}
             viewMode={viewMode}
             gridState={gridState}
             onCellEdit={onCellEdit}
