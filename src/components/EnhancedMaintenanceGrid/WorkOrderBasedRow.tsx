@@ -116,7 +116,7 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
     if (id === 'task') {
       let finalVal = '';
       if (row.type === 'workOrder') {
-        finalVal = `${row.workOrderName || row.task || ''}${row.ClassificationId ? ` [${row.ClassificationId}]` : ''}`;
+        finalVal = `${row.workOrderName || row.task || ''}`;
       } else {
         finalVal = row.assetName || row.task || '';
       }

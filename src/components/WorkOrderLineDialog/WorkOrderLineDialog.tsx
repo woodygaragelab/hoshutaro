@@ -52,8 +52,8 @@ import {
   WorkOrderLine,
   Asset,
   WorkOrderLineUpdate,
+  WorkOrderClassification,
 } from '../../types/maintenanceTask';
-import { getClassificationOptions } from '../../config/classificationMaster';
 import { AssetSelectionDialog } from '../AssetSelectionDialog/AssetSelectionDialog';
 import { getTimeKey } from '../../utils/dateUtils';
 
@@ -72,6 +72,7 @@ export interface WorkOrderLineDialogProps {
   readOnly?: boolean;
   editScope?: 'single-asset' | 'all-assets';
   dataViewMode?: 'asset-based' | 'workorder-based';
+  workOrderClassifications?: WorkOrderClassification[];
 }
 
 interface TabPanelProps {
@@ -166,6 +167,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   readOnly = false,
   editScope = 'single-asset',
   dataViewMode = 'asset-based',
+  workOrderClassifications,
 }) => {
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
   const [activeWorkOrderId, setActiveWorkOrderId] = useState<string | null>(null);
@@ -176,8 +178,18 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   const [expandedPatternIndex, setExpandedPatternIndex] = useState<number | null>(null);
   const [assetSelectorState, setAssetSelectorState] = useState<{ open: boolean; recordIndex: number | null }>({ open: false, recordIndex: null });
 
-  // Available classifications (01-20) with names
-  const availableClassifications = getClassificationOptions();
+  // Available classifications with names
+  const availableClassifications = useMemo(() => {
+    if (workOrderClassifications && workOrderClassifications.length > 0) {
+      return [...workOrderClassifications]
+        .sort((a,b) => a.order - b.order)
+        .map(c => ({
+          value: c.id,
+          label: `${c.id} - ${c.name}`
+        }));
+    }
+    return [];
+  }, [workOrderClassifications]);
 
   // Get current asset info
   const currentAsset = useMemo(() => {
@@ -589,6 +601,11 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
                 label="分類"
                 onChange={(e) => handleEditDraft(draftId, 'classificationId', e.target.value)}
                 disabled={readOnly}
+                MenuProps={{
+                  slotProps: {
+                    backdrop: { sx: { backdropFilter: 'none', backgroundColor: 'transparent' } }
+                  }
+                }}
               >
                 {availableClassifications.map(option => (
                   <MenuItem key={option.value} value={option.value}>
@@ -639,7 +656,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
                           sx={{ height: 24, flexShrink: 0, bgcolor: '#333', cursor: readOnly ? 'default' : 'pointer' }} 
                         />
                         <TextField
-                          label="作業明細名 (Line Name - 任意)"
+                          label="作業明細名 (任意)"
                           value={record.lineName}
                           onChange={(e) => handleEditRecord(actualIndex, 'lineName', e.target.value)}
                           disabled={readOnly}
@@ -819,10 +836,15 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
             onChange={(e) => handleEditDraft(activeWorkOrderId, 'classificationId', e.target.value)}
             disabled={readOnly}
             sx={{ fontSize: '0.9rem', color: 'text.secondary', '&:before': { borderBottom: 'none' } }}
+            MenuProps={{
+              slotProps: {
+                backdrop: { sx: { backdropFilter: 'none', backgroundColor: 'transparent' } }
+              }
+            }}
           >
             {availableClassifications.map(option => (
               <MenuItem key={option.value} value={option.value}>
-                分類: {option.label}
+                {option.label}
               </MenuItem>
             ))}
           </Select>

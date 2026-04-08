@@ -36,19 +36,33 @@ export const CostTrendGraph: React.FC<CostTrendGraphProps> = ({ data, timeHeader
     // Aggregate costs per year across the provided data
     const aggregatedCosts: Record<number, { plan: number; actual: number }> = {};
     
+    // デバッグ用：最初の数行だけ形を出力
+    // console.log("CostTrendGraph DATA [0]:", data[0]);
+    // console.log("timeHeaders:", timeHeaders);
+
     data.forEach(row => {
       // Exclude hierarchy group headers to prevent duplication
       if (row.isGroupHeader) return;
+      
+      // 作業ベースモードでの二重集計防止 (子が 'assetChild'、親が 'workOrder')
+      if (row.type === 'assetChild') return;
 
-      if (row.results) {
-        Object.entries(row.results).forEach(([timeKey, status]) => {
-          const year = parseInt(timeKey.substring(0, 4), 10);
+      const resultsToUse = row.aggregatedSchedule || row.results;
+
+      if (resultsToUse) {
+        Object.entries(resultsToUse).forEach(([timeKey, status]: [string, any]) => {
+          const yearMatch = String(timeKey).substring(0, 4);
+          const year = parseInt(yearMatch, 10);
           if (!isNaN(year)) {
             if (!aggregatedCosts[year]) {
               aggregatedCosts[year] = { plan: 0, actual: 0 };
             }
-            aggregatedCosts[year].plan += status.planCost || 0;
-            aggregatedCosts[year].actual += status.actualCost || 0;
+            // プロパティが存在しない場合はNumber()でNaNになるため、|| 0 で受ける
+            const pCost = Number(status.planCost) || Number(status.totalPlanCost) || Number(status.PlanCost) || 0;
+            const aCost = Number(status.actualCost) || Number(status.totalActualCost) || Number(status.ActualCost) || 0;
+            
+            aggregatedCosts[year].plan += isNaN(pCost) ? 0 : pCost;
+            aggregatedCosts[year].actual += isNaN(aCost) ? 0 : aCost;
           }
         });
       }

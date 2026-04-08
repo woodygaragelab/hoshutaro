@@ -2844,6 +2844,7 @@ const App: React.FC = () => {
             allWorkOrders={workOrderManagerRef.current?.getAllWorkOrders() || []}
             allAssets={assetManagerRef.current?.getAllAssets() || []}
             allWorkOrderLines={workOrderLineManagerRef.current?.getAllWorkOrderLines() || []}
+            workOrderClassifications={dataStoreRef.current?.getWorkOrderClassifications() || []}
             onSave={handleSaveTaskEdits}
             onUpdateWorkOrder={handleUpdateWorkOrder}
             onClose={handleCloseTaskEditDialog}
