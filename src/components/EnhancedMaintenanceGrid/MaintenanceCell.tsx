@@ -101,7 +101,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
 
   // Render different cell types
   const renderCellContent = () => {
-    if (isEditing && column.editable && !readOnly) {
+    if (isLocalEditing && column.editable && !readOnly) {
       // Editing mode
       if (column.type === 'status') {
         // Status editing - toggle between planned/actual

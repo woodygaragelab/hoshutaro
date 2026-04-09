@@ -239,19 +239,22 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
             cellMaxWidth = combinedWidth;
           }
 
+          const isInRange = isCellInSelectedRange ? isCellInSelectedRange(rowId, column.id) : false;
+
           return (
             <Box
               key={column.id}
-              className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
+              className={`${isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'} ${isInRange ? 'selected-range-cell' : ''}`}
               sx={{
                 width: isFixedArea ? cellWidth : 0,
                 minWidth: isFixedArea ? cellMinWidth : 0, 
                 maxWidth: isFixedArea ? cellMaxWidth : 0,
+                height: 40,
                 display: isFixedArea ? 'flex' : 'none',
                 alignItems: 'center',
                 padding: '4px 8px',
                 paddingLeft: `${8 + indentWidth}px`, // Add indentation
-                backgroundColor: isSelected ? '#ffffff' : 'transparent',
+                backgroundColor: 'transparent',
                 cursor: readOnly ? 'default' : 'pointer',
                 boxSizing: 'border-box',
                 flexShrink: 0,

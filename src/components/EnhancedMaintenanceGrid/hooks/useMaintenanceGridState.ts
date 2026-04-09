@@ -75,7 +75,8 @@ export const useMaintenanceGridState = (columns: GridColumn[], visibleRowIds: st
       setEditingCellState({ rowId, columnId });
       // Ensure the cell is also selected
       setSelectedCellState({ rowId, columnId });
-      setSelectedRangeState(null); // Clear range when editing starts
+      // Keep the cell in range so it doesn't lose its background highlight
+      setSelectedRangeState({ start: { rowId, columnId }, end: { rowId, columnId } });
     } else {
       setEditingCellState(null);
     }

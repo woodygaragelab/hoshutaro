@@ -94,6 +94,9 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
     return '';
   }, [item, viewMode]);
 
+  // Determine if this is a hierarchy row up front to use in event handlers
+  const isHierarchyRow = item.isGroupHeader || item.type === 'hierarchy' || (!item.bomCode && typeof item.task === 'string' && item.task.includes(' > '));
+
   // Handle cell click for selection only
   const handleCellClick = useCallback((columnId: string) => {
     onSelectedCellChange(item.id, columnId);
@@ -102,6 +105,9 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   // Handle cell double click for editing or opening dialog
   const handleCellDoubleClick = useCallback((columnId: string, event: React.MouseEvent<HTMLElement>) => {
     if (readOnly) return;
+    
+    // Prevent double-click actions on hierarchy rows
+    if (isHierarchyRow) return;
     
     const column = columns.find(col => col.id === columnId);
     
@@ -113,7 +119,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
       // Fallback to inline editing if no dialog handler is provided
       onEditingCellChange(item.id, columnId);
     }
-  }, [item.id, columns, readOnly, onCellDoubleClick, onEditingCellChange]);
+  }, [item.id, columns, readOnly, isHierarchyRow, onCellDoubleClick, onEditingCellChange]);
 
   // Ref for the row element
   const rowRef = useRef<HTMLDivElement>(null);
@@ -168,7 +174,6 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
         const isDragOver = dragOverColumnIndex !== null && dragOverColumnIndex === columnIndex;
         
         // Special handling for task, bomCode, and cycle columns to maintain existing behavior
-        const isHierarchyRow = item.isGroupHeader || item.type === 'hierarchy' || (!item.bomCode && typeof item.task === 'string' && item.task.includes(' > '));
 
         if (column.id === 'task') {
           const isLastColumn = columns.indexOf(column) === columns.length - 1;
@@ -179,18 +184,21 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
             cellWidth = combinedWidth;
           }
 
+          const isInRange = isCellInSelectedRange ? isCellInSelectedRange(item.id, column.id) : false;
+
           return (
             <Box
               key={column.id}
-              className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
+              className={`${isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'} ${isInRange ? 'selected-range-cell' : ''}`}
               sx={{
                 width: cellWidth,
                 minWidth: cellWidth,
                 maxWidth: cellWidth,
+                height: 40,
                 display: 'flex',
                 alignItems: 'center',
                 padding: '4px 8px',
-                backgroundColor: isSelected ? '#ffffff' : 'transparent',
+                backgroundColor: 'transparent',
                 cursor: readOnly ? 'default' : 'pointer',
                 boxSizing: 'border-box',
                 flexShrink: 0,
@@ -222,18 +230,21 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
         
         if (column.id === 'bomCode') {
           const isLastColumn = columns.indexOf(column) === columns.length - 1;
+          const isInRange = isCellInSelectedRange ? isCellInSelectedRange(item.id, column.id) : false;
+
           return (
             <Box
               key={column.id}
-              className={isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'}
+              className={`${isSelected ? 'maintenance-cell selected-cell' : 'maintenance-cell'} ${isInRange ? 'selected-range-cell' : ''}`}
               sx={{
                 width,
                 minWidth: width,
                 maxWidth: width,
+                height: 40,
                 display: 'flex',
                 alignItems: 'center',
                 padding: '4px 8px',
-                backgroundColor: isSelected ? '#ffffff' : 'transparent',
+                backgroundColor: 'transparent',
                 cursor: readOnly ? 'default' : 'pointer',
                 boxSizing: 'border-box',
                 flexShrink: 0,
