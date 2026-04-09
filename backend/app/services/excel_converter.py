@@ -12,6 +12,7 @@ import logging
 import io
 import re
 import openpyxl
+import uuid
 from datetime import datetime
 from typing import Any, Optional
 from dataclasses import dataclass, field
@@ -414,20 +415,26 @@ def validate_and_preview(
     
     # サンプル5行を変換
     sample_count = 0
-    prev_key_value = ""
+    prev_key_values = {}
     for i in range(structure.data_start, min(structure.data_start + 30, len(grid.rows))):
         row = grid.rows[i]
         if not any(cell.strip() for cell in row):
             continue  # 空白行スキップ
         
         # forward fill
-        key_col = structure.key_column
-        if key_col < len(row):
-            if row[key_col].strip():
-                prev_key_value = row[key_col].strip()
-            else:
-                row = list(row)
-                row[key_col] = prev_key_value
+        fcols = set()
+        fcols.add(structure.key_column)
+        for d in descriptors:
+            if d.field.startswith("Hierarchy"):
+                fcols.add(d.col)
+        
+        row = list(row)
+        for fcol in fcols:
+            if fcol < len(row):
+                if row[fcol].strip():
+                    prev_key_values[fcol] = row[fcol].strip()
+                elif fcol in prev_key_values:
+                    row[fcol] = prev_key_values[fcol]
         
         record = _convert_single_row(row, descriptors, symbol_mapping, structure.year_context)
         if record:
@@ -507,8 +514,13 @@ def convert_chunk(
                 continue
         
         # forward fill
+        fcols = set(structure.forward_fill_columns)
+        for d in descriptors:
+            if d.field.startswith("Hierarchy"):
+                fcols.add(d.col)
+        
         row = list(row)
-        for fcol in structure.forward_fill_columns:
+        for fcol in fcols:
             if fcol < len(row):
                 if row[fcol].strip():
                     prev_key_values[fcol] = row[fcol].strip()
@@ -614,11 +626,14 @@ def _convert_single_row(
     # HierarchyPathの適用
     # 優先順位: 1. 列から抽出したもの 2. LLM推論のimplied_hierarchy 3. 無ければ "未設定"
     if hierarchy_from_cols:
+        hierarchy_from_cols = {k: v for k, v in hierarchy_from_cols.items() if v}
+        
+    if hierarchy_from_cols:
         record["hierarchyPath"] = hierarchy_from_cols
     elif implied_hierarchy and len(implied_hierarchy) > 0:
         record["hierarchyPath"] = implied_hierarchy
     else:
-        record["hierarchyPath"] = {"分類": "インポート未設定"}
+        record["hierarchyPath"] = {}
     
     # 最低限のデータがなければスキップ
     if not record["asset_id"] and not record["wo_name"]:
@@ -644,16 +659,26 @@ def _merge_record_into_model(
                 "id": asset_id,
                 "name": record["asset_name"] or asset_id,
                 "hierarchyPath": dict(record["hierarchyPath"]),
+                "specifications": []
             }
-            # specsを追加
-            for k, v in record["specs"].items():
-                if v:
-                    assets[asset_id][k] = v
-        else:
-            # 既存のAssetにspecsをマージ
-            for k, v in record["specs"].items():
-                if v and k not in assets[asset_id]:
-                    assets[asset_id][k] = v
+        
+        # specsを追加/更新 (DataModel v3仕様)
+        current_specs = assets[asset_id].setdefault("specifications", [])
+        existing_keys = {s["key"]: s for s in current_specs}
+        
+        for k, v in record["specs"].items():
+            if v:
+                if k in existing_keys:
+                    existing_keys[k]["value"] = str(v)
+                else:
+                    new_spec = {
+                        "id": str(uuid.uuid4()),
+                        "key": k,
+                        "value": str(v),
+                        "order": len(current_specs)
+                    }
+                    current_specs.append(new_spec)
+                    existing_keys[k] = new_spec
     
     # WorkOrder
     if wo_name and wo_name not in work_orders:

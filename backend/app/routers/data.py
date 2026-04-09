@@ -163,20 +163,29 @@ async def confirm_import(body: ConfirmImportRequest):
                 
         if missing_h_assets:
             logger.info("[confirm_import] Phase 3: 既存階層からの推論開始 (対象: %d件)", len(missing_h_assets))
+            
+            top_level_key = levels[0].get("key", levels[0].get("name")) if levels else "System"
+            fallback_h = {top_level_key: "階層未設定"}
+            
             try:
                 h_inferences = await run_phase3_hierarchy_linking(missing_h_assets, levels)
-                for asset_id, inferred_h in h_inferences.items():
+                
+                # 漏れがないよう、missing_h_assets全体を確実にループ処理する
+                for missing_asset in missing_h_assets:
+                    asset_id = missing_asset["id"]
+                    inferred_h = h_inferences.get(asset_id, {})
+                    
                     if asset_id in all_assets_dict:
                         if not inferred_h or all(v == "対象階層なし" for v in inferred_h.values()):
-                             # 見つからない場合は強制的に対象階層なしフォルダへ
-                             all_assets_dict[asset_id]["hierarchyPath"] = {"System": "対象階層なし"}
+                             # 見つからない、または推論から漏れた場合は強制的に対象階層なしフォルダへ
+                             all_assets_dict[asset_id]["hierarchyPath"] = fallback_h
                         else:
                              all_assets_dict[asset_id]["hierarchyPath"] = inferred_h
             except Exception as e:
                 logger.error("[confirm_import] Phase 3 パニック: %s", e)
                 for asset_id in [m["id"] for m in missing_h_assets]:
                     if asset_id in all_assets_dict:
-                        all_assets_dict[asset_id]["hierarchyPath"] = {"System": "対象階層なし"}
+                        all_assets_dict[asset_id]["hierarchyPath"] = fallback_h
 
 
         
@@ -211,8 +220,22 @@ async def confirm_import(body: ConfirmImportRequest):
                 
                 # マージ: 既存の階層は維持し、スペックを統合する
                 for k, v in new_asset.items():
-                    if k not in ["id", "name", "hierarchyPath"]:
+                    if k not in ["id", "name", "hierarchyPath", "specifications"]:
                         matched_existing[k] = v
+                
+                # specifications は配列の中身(辞書)のkeyでマージする
+                if "specifications" in new_asset:
+                    ext_specs = matched_existing.setdefault("specifications", [])
+                    new_specs = new_asset["specifications"]
+                    
+                    ext_map = { s["key"]: s for s in ext_specs }
+                    for ns in new_specs:
+                        if ns["key"] in ext_map:
+                            ext_map[ns["key"]]["value"] = ns["value"]
+                        else:
+                            ns["order"] = len(ext_specs)
+                            ext_specs.append(ns)
+                            ext_map[ns["key"]] = ns
             else:
                 existing_assets[new_asset["id"]] = new_asset
         
@@ -229,18 +252,68 @@ async def confirm_import(body: ConfirmImportRequest):
         # 階層マスター（levels）の動的再構築
         hierarchy_dict = dm.setdefault("hierarchy", {"levels": []})
         levels = hierarchy_dict.get("levels", [])
-        existing_levels = {lv["name"]: lv["values"] for lv in levels}
+        
+        # NOTE: some levels might have `key` instead of `name`
+        existing_levels = {}
+        for lv in levels:
+            key = lv.get("key", lv.get("name"))
+            if key:
+                # Normalize values to string format for comparison
+                vals = []
+                for v in lv.get("values", []):
+                    if isinstance(v, dict) and "value" in v:
+                        vals.append(v["value"])
+                    else:
+                        vals.append(v)
+                existing_levels[key] = vals
+        
+        new_levels_list = []
+        # Keep original levels structure to be updated
+        for lv in levels:
+            key = lv.get("key", lv.get("name"))
+            if key in existing_levels:
+                new_levels_list.append({
+                    "key": key,
+                    "name": lv.get("name", key),
+                    "values": [{"value": v} for v in existing_levels[key]]
+                })
         
         for asset in existing_assets.values():
             hp = asset.get("hierarchyPath", {})
             for level_name, level_value in hp.items():
                 if level_name not in existing_levels:
                     existing_levels[level_name] = []
-                    levels.append({"name": level_name, "values": existing_levels[level_name]})
+                    new_levels_list.append({
+                        "key": level_name,
+                        "name": level_name,
+                        "values": []
+                    })
                 if level_value and level_value not in existing_levels[level_name]:
                     existing_levels[level_name].append(level_value)
-        
-        hierarchy_dict["levels"] = levels
+                    # Update new_levels_list in place
+                    for lv in new_levels_list:
+                        if lv["key"] == level_name:
+                            lv["values"].append({"value": level_value})
+                            break
+                            
+        # 全てのAssetに対して、存在する全てのHierarchy Levelキーが確実に含まれるよう正規化（空のものは「階層未設定」とする）
+        # これをやらないとフロントエンドのViewModeManagerがツリー構築時にAssetを握りつぶしてしまう
+        all_level_keys = [lv["key"] for lv in new_levels_list]
+        for asset in existing_assets.values():
+            hp = asset.get("hierarchyPath", {})
+            for lk in all_level_keys:
+                if lk not in hp or not hp[lk] or hp[lk] == "対象階層なし":
+                    hp[lk] = "階層未設定"
+                    if "階層未設定" not in existing_levels[lk]:
+                        existing_levels[lk].append("階層未設定")
+                        for lv in new_levels_list:
+                            if lv["key"] == lk:
+                                lv["values"].append({"value": "階層未設定"})
+                                break
+            asset["hierarchyPath"] = hp
+
+        hierarchy_dict["levels"] = new_levels_list
+
         
         # jsonバックアップ（デバッグモード時のみ）
         if settings.debug_mode:
