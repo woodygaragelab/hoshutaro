@@ -55,6 +55,15 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
   const [editValue, setEditValue] = useState(value);
   const [isLocalEditing, setIsLocalEditing] = useState(false);
 
+  useEffect(() => {
+    if (isEditing) {
+      setEditValue(value);
+      setIsLocalEditing(true);
+    } else {
+      setIsLocalEditing(false);
+    }
+  }, [isEditing, value]);
+
   // Reset local editing state when not editing
   const currentValue = isLocalEditing ? editValue : value;
 

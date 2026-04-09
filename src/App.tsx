@@ -39,6 +39,9 @@ import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineD
 import { TreeClassificationEditDialog } from './components/TreeClassificationEditDialog';
 import { WorkOrderClassificationEditDialog } from './components/WorkOrderClassificationEditDialog';
 import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
+import { PluginManager } from './components/PluginManager/PluginManager';
+import { SkillRunner } from './components/SkillRunner/SkillRunner';
+import { UpdateNotification } from './components/UpdateNotification/UpdateNotification';
 import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
 import { transformData } from './utils/dataTransformer';
 import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
@@ -191,6 +194,8 @@ const App: React.FC = () => {
   const [isHierarchyManagerOpen, setIsHierarchyManagerOpen] = useState(false);
   const [isAssetClassificationEditOpen, setIsAssetClassificationEditOpen] = useState(false);
   const [isWorkOrderClassificationEditOpen, setIsWorkOrderClassificationEditOpen] = useState(false);
+  const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
+  const [isSkillRunnerOpen, setIsSkillRunnerOpen] = useState(false);
 
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
@@ -2823,6 +2828,8 @@ const App: React.FC = () => {
             workOrders: workOrderManagerRef.current?.getAllWorkOrders() || [],
             workOrderLines: workOrderLineManagerRef.current?.getAllWorkOrderLines() || [],
           }}
+          onPluginManager={() => setIsPluginManagerOpen(true)}
+          onSkillRunner={() => setIsSkillRunnerOpen(true)}
         />
 
         {/* Import File Input */}
@@ -2972,6 +2979,23 @@ const App: React.FC = () => {
             }}
           />
         )}
+
+        {/* Plugin Manager Dialog */}
+        <PluginManager
+          open={isPluginManagerOpen}
+          onClose={() => setIsPluginManagerOpen(false)}
+        />
+
+        {/* Skill Runner Dialog */}
+        <SkillRunner
+          open={isSkillRunnerOpen}
+          onClose={() => setIsSkillRunnerOpen(false)}
+        />
+
+        {/* Update Notification */}
+        <UpdateNotification
+          onOpenPluginManager={() => setIsPluginManagerOpen(true)}
+        />
 
         {/* Snackbar */}
         <Snackbar

@@ -1,0 +1,112 @@
+/* UpdateNotification.css — 更新通知バナー */
+
+.update-notification {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: un-slideIn 0.3s ease;
+  max-width: 400px;
+}
+
+@keyframes un-slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.update-notification.dismissed {
+  animation: un-slideOut 0.2s ease forwards;
+}
+
+@keyframes un-slideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.un-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #222;
+  border-radius: 8px;
+}
+
+.un-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.un-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.un-detail {
+  font-size: 11px;
+  color: #888;
+}
+
+.un-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.un-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #222;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.un-btn:hover {
+  background: #333;
+  color: #fff;
+}
+.un-btn.primary {
+  border-color: #444;
+  color: #fff;
+}
+
+.un-dismiss {
+  background: none;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.un-dismiss:hover {
+  color: #aaa;
+}

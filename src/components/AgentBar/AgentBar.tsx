@@ -22,7 +22,9 @@ import {
   Event as DateRangeIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
-  BarChart as BarChartIcon
+  BarChart as BarChartIcon,
+  Extension as ExtensionIcon,
+  AutoFixHigh as SkillIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
@@ -64,6 +66,10 @@ interface AgentBarProps {
   // Graph Toggle
   showGraph?: boolean;
   onToggleGraph?: () => void;
+
+  // Plugin & Skill
+  onPluginManager?: () => void;
+  onSkillRunner?: () => void;
 }
 
 export const AgentBar: React.FC<AgentBarProps> = ({
@@ -89,7 +95,9 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   canRedo = false,
   onRedo,
   showGraph = false,
-  onToggleGraph
+  onToggleGraph,
+  onPluginManager,
+  onSkillRunner
 }) => {
   // --- AI Assistant State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -110,6 +118,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
   const [showMasterMenu, setShowMasterMenu] = useState(false);
+  const [showPluginMenu, setShowPluginMenu] = useState(false);
   // Scroll to bottom when messages update
   useEffect(() => {
     if (isChatExpanded && messages.length > 0) {
@@ -413,7 +422,6 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               </IconButton>
             </div>
 
-            {/* Right Controls */}
             <div className="agent-bar-right">
               <IconButton
                 className={`tb-icon ${isChatExpanded ? 'active' : ''}`}
@@ -425,6 +433,22 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               <IconButton className="tb-icon" onClick={() => setIsSettingsOpen(true)} title="LLM設定">
                 <SettingsIcon fontSize="small" />
               </IconButton>
+              
+              <div
+                className="control-hover-group"
+                onMouseEnter={() => setShowPluginMenu(true)}
+                onMouseLeave={() => setShowPluginMenu(false)}
+              >
+                <IconButton className={`tb-icon ${showPluginMenu ? 'active' : ''}`} title="プラグイン・スキル">
+                  <ExtensionIcon fontSize="small" />
+                </IconButton>
+                {showPluginMenu && (
+                  <div className="hover-menu-vertical plugin-menu-override">
+                    <div className="menu-item" onClick={() => { onPluginManager?.(); setShowPluginMenu(false); }}>プラグイン管理</div>
+                    <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowPluginMenu(false); }}>スキル実行</div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -546,6 +570,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 <BarChartIcon fontSize="small" />
               </IconButton>
             </div>
+
+
 
             {/* Master Data Management Menu */}
             <div className={`agent-tool-anim-wrapper ${!hasData ? 'hidden' : ''}`}>

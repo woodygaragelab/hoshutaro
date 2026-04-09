@@ -563,7 +563,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     let currentValue: any = null;
 
     // Determine edit type and current value based on column
-    if (isEquipmentBasedMode && (columnId === 'task' || columnId === 'bomCode' || columnId.startsWith('spec_'))) {
+    if (isEquipmentBasedMode && (columnId === 'task' || columnId === 'bomCode')) {
       editType = 'assetDetails';
       currentValue = item;
     } else if (columnId === 'bomCode') {
@@ -587,7 +587,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       // Update editing cell state
       onEditingCellChange(rowId, columnId);
     } else {
-          }
+      // Allow inline editing for editable columns like specifications
+      if (column?.editable !== false) {
+        onEditingCellChange(rowId, columnId);
+      }
+    }
   }, [readOnly, columns, data, viewMode, deviceType, onEditingCellChange]);
 
   // Wrapper that calls both external and internal handlers
@@ -824,13 +828,18 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   // Handle focus on cell selection change
   useEffect(() => {
     if (gridState.selectedCell && gridContainerRef.current) {
+      // If we are editing, let the input field have focus
+      if (gridState.editingCell) {
+        return;
+      }
+
       // Check if any dropdown/menu is open before focusing
       const hasOpenMenu = document.querySelector('.MuiMenu-root, .MuiPopover-root, .MuiSelect-root[aria-expanded="true"]');
       if (!hasOpenMenu) {
         gridContainerRef.current.focus();
       }
     }
-  }, [gridState.selectedCell]);
+  }, [gridState.selectedCell, gridState.editingCell]);
 
   // Calculate area widths for split layout
   const areaWidths = useMemo(() => {
