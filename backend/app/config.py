@@ -13,7 +13,20 @@ if not _ENV_FILE.exists() and _ENV_EXAMPLE.exists():
 
 
 class Settings(BaseSettings):
-    llm_adapter: str = "openai_compat"
+    # ── Gemini (Built-in LLM) ──
+    gemini_api_key: str = ""
+    
+    # ── GitHub (Plugin Downloads) ──
+    github_pat: str = ""
+    
+    # ── Development Mode ──
+    dev_mode: bool = False
+    
+    # ── Home Directory (set by Launcher, fallback to backend/) ──
+    hoshutaro_home: str = str(Path(__file__).resolve().parents[1])
+    
+    # ── Legacy LLM Adapter ──
+    llm_adapter: str = "gemini"
     llm_base_url: str = "http://127.0.0.1:11434/v1"
     llm_model: str = ""
     llm_api_key: str = "none"
