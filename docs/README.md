@@ -1,57 +1,25 @@
-# HOSHUTARO ドキュメント
+# 保守太郎 (HOSHUTARO) プラグイン開発キット (SDK)
 
-## 概要
+保守太郎は、外部システムとの連携やLLM機能の拡張を**プラグイン方式**で提供しています。
+このドキュメントリポジトリは、保守太郎に機能を追加するサードパーティ開発者向けの実装ガイドおよびリファレンスです。
 
-HOSHUTARO（星取表）は、設備保全履歴管理システムです。Excelライクなインターフェースでプラント設備の保全作業を計画・実績管理できます。
+## ドキュメント一覧
 
-## ドキュメント構成
+学習プロセスに沿って、ステップバイステップでドキュメントをお読みください。
 
-### アーキテクチャ
+| ステップ | ファイル | 概要 |
+| :--- | :--- | :--- |
+| **0** | [ARCHITECTURE.md](./ARCHITECTURE.md) | プラグインが本体とどう連携するかのアーキテクチャ図・概念 |
+| **1** | [1_GETTING_STARTED.md](./1_GETTING_STARTED.md) | Hello World! MCP Serverを作ってみるチュートリアル |
+| **2** | [2_CONNECTOR_DEVELOPMENT.md](./2_CONNECTOR_DEVELOPMENT.md) | MaximoやSAPなどの外部システムとデータを同期する「コネクタ」の開発ガイド |
+| **-** | [DATA_MODEL.md](./DATA_MODEL.md) | コネクタ開発で必要となる保守太郎のデータ型（JSONスキーマ）仕様 |
+| **3** | [3_LLM_ADAPTER_DEVELOPMENT.md](./3_LLM_ADAPTER_DEVELOPMENT.md) | ローカルやクラウドのLLMを組み込む「LLMアダプタ」の開発ガイド |
+| **4** | [4_SKILL_RECIPES.md](./4_SKILL_RECIPES.md) | プラグインのToolを自動化する「Skill（YAML）」の作り方 |
+| **5** | [5_PUBLISH_GUIDE.md](./5_PUBLISH_GUIDE.md) | 完成したプラグインをビルドし、GitHubを通じてユーザーへ配信する手順 |
 
-| ドキュメント | 内容 |
-|---|---|
-| [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) | 技術スタック、アーキテクチャパターン、パフォーマンス設計 |
-| [DATABASE_STRUCTURE.md](./DATABASE_STRUCTURE.md) | **全型定義の唯一の正**。エンティティ構造、リレーション、ビューモード型、データ移行 |
-| [COMPONENT_ARCHITECTURE.md](./COMPONENT_ARCHITECTURE.md) | コンポーネント構造、ディレクトリ構成、状態管理パターン |
+---
 
-### 機能・UI
-
-| ドキュメント | 内容 |
-|---|---|
-| [FEATURE_SPECIFICATIONS.md](./FEATURE_SPECIFICATIONS.md) | 機能仕様、要件定義、成功基準 |
-| [USER_INTERFACE_GUIDE.md](./USER_INTERFACE_GUIDE.md) | UIコンポーネント、キーボードショートカット、ビジュアルデザイン |
-
-### 開発ガイド
-
-| ドキュメント | 内容 |
-|---|---|
-| [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md) | Manager統合、ダイアログ統合、サービス層インターフェース、データフロー |
-
-### 運用
-
-| ドキュメント | 内容 |
-|---|---|
-| [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) | 実装状況、テスト結果、パフォーマンスベンチマーク |
-| [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) | テスト戦略、テスト構成、実行方法 |
-| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | トラブルシューティングガイド、デバッグ方法 |
-
-## クイックスタート
-
-### 開発者向け
-
-1. [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) でアーキテクチャを理解
-2. [DATABASE_STRUCTURE.md](./DATABASE_STRUCTURE.md) でデータモデルを把握
-3. [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md) で統合パターンを習得
-
-### 新機能追加時
-
-1. [COMPONENT_ARCHITECTURE.md](./COMPONENT_ARCHITECTURE.md) でコンポーネントパターンを確認
-2. [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md) の統合チェックリストに従う
-3. [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) に基づいてテストを追加
-
-## ドキュメント管理ルール
-
-1. **型定義の変更** → `DATABASE_STRUCTURE.md` のみ更新（唯一の正）
-2. **新規ドキュメントは作成しない** → 既存ドキュメントに追記する
-3. **コンポーネント固有情報** → 各コンポーネントの `README.md` に記載
-4. **統合パターン** → `INTEGRATION_GUIDE.md` に集約
+## 開発の前提条件
+- すべてのプラグインは **MCP (Model Context Protocol) Server** として実装されます。
+- `stdio` トランスポート（標準入出力を介したJSON-RPC通信）を利用するため、Python や Node.js など標準出力が扱える言語であれば何の言語でも開発可能です（本ガイドでは主に **Python** を使った解説を行います）。
+- プラグインには必ず `manifest.json` が含まれ、それが保守太郎のUIで設定画面などを生成するメタデータとなります。

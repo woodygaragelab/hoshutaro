@@ -1,0 +1,57 @@
+{
+  "registryVersion": "1.0.0",
+  "plugins": [
+    {
+      "id": "maximo-connector",
+      "name": "Maximo連携コネクタ",
+      "version": "1.0.0",
+      "category": "connector",
+      "icon": "🔗",
+      "license": "premium",
+      "repository": "woodygaragelab/hoshutaro-plugins-maximo",
+      "releaseTag": "v1.0.0",
+      "artifactPattern": "maximo-connector-{platform}-v{version}.zip",
+      "platforms": ["windows", "linux", "darwin"],
+      "bundled": true
+    },
+    {
+      "id": "ollama-adapter",
+      "name": "Ollama LLMアダプタ",
+      "version": "1.0.0",
+      "category": "llm-adapter",
+      "icon": "🦙",
+      "license": "free",
+      "repository": "woodygaragelab/hoshutaro-plugins-ollama",
+      "releaseTag": "v1.0.0",
+      "artifactPattern": "ollama-adapter-{platform}-v{version}.zip",
+      "platforms": ["windows", "linux", "darwin"],
+      "bundled": false
+    },
+    {
+      "id": "openai-adapter",
+      "name": "OpenAI LLMアダプタ",
+      "version": "1.0.0",
+      "category": "llm-adapter",
+      "icon": "🤖",
+      "license": "free",
+      "repository": "woodygaragelab/hoshutaro-plugins-openai",
+      "releaseTag": "v1.0.0",
+      "artifactPattern": "openai-adapter-{platform}-v{version}.zip",
+      "platforms": ["windows", "linux", "darwin"],
+      "bundled": false
+    },
+    {
+      "id": "openvino-adapter",
+      "name": "OpenVINO LLMアダプタ",
+      "version": "1.0.0",
+      "category": "llm-adapter",
+      "icon": "🧠",
+      "license": "free",
+      "repository": "woodygaragelab/hoshutaro-plugins-openvino",
+      "releaseTag": "v1.0.0",
+      "artifactPattern": "openvino-adapter-{platform}-v{version}.zip",
+      "platforms": ["windows"],
+      "bundled": false
+    }
+  ]
+}
