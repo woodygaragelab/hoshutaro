@@ -1,6 +1,6 @@
 import logging
 from app.engine.state import AgentState
-from app.llm.factory import get_llm_adapter
+from app.services.llm_shim import get_llm_adapter
 from app.models.schemas import MaintenanceOperation
 
 logger = logging.getLogger(__name__)
@@ -70,3 +70,4 @@ async def reasoning_node(state: AgentState) -> dict:
             return {"final_response": res, "operations": [], "error_message": ""}
         except Exception as e:
             return {"final_response": f"エラー: {e}", "operations": [], "error_message": str(e)}
+

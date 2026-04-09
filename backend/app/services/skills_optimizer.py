@@ -3,7 +3,7 @@ import os
 import json
 
 from app.services.skill_loader import skill_loader
-from app.llm.factory import get_llm_adapter
+from app.services.llm_shim import get_llm_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +70,4 @@ def update_skills_file(skill_name: str, new_context: str, filepath: str = "skill
             
             logger.info(f"Updated SKILLS.md for skill: {skill_name}")
         skill_loader.reload()
+

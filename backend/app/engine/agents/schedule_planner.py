@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.services.planning_engine import analyze_periodicity, generate_predictive_schedule
 from app.engine.graph import tool_execution_node
-from app.llm.factory import get_llm_adapter
+from app.services.llm_shim import get_llm_adapter
 from app.services.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -317,3 +317,4 @@ def create_schedule_planner_graph():
     return workflow.compile()
 
 schedule_planner_engine = create_schedule_planner_graph()
+

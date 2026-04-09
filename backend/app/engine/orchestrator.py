@@ -8,7 +8,7 @@ from app.engine.agents.schedule_planner import schedule_planner_engine
 from app.engine.conversational_dispatcher import create_parallel_dispatch
 from app.services.skill_loader import skill_loader
 from app.services.session_manager import session_manager
-from app.llm.factory import get_llm_adapter
+from app.services.llm_shim import get_llm_adapter
 
 # ユーザー確認を示すキーワードパターン
 _CONFIRMATION_KEYWORDS = {"はい", "お願い", "OK", "ok", "Ok", "yes", "よろしく", "それで", "実行", "追加して", "進めて"}
@@ -204,3 +204,4 @@ async def keyword_fallback(
         "result": "",
         "operations": [],
     }
+

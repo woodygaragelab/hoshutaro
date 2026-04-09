@@ -1,8 +1,8 @@
 import asyncio
 import logging
 from typing import Optional
-from app.llm.factory import get_llm_adapter
-from app.llm.json_utils import extract_json_object, extract_json_array
+from app.services.llm_shim import get_llm_adapter
+from app.services.llm_shim import extract_json_object, extract_json_array
 from app.services.excel_types import PhysicalGrid, StructureInfo, ColumnDescriptor
 
 logger = logging.getLogger(__name__)
@@ -374,3 +374,4 @@ async def run_phase3_hierarchy_linking(assets: list[dict], existing_hierarchy: l
     except Exception as e:
         logger.error("[P3] エラー: %s", e)
         return {}
+

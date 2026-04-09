@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
 from app.config import settings
-from app.llm.factory import reset_llm_adapter
 
 router = APIRouter()
 
@@ -72,33 +71,20 @@ async def update_settings(new_settings: LLMSettings):
     settings.openvino_device = new_settings.openvino_device
     settings.openvino_performance_mode = new_settings.openvino_performance_mode
 
-    reset_llm_adapter()
+    # MCP環境では再起動はHubが管理するため何もしない
     return {"status": "ok"}
 
 
 @router.post("/api/settings/llm/test")
 async def test_llm_connection(req: LLMSettings):
+    from app.services.mcp_hub import mcp_hub
     try:
-        if req.llm_adapter == "openvino_genai":
-            from app.llm.openvino_genai import OpenVINOGenAIAdapter
-            adapter = OpenVINOGenAIAdapter(
-                model_path=req.openvino_model_path,
-                device=req.openvino_device,
-                performance_mode=req.openvino_performance_mode
-            )
-            res = await adapter.ping()
-            res["model_info"] = req.openvino_model_path
-            return res
-        else:
-            from app.llm.openai_compat import OpenAICompatAdapter
-            adapter = OpenAICompatAdapter(
-                base_url=req.llm_base_url, model=req.llm_model, api_key=req.llm_api_key or "none"
-            )
-            res = await adapter.ping()
-            res["model_info"] = req.llm_model
-            return res
+        plugin_id = "openvino-adapter" if req.llm_adapter == "openvino_genai" else "ollama-adapter"
+        res = await mcp_hub.call_tool(plugin_id, "test_connection", {})
+        res["model_info"] = req.openvino_model_path if req.llm_adapter == "openvino_genai" else req.llm_model
+        return res
     except Exception as e:
-        return {"ok": False, "latency_ms": 0, "error": str(e)}
+        return {"ok": False, "latency_ms": 0, "error": f"MCP Plugin '{plugin_id}' error: {str(e)}"}
 
 class LLMModelsRequest(BaseModel):
     base_url: str
@@ -107,15 +93,12 @@ class LLMModelsRequest(BaseModel):
 @router.post("/api/settings/llm/models")
 async def get_llm_models(req: LLMModelsRequest):
     """
-    指定されたbase_urlとapi_keyを用いて、利用可能なモデル一覧を取得する
+    MCPプラグインを経由してモデル一覧を取得する
     """
+    from app.services.mcp_hub import mcp_hub
     try:
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(base_url=req.base_url, api_key=req.api_key or "none")
-        models_response = await client.models.list()
-        # idプロパティを持つモデルオブジェクトのリストからidのリストを抽出
-        model_ids = sorted([model.id for model in models_response.data])
-        return {"ok": True, "models": model_ids}
+        models = await mcp_hub.call_tool("ollama-adapter", "list_models", {})
+        return {"ok": True, "models": models}
     except Exception as e:
         return {"ok": False, "models": [], "error": str(e)}
 

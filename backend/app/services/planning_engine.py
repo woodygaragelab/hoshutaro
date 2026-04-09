@@ -3,7 +3,7 @@ from datetime import datetime
 import logging
 from typing import List, Dict, Any, Optional
 
-from app.llm.factory import get_llm_adapter
+from app.services.llm_shim import get_llm_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -94,3 +94,4 @@ async def generate_predictive_schedule(periodicity_data: Dict[str, Any], context
     except Exception as e:
         logger.error(f"Prediction LLM Error: {e}")
         return f"予測の生成中にエラーが生じました: {str(e)}"
+
