@@ -1,0 +1,18 @@
+{
+  "id": "ollama-adapter",
+  "name": "Ollama LLMアダプタ",
+  "version": "1.0.0",
+  "author": "WoodyGarageLab",
+  "category": "llm-adapter",
+  "icon": "🦙",
+  "license": "free",
+  "minAppVersion": "1.0.0",
+  "transport": "stdio",
+  "command": "python",
+  "args": ["-u", "server.py"],
+  "tools": ["generate_text", "generate_text_stream", "test_connection", "list_models"],
+  "configSchema": {
+    "OLLAMA_BASE_URL": { "type": "string", "label": "Ollama URL", "default": "http://localhost:11434" },
+    "OLLAMA_MODEL": { "type": "string", "label": "Model", "default": "llama3.1" }
+  }
+}

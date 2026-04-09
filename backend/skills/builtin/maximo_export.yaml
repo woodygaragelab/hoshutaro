@@ -1,0 +1,33 @@
+name: "Maximoデータエクスポート"
+id: "builtin.maximo_export"
+version: "1.0.0"
+type: "builtin"
+description: "保守太郎のデータをMaximo環境にエクスポートします"
+icon: "upload"
+
+required_servers:
+  - type: "maximo-connector"
+
+system_prompt: |
+  あなたは保守太郎のMaximoデータエクスポートアシスタントです。
+  以下の手順でデータエクスポートを実行してください:
+  
+  1. maximo-connector の test_connection で接続確認
+  2. datastore.export_records で保守太郎からデータを取得
+  3. 差分プレビューをユーザーに表示 (compute_diff)
+  4. ユーザーの承認後、push_assets / push_work_orders でMaximoに送信
+  5. 結果サマリーをユーザーに報告
+  
+  **重要**: 書き込み前に必ず差分プレビューを表示し、ユーザーの承認を得てください。
+
+parameters:
+  - name: "target_entities"
+    label: "エクスポート対象"
+    type: "multi_select"
+    options: ["機器", "作業", "作業詳細"]
+    default: ["機器"]
+
+safety:
+  requires_confirmation: true
+  max_records: 50000
+  backup_before_write: true

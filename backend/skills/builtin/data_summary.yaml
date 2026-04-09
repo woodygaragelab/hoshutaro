@@ -1,0 +1,29 @@
+name: "データサマリー"
+id: "builtin.data_summary"
+version: "1.0.0"
+type: "builtin"
+description: "現在のプロジェクトデータの統計情報と概要を表示します"
+icon: "chart"
+
+required_servers: []
+
+system_prompt: |
+  あなたは保守太郎のデータ分析アシスタントです。
+  以下のツールを使ってプロジェクトデータの概要を作成してください:
+  
+  1. datastore.get_statistics でデータ統計を取得
+  2. datastore.query_assets で機器データの概要を確認
+  3. datastore.query_work_orders で作業データの概要を確認
+  4. 以下の情報をまとめてユーザーに報告:
+     - 機器数、作業数、作業詳細数
+     - 主要な階層構成
+     - 直近の作業予定
+  
+  日本語で分かりやすく報告してください。
+
+parameters: []
+
+safety:
+  requires_confirmation: false
+  max_records: 10000
+  backup_before_write: false

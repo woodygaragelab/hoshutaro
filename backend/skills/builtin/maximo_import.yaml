@@ -1,0 +1,34 @@
+name: "Maximoデータインポート"
+id: "builtin.maximo_import"
+version: "1.0.0"
+type: "builtin"
+description: "Maximo環境から機器・作業データをインポートします"
+icon: "download"
+
+required_servers:
+  - type: "maximo-connector"
+
+system_prompt: |
+  あなたは保守太郎のMaximoデータインポートアシスタントです。
+  以下の手順でデータインポートを実行してください:
+  
+  1. maximo-connector の test_connection で接続確認
+  2. ユーザーが指定した対象エンティティに従い、以下の順序でデータを取得:
+     a. fetch_assets で機器データ取得
+     b. fetch_work_orders で作業データ取得
+  3. datastore.import_records で保守太郎にデータを格納
+  4. 結果サマリーをユーザーに報告
+  
+  エラーが発生した場合は、原因と対処法をユーザーに説明してください。
+
+parameters:
+  - name: "target_entities"
+    label: "インポート対象"
+    type: "multi_select"
+    options: ["機器", "作業", "作業詳細"]
+    default: ["機器", "作業", "作業詳細"]
+
+safety:
+  requires_confirmation: true
+  max_records: 50000
+  backup_before_write: true
