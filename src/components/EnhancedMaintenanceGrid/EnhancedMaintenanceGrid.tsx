@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 // HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
-import { Box, Paper, Snackbar, Alert, Typography, TextField } from '@mui/material';
+import { Box, Paper, Snackbar, Alert, Typography, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from './types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
@@ -99,6 +99,7 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onJumpToDate?: (year: number, month?: number, week?: number, day?: number) => void;
   onCellCopy?: (rowId: string, columnId: string, viewMode: 'status' | 'cost') => void;
   onCellPaste?: (rowId: string, columnId: string, viewMode: 'status' | 'cost') => void;
+  onTimeCellsDelete?: (cells: {rowId: string, columnId: string}[]) => void;
   // Project Name Props
   projectName?: string;
   onProjectNameChange?: (newName: string) => void;
@@ -175,6 +176,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onJumpToDate,
   onCellCopy,
   onCellPaste,
+  onTimeCellsDelete,
   uniqueTasks,
   selectedTasks,
   onSelectedTasksChange,
@@ -212,6 +214,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
   // WorkOrder Expand State for Tree Grid
   const [expandedWorkOrders, setExpandedWorkOrders] = useState<Set<string>>(new Set());
+
+  // Delete Confirm State
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [timeCellsToDelete, setTimeCellsToDelete] = useState<{rowId: string, columnId: string}[]>([]);
 
   // Project Name Edit State
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
@@ -1129,8 +1135,37 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         }
       }
     } else if (columnId.startsWith('time_')) {
-      // Do nothing for time_ columns via keyboard delete/cut
-      // Managing schedule cells should be done via specific UI actions like DataGrid or Dialogs
+      const startCell = gridState.selectedRange?.start || gridState.selectedCell;
+      const endCell = gridState.selectedRange?.end || gridState.selectedCell;
+
+      const startRowIdx = visibleRowIds.indexOf(startCell.rowId);
+      const endRowIdx = visibleRowIds.indexOf(endCell.rowId);
+      const minRow = Math.min(startRowIdx, endRowIdx);
+      const maxRow = Math.max(startRowIdx, endRowIdx);
+      
+      const startColIdx = processedColumns.findIndex(c => c.id === startCell.columnId);
+      const endColIdx = processedColumns.findIndex(c => c.id === endCell.columnId);
+      const minCol = Math.min(startColIdx, endColIdx);
+      const maxCol = Math.max(startColIdx, endColIdx);
+      
+      if (minRow >= 0 && minCol >= 0) {
+        const cells: {rowId: string, columnId: string}[] = [];
+        for (let r = minRow; r <= maxRow; r++) {
+          const tRowId = visibleRowIds[r];
+          // Skip hierarchy header rows
+          if (tRowId.startsWith('hierarchy_')) continue;
+          for (let c = minCol; c <= maxCol; c++) {
+            const colId = processedColumns[c].id;
+            if (colId.startsWith('time_')) {
+              cells.push({ rowId: tRowId, columnId: colId });
+            }
+          }
+        }
+        if (cells.length > 0) {
+          setTimeCellsToDelete(cells);
+          setDeleteConfirmOpen(true);
+        }
+      }
       return;
     } else {
       // Delete other editable fields
@@ -1512,6 +1547,33 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
           allWorkOrderLines={associations}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>計画・実績データの削除</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            選択したタイムスケールセルから作業データを削除してもよろしいですか？（{timeCellsToDelete.length}セル）<br/>
+            この操作は元に戻せる場合がありますが、完全にデータが消去されます。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>キャンセル</Button>
+          <Button 
+            onClick={() => {
+              if (timeCellsToDelete.length > 0 && onTimeCellsDelete) {
+                onTimeCellsDelete(timeCellsToDelete);
+              }
+              setDeleteConfirmOpen(false);
+              setTimeCellsToDelete([]);
+            }} 
+            variant="contained" 
+            color="error"
+          >
+            削除する
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

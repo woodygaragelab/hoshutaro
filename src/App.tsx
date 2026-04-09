@@ -2383,6 +2383,49 @@ const App: React.FC = () => {
     }
   }, [internalClipboard, isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, handleSaveData]);
 
+  const handleTimeCellsDelete = useCallback((cells: {rowId: string, columnId: string}[]) => {
+    if (!isServicesInitialized || !workOrderLineManagerRef.current) {
+      showSnackbar('サービスが初期化されていません', 'error');
+      return;
+    }
+
+    try {
+      let deleteCount = 0;
+      const allLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
+
+      cells.forEach(cell => {
+        const timeKey = cell.columnId.replace('time_', '');
+        const target = extractIdsFromRowId(cell.rowId);
+
+        const linesToDelete = allLines.filter(line => {
+          if (line.AssetId !== target.assetId) return false;
+          if (target.taskId && line.WorkOrderId !== target.taskId) return false;
+          const date = typeof line.PlanScheduleStart === 'string'
+            ? new Date(line.PlanScheduleStart)
+            : line.PlanScheduleStart;
+          if (isNaN(date.getTime())) return false;
+
+          return getTimeKey(date, timeScale) === timeKey;
+        });
+
+        linesToDelete.forEach(line => {
+          workOrderLineManagerRef.current!.deleteLine(line.id);
+          deleteCount++;
+        });
+      });
+
+      if (deleteCount > 0) {
+        loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
+        showSnackbar(`作業データを${deleteCount}件削除しました`, 'success');
+      } else {
+        showSnackbar('該当する期間に削除する作業データがありませんでした', 'info');
+      }
+    } catch (error) {
+      console.error('Time cells delete failed:', error);
+      showSnackbar('作業データの削除中にエラーが発生しました', 'error');
+    }
+  }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode]);
+
   // Asset selection handlers
   const handleAssetSelectionChange = (assetIds: string[]) => {
     setSelectedAssets(assetIds);
@@ -2656,6 +2699,7 @@ const App: React.FC = () => {
                 onSpecificationBatchUpdate={handleSpecificationBatchUpdate}
                 onCellCopy={handleCellCopy}
                 onCellPaste={handleCellPaste}
+                onTimeCellsDelete={handleTimeCellsDelete}
                 // Header props - restored to original structure
                 onSearchChange={setSearchTerm}
                 uniqueTasks={uniqueTasks}

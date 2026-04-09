@@ -91,6 +91,7 @@ export interface EnhancedMaintenanceGridProps {
   viewMode: 'status' | 'cost';
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
+  onTimeCellsDelete?: (cells: {rowId: string, columnId: string}[]) => void;
   virtualScrolling?: boolean;
   readOnly?: boolean;
   displayAreaConfig?: DisplayAreaConfig;
