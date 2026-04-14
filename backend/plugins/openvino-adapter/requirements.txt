@@ -1,0 +1,4 @@
+mcp
+openvino
+openvino-genai
+pydantic

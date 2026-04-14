@@ -18,7 +18,7 @@ import {
   FileUpload as UploadFileIcon,
   FileDownload as DownloadFileIcon,
   ChatBubbleOutline as ChatIcon,
-  Apps as ToolsIcon,
+  Build as ToolsIcon,
   Event as DateRangeIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
@@ -118,7 +118,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
   const [showMasterMenu, setShowMasterMenu] = useState(false);
-  const [showPluginMenu, setShowPluginMenu] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
   // Scroll to bottom when messages update
   useEffect(() => {
     if (isChatExpanded && messages.length > 0) {
@@ -430,22 +430,21 @@ export const AgentBar: React.FC<AgentBarProps> = ({
               >
                 <ChatIcon fontSize="small" />
               </IconButton>
-              <IconButton className="tb-icon" onClick={() => setIsSettingsOpen(true)} title="LLM設定">
-                <SettingsIcon fontSize="small" />
-              </IconButton>
               
               <div
                 className="control-hover-group"
-                onMouseEnter={() => setShowPluginMenu(true)}
-                onMouseLeave={() => setShowPluginMenu(false)}
+                onMouseEnter={() => setShowToolsMenu(true)}
+                onMouseLeave={() => setShowToolsMenu(false)}
               >
-                <IconButton className={`tb-icon ${showPluginMenu ? 'active' : ''}`} title="プラグイン・スキル">
-                  <ExtensionIcon fontSize="small" />
+                <IconButton className={`tb-icon ${showToolsMenu ? 'active' : ''}`} title="ツールと設定">
+                  <ToolsIcon fontSize="small" />
                 </IconButton>
-                {showPluginMenu && (
+                {showToolsMenu && (
                   <div className="hover-menu-vertical plugin-menu-override">
-                    <div className="menu-item" onClick={() => { onPluginManager?.(); setShowPluginMenu(false); }}>プラグイン管理</div>
-                    <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowPluginMenu(false); }}>スキル実行</div>
+                    <div className="menu-item" onClick={() => { setIsSettingsOpen(true); setShowToolsMenu(false); }}>LLM設定</div>
+                    <div className="menu-item" onClick={() => { alert('Maximo等の外部API連携設定画面（準備中）'); setShowToolsMenu(false); }}>外部連携</div>
+                    <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
+                    <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>MCP管理</div>
                   </div>
                 )}
               </div>

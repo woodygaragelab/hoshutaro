@@ -6,6 +6,27 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Typography,
+  Box,
+  CircularProgress,
+  Button,
+  Chip,
+  Card,
+  CardActionArea,
+  TextField,
+  Select,
+  MenuItem,
+  FormControlLabel,
+  Checkbox,
+  LinearProgress,
+  FormGroup,
+} from '@mui/material';
+import {
   Close as CloseIcon,
   AutoFixHigh as SkillIcon,
   PlayArrow as PlayIcon,
@@ -131,95 +152,107 @@ export const SkillRunner: React.FC<SkillRunnerProps> = ({ open, onClose }) => {
     }
   };
 
-  // Group skills by type
   const builtinSkills = skills.filter(s => s.type === 'builtin');
   const userSkills = skills.filter(s => s.type === 'user');
 
   if (!open) return null;
 
   return (
-    <div className="skill-runner-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="skill-runner-dialog">
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 2 }}>
+        スキル実行
+        <IconButton onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
 
-        {/* Header */}
-        <div className="sr-header">
-          <div className="sr-header-title">
-            <SkillIcon sx={{ fontSize: 18 }} />
-            スキル実行
-          </div>
-          <button className="sr-close-btn" onClick={onClose}>
-            <CloseIcon sx={{ fontSize: 18 }} />
-          </button>
-        </div>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pb: 2, pt: 1, minHeight: '380px' }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+        ) : (
+          <>
+            {builtinSkills.length > 0 && (
+              <Box>
+                <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  ビルトインスキル
+                </Typography>
+                {builtinSkills.map(skill => (
+                  <Card 
+                    key={skill.id} 
+                    variant="outlined"
+                    sx={{ 
+                      mb: 1, 
+                      borderColor: selectedSkill?.id === skill.id ? 'primary.main' : 'divider',
+                      bgcolor: selectedSkill?.id === skill.id ? 'action.selected' : 'background.paper'
+                    }}
+                  >
+                    <CardActionArea onClick={() => handleSelectSkill(skill)} sx={{ p: 1.5, display: 'flex', alignItems: 'flex-start' }}>
+                      <Box sx={{ fontSize: 28, mr: 2, display: 'flex', alignItems: 'center' }}>
+                        {getSkillIcon(skill.icon)}
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle2" fontWeight="bold">{skill.name}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{skill.description}</Typography>
+                      </Box>
+                      <Chip size="small" label="builtin" color="success" variant="outlined" sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} />
+                    </CardActionArea>
+                  </Card>
+                ))}
+              </Box>
+            )}
 
-        {/* Content */}
-        <div className="sr-content">
-          {loading && <div className="pm-empty">読み込み中...</div>}
+            {userSkills.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  ユーザースキル
+                </Typography>
+                {userSkills.map(skill => (
+                  <Card 
+                    key={skill.id} 
+                    variant="outlined"
+                    sx={{ 
+                      mb: 1, 
+                      borderColor: selectedSkill?.id === skill.id ? 'primary.main' : 'divider',
+                      bgcolor: selectedSkill?.id === skill.id ? 'action.selected' : 'background.paper'
+                    }}
+                  >
+                    <CardActionArea onClick={() => handleSelectSkill(skill)} sx={{ p: 1.5, display: 'flex', alignItems: 'flex-start' }}>
+                      <Box sx={{ fontSize: 28, mr: 2, display: 'flex', alignItems: 'center' }}>
+                        {getSkillIcon(skill.icon)}
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle2" fontWeight="bold">{skill.name}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{skill.description}</Typography>
+                      </Box>
+                      <Chip size="small" label="user" color="secondary" variant="outlined" sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} />
+                    </CardActionArea>
+                  </Card>
+                ))}
+              </Box>
+            )}
 
-          {!loading && (
-            <>
-              {/* Built-in Skills */}
-              {builtinSkills.length > 0 && (
-                <>
-                  <div className="sr-section-label">ビルトインスキル</div>
-                  {builtinSkills.map(skill => (
-                    <div
-                      key={skill.id}
-                      className={`sr-skill-card ${selectedSkill?.id === skill.id ? 'selected' : ''}`}
-                      onClick={() => handleSelectSkill(skill)}
-                    >
-                      <div className="sr-skill-icon">{getSkillIcon(skill.icon)}</div>
-                      <div className="sr-skill-body">
-                        <div className="sr-skill-name">{skill.name}</div>
-                        <div className="sr-skill-desc">{skill.description}</div>
-                      </div>
-                      <span className="sr-skill-type-badge builtin">builtin</span>
-                    </div>
-                  ))}
-                </>
-              )}
+            {skills.length === 0 && (
+              <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+                利用可能なスキルがありません。
+              </Typography>
+            )}
 
-              {/* User Skills */}
-              {userSkills.length > 0 && (
-                <>
-                  <div className="sr-section-label">ユーザースキル</div>
-                  {userSkills.map(skill => (
-                    <div
-                      key={skill.id}
-                      className={`sr-skill-card ${selectedSkill?.id === skill.id ? 'selected' : ''}`}
-                      onClick={() => handleSelectSkill(skill)}
-                    >
-                      <div className="sr-skill-icon">{getSkillIcon(skill.icon)}</div>
-                      <div className="sr-skill-body">
-                        <div className="sr-skill-name">{skill.name}</div>
-                        <div className="sr-skill-desc">{skill.description}</div>
-                      </div>
-                      <span className="sr-skill-type-badge user">user</span>
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {skills.length === 0 && (
-                <div className="pm-empty">利用可能なスキルがありません。</div>
-              )}
-
-              {/* Parameters Form */}
-              {selectedSkill && selectedSkill.parameters.length > 0 && (
-                <div className="sr-params-section">
-                  <div className="sr-params-title">
-                    パラメータ — {selectedSkill.name}
-                  </div>
+            {selectedSkill && selectedSkill.parameters.length > 0 && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 'bold' }}>
+                  パラメータ — {selectedSkill.name}
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {selectedSkill.parameters.map(param => (
-                    <div key={param.name} className="sr-param-field">
-                      <label className="sr-param-label">
+                    <Box key={param.name}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                         {param.label} {param.required && '*'}
-                      </label>
+                      </Typography>
 
                       {param.type === 'text' && (
-                        <input
-                          className="sr-param-input"
-                          type="text"
+                        <TextField
+                          size="small"
+                          fullWidth
                           value={(paramValues[param.name] as string) || ''}
                           onChange={(e) => setParamValues(prev => ({
                             ...prev,
@@ -229,8 +262,9 @@ export const SkillRunner: React.FC<SkillRunnerProps> = ({ open, onClose }) => {
                       )}
 
                       {param.type === 'number' && (
-                        <input
-                          className="sr-param-input"
+                        <TextField
+                          size="small"
+                          fullWidth
                           type="number"
                           value={(paramValues[param.name] as number) || ''}
                           onChange={(e) => setParamValues(prev => ({
@@ -241,120 +275,128 @@ export const SkillRunner: React.FC<SkillRunnerProps> = ({ open, onClose }) => {
                       )}
 
                       {param.type === 'select' && (
-                        <select
-                          className="sr-param-select"
+                        <Select
+                          size="small"
+                          fullWidth
+                          displayEmpty
                           value={(paramValues[param.name] as string) || ''}
                           onChange={(e) => setParamValues(prev => ({
                             ...prev,
                             [param.name]: e.target.value,
                           }))}
                         >
-                          <option value="">選択してください</option>
+                          <MenuItem value="" disabled>選択してください</MenuItem>
                           {param.options?.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
+                            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
                           ))}
-                        </select>
+                        </Select>
                       )}
 
                       {param.type === 'multi_select' && (
-                        <div className="sr-param-checkbox-group">
+                        <FormGroup row>
                           {param.options?.map(opt => (
-                            <label key={opt} className="sr-param-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={
-                                  Array.isArray(paramValues[param.name])
-                                    ? (paramValues[param.name] as string[]).includes(opt)
-                                    : false
-                                }
-                                onChange={(e) => {
-                                  const current = Array.isArray(paramValues[param.name])
-                                    ? [...(paramValues[param.name] as string[])]
-                                    : [];
-                                  if (e.target.checked) {
-                                    current.push(opt);
-                                  } else {
-                                    const idx = current.indexOf(opt);
-                                    if (idx >= 0) current.splice(idx, 1);
+                            <FormControlLabel
+                              key={opt}
+                              control={
+                                <Checkbox
+                                  size="small"
+                                  checked={
+                                    Array.isArray(paramValues[param.name])
+                                      ? (paramValues[param.name] as string[]).includes(opt)
+                                      : false
                                   }
-                                  setParamValues(prev => ({
-                                    ...prev,
-                                    [param.name]: current,
-                                  }));
-                                }}
-                              />
-                              {opt}
-                            </label>
+                                  onChange={(e) => {
+                                    const current = Array.isArray(paramValues[param.name])
+                                      ? [...(paramValues[param.name] as string[])]
+                                      : [];
+                                    if (e.target.checked) current.push(opt);
+                                    else {
+                                      const idx = current.indexOf(opt);
+                                      if (idx >= 0) current.splice(idx, 1);
+                                    }
+                                    setParamValues(prev => ({ ...prev, [param.name]: current }));
+                                  }}
+                                />
+                              }
+                              label={<Typography variant="body2">{opt}</Typography>}
+                            />
                           ))}
-                        </div>
+                        </FormGroup>
                       )}
 
                       {param.type === 'boolean' && (
-                        <label className="sr-param-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={!!paramValues[param.name]}
-                            onChange={(e) => setParamValues(prev => ({
-                              ...prev,
-                              [param.name]: e.target.checked,
-                            }))}
-                          />
-                          有効
-                        </label>
-                      )}
-                    </div>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              size="small"
+                              checked={!!paramValues[param.name]}
+                              onChange={(e) => setParamValues(prev => ({
+                                ...prev,
+                                [param.name]: e.target.checked,
+                              }))}
+                            />
+                          }
+                          label={<Typography variant="body2">有効</Typography>}
+                        />
+                       )}
+                    </Box>
                   ))}
-                </div>
-              )}
+                </Box>
+              </Box>
+            )}
 
-              {/* Execution Progress */}
-              {executionProgress && (
-                <div className="sr-execution-section">
-                  <div className="sr-execution-header">
-                    <span style={{ fontSize: 12, color: '#aaa' }}>
-                      {executionProgress.currentStep || '実行中...'}
-                    </span>
-                    <span style={{ fontSize: 11, color: '#666' }}>
-                      {executionProgress.progress}%
-                    </span>
-                  </div>
-                  <div className="sr-progress-bar">
-                    <div
-                      className="sr-progress-fill"
-                      style={{ width: `${executionProgress.progress}%` }}
-                    />
-                  </div>
-                  {executionProgress.logs && executionProgress.logs.length > 0 && (
-                    <div className="sr-log-container">
-                      {executionProgress.logs.map((log: SkillExecutionLog, i: number) => (
-                        <div key={i} className="sr-log-entry">
-                          <span className="sr-log-time">{formatTime(log.timestamp)}</span>
-                          <span className={`sr-log-msg ${log.level}`}>{log.message}</span>
-                        </div>
-                      ))}
-                      <div ref={logEndRef} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Execute Bar */}
-        {selectedSkill && (
-          <div className="sr-execute-bar">
-            <button
-              className="sr-execute-btn"
-              onClick={handleExecute}
-              disabled={executing}
-            >
-              <PlayIcon sx={{ fontSize: 16 }} />
-              {executing ? '実行中...' : '実行'}
-            </button>
-          </div>
+            {executionProgress && (
+              <Box sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {executionProgress.currentStep || '実行中...'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {executionProgress.progress}%
+                  </Typography>
+                </Box>
+                <LinearProgress variant="determinate" value={executionProgress.progress} sx={{ height: 6, borderRadius: 3, mb: 2 }} />
+                
+                {executionProgress.logs && executionProgress.logs.length > 0 && (
+                  <Box sx={{ bgcolor: '#0a0a0a', p: 1.5, borderRadius: 1, border: 1, borderColor: '#1a1a1a', maxHeight: 200, overflowY: 'auto' }}>
+                    {executionProgress.logs.map((log: SkillExecutionLog, i: number) => (
+                      <Box key={i} sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
+                        <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                          {formatTime(log.timestamp)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ 
+                          color: log.level === 'error' ? 'error.main' : log.level === 'warning' ? 'warning.main' : 'text.primary',
+                          fontFamily: 'monospace' 
+                        }}>
+                          {log.message}
+                        </Typography>
+                      </Box>
+                    ))}
+                    <div ref={logEndRef} />
+                  </Box>
+                )}
+              </Box>
+            )}
+          </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
+        <Button onClick={onClose} color="inherit" disabled={executing}>
+          キャンセル
+        </Button>
+        {selectedSkill && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleExecute}
+            disabled={executing}
+            startIcon={executing ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
+          >
+            {executing ? '実行中...' : '実行'}
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
   );
 };

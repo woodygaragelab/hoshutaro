@@ -79,12 +79,23 @@ async def start_plugin(plugin_id: str):
         raise HTTPException(status_code=404, detail=f"プラグイン {plugin_id} が見つかりません")
     
     config = plugin_manager.get_plugin_config(plugin_id)
-    config["command"] = str(
-        plugin_manager._plugins_dir / plugin_id / manifest.get("command", plugin_id)
-    )
+    
+    import sys
+    command = manifest.get("command", plugin_id)
+    if command in ("python", "python3"):
+        command = sys.executable
+
+    # 起動オプションの構築 (manifestの定義 + ユーザー設定をenvへ)
+    # config 内の値はPluginの設定値なので、それを環境変数として渡す
+    launch_options = {
+        "command": command,
+        "args": manifest.get("args", []),
+        "cwd": str(plugin_manager._plugins_dir / plugin_id),
+        "env": {k: str(v) for k, v in config.items() if isinstance(v, (str, int, float, bool))}
+    }
     
     try:
-        await mcp_hub.start_server(plugin_id, config)
+        await mcp_hub.start_server(plugin_id, launch_options)
         return {"status": "started", "plugin_id": plugin_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -125,7 +136,17 @@ async def update_plugin_config(plugin_id: str, body: PluginConfigUpdate):
     
     # 実行中なら再起動して新設定を適用
     if mcp_hub.get_server_status(plugin_id) == "running":
-        await mcp_hub.restart_server(plugin_id)
+        import sys
+        command = manifest.get("command", plugin_id)
+        if command in ("python", "python3"):
+            command = sys.executable
+        launch_options = {
+            "command": command,
+            "args": manifest.get("args", []),
+            "cwd": str(plugin_manager._plugins_dir / plugin_id),
+            "env": {k: str(v) for k, v in body.config.items() if isinstance(v, (str, int, float, bool))}
+        }
+        await mcp_hub.restart_server(plugin_id, launch_options)
     
     return {"status": "updated", "plugin_id": plugin_id}
 

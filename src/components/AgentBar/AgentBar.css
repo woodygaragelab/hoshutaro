@@ -213,6 +213,7 @@
   font-size: 13px;
   cursor: pointer;
   text-align: center;
+  white-space: nowrap;
   transition: all 0.15s;
 }
 

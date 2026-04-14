@@ -10,19 +10,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ollama-adapter")
 
 # Initialize FastMCP Server
-mcp = FastMCP(
-    "ollama-adapter",
-    description="Ollama/OpenAI compatible LLM Adapter MCP Server"
-)
+mcp = FastMCP("ollama-adapter")
+
+import httpx
 
 def get_client() -> tuple[AsyncOpenAI, str]:
     """Environment variable からクライアントを初期化"""
-    base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-    model = os.environ.get("OLLAMA_MODEL", "llama3.1")
-    api_key = os.environ.get("OLLAMA_API_KEY", "none")
+    base_url = os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
+    model = os.environ.get("LLM_MODEL", "llama3.1")
+    api_key = os.environ.get("LLM_API_KEY", "none")
     
-    # 互換APIとして初期化
-    client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    # HTTPにフォールバック（空文字や不要なスラッシュ対策）
+    if not base_url:
+        base_url = "http://localhost:11434/v1"
+        
+    os.environ["NO_PROXY"] = "localhost,127.0.0.1,::1"
+    
+    http_client = httpx.AsyncClient(trust_env=False)
+    client = AsyncOpenAI(base_url=base_url, api_key=api_key, http_client=http_client)
     return client, model
 
 
@@ -83,4 +88,9 @@ async def generate_text(
 
 if __name__ == "__main__":
     import asyncio
+    import sys
+    
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        
     mcp.run()

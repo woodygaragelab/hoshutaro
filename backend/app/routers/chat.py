@@ -1,8 +1,8 @@
 """
 Chat Router — AI チャット REST API
 
-Phase 5B: Gemini Client を優先 LLM として使用。
-旧 llm/ アダプタは Gemini が利用不可の場合のフォールバックとして維持。
+Gemini API または 選択されたMCP LLMプラグインへの呼び出しをルーティング。
+設定(settings.llm_adapter)で選択されたプロバイダを明示的に使用します。
 """
 
 import json
@@ -39,9 +39,8 @@ async def chat_completions(body: ChatRequest, request: Request):
         session_id = body.session_id
         session = session_manager.get_session(session_id)
 
-        # ── LLM 選択: 設定値とGemini Clientの状態に基づいて判定 ──
+        # ── LLM 選択: 設定値に基づいて判定 ──
         from app.config import settings
-        use_gemini = (settings.llm_adapter == "gemini") and gemini_client.is_ready
 
         async def event_generator():
             try:
@@ -64,33 +63,38 @@ async def chat_completions(body: ChatRequest, request: Request):
                 # ── 前処理: 会話履歴に追加 ──
                 session.append_message("user", user_msg)
 
-                # ═══════ Gemini Primary Path ═══════
-                if use_gemini:
+                # Build system prompt with data context
+                data_summary = ""
+                if body.data_context:
+                    dc = body.data_context
+                    data_summary = (
+                        f"\n\n[データコンテキスト] "
+                        f"機器: {len(dc.get('assets', []))}件, "
+                        f"作業: {len(dc.get('workOrders', []))}件, "
+                        f"明細: {len(dc.get('workOrderLines', []))}件"
+                    )
+
+                system_prompt = (
+                    "あなたは「保守太郎」の AI アシスタントです。"
+                    "設備保全計画に関する質問に答え、データ操作を支援してください。"
+                    "日本語で回答してください。"
+                    + data_summary
+                )
+
+                # Build conversation prompt
+                conversation = "\n".join(
+                    f"{'ユーザー' if m['role'] == 'user' else 'アシスタント'}: {m['content']}"
+                    for m in messages_for_llm
+                )
+
+                # ═══════ Gemini Path ═══════
+                if settings.llm_adapter == "gemini":
+                    if not gemini_client.is_ready:
+                        yield {"data": json.dumps({"type": "text_delta", "delta": "\\n[エラー: Gemini クライアントの準備ができていません。設定を確認してください。]"})}
+                        yield {"data": "[DONE]"}
+                        return
+
                     yield {"data": json.dumps({"type": "status", "message": "Gemini が思考中..."})}
-
-                    # Build system prompt with data context
-                    data_summary = ""
-                    if body.data_context:
-                        dc = body.data_context
-                        data_summary = (
-                            f"\n\n[データコンテキスト] "
-                            f"機器: {len(dc.get('assets', []))}件, "
-                            f"作業: {len(dc.get('workOrders', []))}件, "
-                            f"明細: {len(dc.get('workOrderLines', []))}件"
-                        )
-
-                    system_prompt = (
-                        "あなたは「保守太郎」の AI アシスタントです。"
-                        "設備保全計画に関する質問に答え、データ操作を支援してください。"
-                        "日本語で回答してください。"
-                        + data_summary
-                    )
-
-                    # Build conversation prompt
-                    conversation = "\n".join(
-                        f"{'ユーザー' if m['role'] == 'user' else 'アシスタント'}: {m['content']}"
-                        for m in messages_for_llm
-                    )
 
                     try:
                         async for chunk in gemini_client.generate_text_stream(
@@ -104,33 +108,38 @@ async def chat_completions(body: ChatRequest, request: Request):
                         session.append_message("assistant", "[Gemini response streamed]")
                     except Exception as e:
                         logger.error("Gemini streaming error: %s", e)
-                        # Gemini 失敗 → フォールバックメッセージ
                         error_msg = f"\n[Gemini エラー: {e}]"
                         yield {"data": json.dumps({"type": "text_delta", "delta": error_msg})}
 
                     yield {"data": "[DONE]"}
                     return
-
-                # ═══════ Legacy MCP LLM Path (フォールバック) ═══════
-                yield {"data": json.dumps({"type": "status", "message": "ローカルLLMで思考中..."})}
-
-                from app.config import settings
-                plugin_id = "openvino-adapter" if settings.llm_adapter == "openvino_genai" else "ollama-adapter"
-                
-                try:
-                    res = await mcp_hub.call_tool(plugin_id, "generate_text", {"messages": messages_for_llm})
-                    content = res.get("text", "")
+                else:
+                    # ═══════ Local LLM Path (MCP Plugin) ═══════
+                    plugin_id = settings.llm_adapter
                     
-                    if content:
-                        for i in range(0, len(content), 2):
-                            yield {"data": json.dumps({"type": "text_delta", "delta": content[i:i+2]})}
-                            await asyncio.sleep(0.01)
-                    session.append_message("assistant", content)
-                except Exception as e:
-                    logger.error("MCP LLM fallback error: %s", e)
-                    yield {"data": json.dumps({"type": "text_delta", "delta": f"\\n[ローカルLLM エラー: {e}]"})}
+                    status = mcp_hub.get_server_status(plugin_id)
+                    if status != "running":
+                        yield {"data": json.dumps({"type": "text_delta", "delta": f"\\n[エラー: プラグイン {plugin_id} が起動していません。設定からサーバーを起動してください。]"})}
+                        yield {"data": "[DONE]"}
+                        return
 
-                yield {"data": "[DONE]"}
+                    yield {"data": json.dumps({"type": "status", "message": "ローカルLLMで思考中..."})}
+
+                    try:
+                        # TODO: In MCP text generation, we might want to also pass the system prompt, depending on adapter schema.
+                        res = await mcp_hub.call_tool(plugin_id, "generate_text", {"messages": [{"role": "system", "content": system_prompt}] + messages_for_llm})
+                        content = res.get("text", "") if isinstance(res, dict) else str(res)
+                        
+                        if content:
+                            for i in range(0, len(content), 2):
+                                yield {"data": json.dumps({"type": "text_delta", "delta": content[i:i+2]})}
+                                await asyncio.sleep(0.01)
+                        session.append_message("assistant", content)
+                    except Exception as e:
+                        logger.error("MCP LLM error: %s", e)
+                        yield {"data": json.dumps({"type": "text_delta", "delta": f"\\n[ローカルLLM エラー: {e}]"})}
+
+                    yield {"data": "[DONE]"}
 
             except asyncio.CancelledError:
                 logger.info("Client disconnected")

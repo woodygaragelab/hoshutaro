@@ -1,3 +1,10 @@
+import asyncio
+import sys
+
+# Windows 環境で asyncio.create_subprocess_exec 等を使用する際の NotImplementedError 回避策
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -37,3 +44,7 @@ app.include_router(data.router)
 app.include_router(plugins.router)
 app.include_router(skills.router)
 app.include_router(updater.router)
+
+# touch
+# touch for mcp_hub
+# trigger reload

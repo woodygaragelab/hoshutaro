@@ -1,0 +1,31 @@
+{
+  "id": "openvino-adapter",
+  "name": "OpenVINO LLMアダプタ",
+  "version": "1.0.0",
+  "author": "WoodyGarageLab",
+  "category": "llm-adapter",
+  "icon": "🧠",
+  "license": "free",
+  "minAppVersion": "1.0.0",
+  "transport": "stdio",
+  "command": "python",
+  "args": ["-u", "server.py"],
+  "tools": ["generate_text", "generate_text_stream", "test_connection", "list_models"],
+  "configSchema": {
+    "LLM_BASE_URL": { "type": "string", "label": "モデルディレクトリ", "default": "C:\\Users\\kazuh\\OpenVINO_Models" },
+    "LLM_MODEL": { "type": "string", "label": "モデル名", "default": "" },
+    "OPENVINO_DEVICE": { 
+      "type": "string", 
+      "label": "デバイス", 
+      "default": "HETERO:NPU,GPU",
+      "description": "推論を実行するデバイス。",
+      "options": ["AUTO", "HETERO:NPU,GPU", "NPU", "GPU", "CPU"]
+    },
+    "OPENVINO_PERFORMANCE_MODE": { 
+      "type": "string", 
+      "label": "パフォーマンス", 
+      "default": "LATENCY",
+      "options": ["LATENCY", "THROUGHPUT", "CUMULATIVE_THROUGHPUT", "POWER_SAVING"]
+    }
+  }
+}

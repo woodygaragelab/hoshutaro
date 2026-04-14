@@ -6,8 +6,11 @@ JSON-RPC 経由で Tool 呼び出しを中継する。
 """
 
 import asyncio
+import sys
 import json
 import logging
+import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -36,19 +39,22 @@ class ToolInfo:
 class MCPServerProcess:
     """単一の MCP Server プロセスを管理"""
     
-    def __init__(self, plugin_id: str, command: str, env: dict | None = None):
+    def __init__(self, plugin_id: str, command: str, args: list[str] | None = None, cwd: str | None = None, env: dict | None = None):
         self.plugin_id = plugin_id
         self.command = command
+        self.args = args or []
+        self.cwd = cwd
         self.env = env or {}
-        self.process: asyncio.subprocess.Process | None = None
+        self.process: subprocess.Popen | None = None
         self.status: str = "stopped"  # running, stopped, error
         self._request_id = 0
         self._pending: dict[int, asyncio.Future] = {}
-        self._reader_task: asyncio.Task | None = None
+        self._reader_thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def start(self) -> None:
         """MCP Server プロセスを起動 (stdio transport)"""
-        if self.process and self.process.returncode is None:
+        if self.process and self.process.poll() is None:
             logger.warning("[MCPHub] %s は既に起動中", self.plugin_id)
             return
 
@@ -56,38 +62,47 @@ class MCPServerProcess:
             import os
             merged_env = {**os.environ, **self.env}
             
-            self.process = await asyncio.create_subprocess_exec(
-                self.command,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            # Windows/Uvicorn環境下での NotImplementedError 回避のため
+            # asyncio.create_subprocess_exec ではなく Popen + 別スレッド を使用
+            self.process = subprocess.Popen(
+                [self.command] + self.args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=sys.stderr,
                 env=merged_env,
+                cwd=self.cwd,
             )
             self.status = "running"
-            self._reader_task = asyncio.create_task(self._read_responses())
+            self._loop = asyncio.get_running_loop()
+            
+            # 別スレッドで STDOUT を読み取り、メインループへ送る
+            self._reader_thread = threading.Thread(
+                target=self._read_responses_thread, 
+                daemon=True,
+                name=f"MCP-Reader-{self.plugin_id}"
+            )
+            self._reader_thread.start()
             logger.info("[MCPHub] %s を起動しました (PID=%d)", self.plugin_id, self.process.pid)
         except Exception as e:
             self.status = "error"
-            logger.error("[MCPHub] %s の起動に失敗: %s", self.plugin_id, e)
-            raise
+            logger.exception("[MCPHub] %s の起動に失敗", self.plugin_id)
+            raise RuntimeError(f"起動エラー: {e.__class__.__name__} - {str(e)}") from e
 
     async def stop(self) -> None:
         """MCP Server プロセスを停止"""
-        if self.process and self.process.returncode is None:
+        if self.process and self.process.poll() is None:
             self.process.terminate()
             try:
-                await asyncio.wait_for(self.process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+                self.process.wait(timeout=5.0)
+            except subprocess.TimeoutExpired:
                 self.process.kill()
-                await self.process.wait()
-        if self._reader_task:
-            self._reader_task.cancel()
+                self.process.wait()
         self.status = "stopped"
         logger.info("[MCPHub] %s を停止しました", self.plugin_id)
 
-    async def send_request(self, method: str, params: dict | None = None) -> Any:
+    async def send_request(self, method: str, params: dict | None = None, timeout: float = 900.0) -> Any:
         """JSON-RPC リクエストを送信し、レスポンスを待つ"""
-        if not self.process or self.process.returncode is not None:
+        if not self.process or self.process.poll() is not None:
             raise RuntimeError(f"MCP Server {self.plugin_id} が起動していません")
 
         self._request_id += 1
@@ -100,45 +115,75 @@ class MCPServerProcess:
             "params": params or {},
         }
         
-        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        future: asyncio.Future = self._loop.create_future()
         self._pending[request_id] = future
         
         payload = json.dumps(request) + "\n"
-        self.process.stdin.write(payload.encode())
-        await self.process.stdin.drain()
+        
+        # Popen.stdin.write はブロッキングIOだが、短いペイロードなら問題ない
+        def _write():
+            if self.process and self.process.stdin:
+                self.process.stdin.write(payload.encode())
+                self.process.stdin.flush()
+        
+        await asyncio.to_thread(_write)
         
         try:
-            result = await asyncio.wait_for(future, timeout=30.0)
+            # ローカルLLMは生成に時間がかかるため、タイムアウトを大幅に延長 (15分)
+            result = await asyncio.wait_for(future, timeout=timeout)
             return result
         except asyncio.TimeoutError:
             self._pending.pop(request_id, None)
-            raise TimeoutError(f"MCP Server {self.plugin_id} からの応答タイムアウト")
+            raise TimeoutError(f"MCP Server {self.plugin_id} からの応答タイムアウト ({timeout}秒)")
 
-    async def _read_responses(self) -> None:
-        """stdout から JSON-RPC レスポンスを読み取る"""
+    def _read_responses_thread(self) -> None:
+        """stdout から JSON-RPC レスポンスを読み取る (別スレッドで実行)"""
+        if not self.process or not self.process.stdout:
+            return
+            
         try:
             while True:
-                line = await self.process.stdout.readline()
+                line = self.process.stdout.readline()
                 if not line:
                     break
                 try:
-                    response = json.loads(line.decode().strip())
+                    response = json.loads(line.decode('utf-8', errors='replace').strip())
                     request_id = response.get("id")
                     if request_id and request_id in self._pending:
-                        future = self._pending.pop(request_id)
+                        future = self._pending[request_id]
+                        # futureをセットするために asyncio_run_coroutine_threadsafe 等ではなく
+                        # self._loop.call_soon_threadsafe を使用する
                         if "error" in response:
-                            future.set_exception(
-                                RuntimeError(response["error"].get("message", "Unknown error"))
+                            err_msg = response["error"].get("message", "Unknown error")
+                            self._loop.call_soon_threadsafe(
+                                self._safe_set_exception, future, RuntimeError(err_msg), request_id
                             )
                         else:
-                            future.set_result(response.get("result"))
+                            res_val = response.get("result")
+                            self._loop.call_soon_threadsafe(
+                                self._safe_set_result, future, res_val, request_id
+                            )
                 except json.JSONDecodeError:
                     continue
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.error("[MCPHub] %s のレスポンス読み取りエラー: %s", self.plugin_id, e)
-            self.status = "error"
+        finally:
+            logger.info("[MCPHub] %s の stdout リーダーを終了しました", self.plugin_id)
+            self.status = "error" if self.process.poll() != 0 else "stopped"
+            # プロセスが唐突に死んだ場合など、残っている保留中リクエストをすべてエラーで解放して無限ハングを防ぐ
+            for req_id, future in list(self._pending.items()):
+                if not future.done():
+                    self._loop.call_soon_threadsafe(
+                        self._safe_set_exception, future, RuntimeError("MCP Server プロセスが異常終了したか、パイプが切断されました。"), req_id
+                    )
+
+    def _safe_set_result(self, future: asyncio.Future, result: Any, request_id: int):
+        self._pending.pop(request_id, None)
+        if not future.done():
+            future.set_result(result)
+
+    def _safe_set_exception(self, future: asyncio.Future, exc: Exception, request_id: int):
+        self._pending.pop(request_id, None)
+        if not future.done():
+            future.set_exception(exc)
 
 
 class MCPClientHub:
@@ -165,12 +210,39 @@ class MCPClientHub:
                 return
         
         command = config.get("command", "")
+        args = config.get("args", [])
+        cwd = config.get("cwd", None)
         env = config.get("env", {})
         
-        server = MCPServerProcess(plugin_id, command, env)
+        server = MCPServerProcess(plugin_id, command, args, cwd, env)
         await server.start()
         self._servers[plugin_id] = server
         
+        # MCP Initialization Handshake
+        try:
+            await server.send_request("initialize", {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "hoshutaro-mcp-hub", "version": "1.0.0"}
+            })
+            
+            # Send initialized notification (fire and forget)
+            if server.process and server.process.stdin:
+                notif = '{"jsonrpc": "2.0", "method": "notifications/initialized"}\n'
+                def _write_notif():
+                    server.process.stdin.write(notif.encode())
+                    server.process.stdin.flush()
+                import asyncio
+                await asyncio.to_thread(_write_notif)
+                
+        except Exception as e:
+            logger.error(f"[MCPHub] {plugin_id} のInitializeに失敗しました: {e}")
+            try:
+                await server.stop()
+            except:
+                pass
+            return
+            
         # Tool一覧をキャッシュ
         try:
             tools_result = await server.send_request("tools/list")
@@ -198,13 +270,13 @@ class MCPClientHub:
         else:
             logger.warning("[MCPHub] %s は登録されていません", plugin_id)
 
-    async def restart_server(self, plugin_id: str) -> None:
+    async def restart_server(self, plugin_id: str, config: dict | None = None) -> None:
         """MCP Serverを再起動"""
         server = self._servers.get(plugin_id)
         if server:
-            config = {"command": server.command, "env": server.env}
+            new_config = config or {"command": server.command, "args": server.args, "cwd": server.cwd, "env": server.env}
             await self.stop_server(plugin_id)
-            await self.start_server(plugin_id, config)
+            await self.start_server(plugin_id, new_config)
         else:
             logger.warning("[MCPHub] %s は登録されていません", plugin_id)
 
@@ -218,7 +290,7 @@ class MCPClientHub:
             all_tools.extend(tools)
         return all_tools
 
-    async def call_tool(self, plugin_id: str, tool_name: str, args: dict) -> Any:
+    async def call_tool(self, plugin_id: str, tool_name: str, args: dict, timeout: float = 900.0) -> Any:
         """指定MCP ServerのToolを呼び出し"""
         server = self._servers.get(plugin_id)
         if not server:
@@ -229,7 +301,7 @@ class MCPClientHub:
         result = await server.send_request("tools/call", {
             "name": tool_name,
             "arguments": args,
-        })
+        }, timeout=timeout)
         return result
 
     def get_server_status(self, plugin_id: str) -> str:

@@ -7,29 +7,36 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton,
+  Tabs,
+  Tab,
+  Box,
+  Typography,
+  CircularProgress,
+  Button,
+  Chip,
+  Alert,
+  List,
+  ListItem
+} from '@mui/material';
+import {
   Close as CloseIcon,
   Extension as ExtensionIcon,
-  PlayArrow as PlayIcon,
-  Stop as StopIcon,
-  Settings as SettingsIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import type { PluginInfo, PluginConfigSchemaField, LicenseInfo } from '../../services/integration/types';
+import type { PluginInfo, LicenseInfo } from '../../services/integration/types';
 import {
   fetchPlugins,
   fetchRegistry,
   installPlugin,
   uninstallPlugin,
-  startPlugin,
-  stopPlugin,
-  fetchPluginConfig,
-  updatePluginConfig,
   fetchLicenseInfo,
 } from '../../services/integration/pluginApi';
-
-import './PluginManager.css';
 
 interface PluginManagerProps {
   open: boolean;
@@ -55,22 +62,28 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Config editing state
-  const [editingConfig, setEditingConfig] = useState<string | null>(null);
-  const [configSchema, setConfigSchema] = useState<Record<string, PluginConfigSchemaField>>({});
-  const [configValues, setConfigValues] = useState<Record<string, string>>({});
-
-  // Load data
   const loadData = useCallback(async () => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const [pluginList, registryData, licenseData] = await Promise.all([
-        fetchPlugins().catch(() => []),
-        fetchRegistry().catch(() => ({ plugins: [] })),
-        fetchLicenseInfo().catch(() => null),
+        fetchPlugins().catch((e) => {
+          console.error('[PluginManager] fetchPlugins error:', e);
+          return [];
+        }),
+        fetchRegistry().catch((e) => {
+          console.error('[PluginManager] fetchRegistry error:', e);
+          setErrorMsg('APIへの接続に失敗しました。サーバーが起動しているか確認してください。');
+          return { plugins: [] };
+        }),
+        fetchLicenseInfo().catch((e) => {
+          console.error('[PluginManager] fetchLicenseInfo error:', e);
+          return null;
+        }),
       ]);
-      setPlugins(pluginList);
+      setPlugins(pluginList || []);
       setRegistry((registryData as any).plugins || []);
       if (licenseData) setLicense(licenseData);
     } finally {
@@ -81,27 +94,6 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
   useEffect(() => {
     if (open) loadData();
   }, [open, loadData]);
-
-  // Actions
-  const handleStart = async (id: string) => {
-    setActionLoading(id);
-    try {
-      await startPlugin(id);
-      await loadData();
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleStop = async (id: string) => {
-    setActionLoading(id);
-    try {
-      await stopPlugin(id);
-      await loadData();
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const handleInstall = async (id: string) => {
     setActionLoading(id);
@@ -118,30 +110,6 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
     setActionLoading(id);
     try {
       await uninstallPlugin(id);
-      await loadData();
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleOpenConfig = async (id: string) => {
-    try {
-      const data = await fetchPluginConfig(id);
-      const manifest = data.manifest as any;
-      setConfigSchema(manifest?.configSchema || {});
-      setConfigValues(data.config || {});
-      setEditingConfig(id);
-    } catch (e) {
-      console.error('Failed to load plugin config:', e);
-    }
-  };
-
-  const handleSaveConfig = async () => {
-    if (!editingConfig) return;
-    setActionLoading(editingConfig);
-    try {
-      await updatePluginConfig(editingConfig, configValues);
-      setEditingConfig(null);
       await loadData();
     } finally {
       setActionLoading(null);
@@ -169,209 +137,167 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
 
   if (!open) return null;
 
-  const editingPlugin = plugins.find(p => p.id === editingConfig);
-
   return (
-    <div className="plugin-manager-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="plugin-manager-dialog">
-
-        {/* Header */}
-        <div className="pm-header">
-          <div className="pm-header-title">
-            <ExtensionIcon sx={{ fontSize: 18 }} />
-            プラグイン管理
-          </div>
-          <button className="pm-close-btn" onClick={onClose}>
-            <CloseIcon sx={{ fontSize: 18 }} />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="pm-tabs">
-          <button
-            className={`pm-tab ${tab === 'installed' ? 'active' : ''}`}
-            onClick={() => setTab('installed')}
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 2 }}>
+        プラグイン管理
+        <IconButton onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pb: 3, pt: 1, minHeight: '400px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Tabs
+            value={tab}
+            onChange={(_, newVal) => setTab(newVal)}
+            TabIndicatorProps={{ style: { display: 'none' } }}
+            sx={{
+              minHeight: 36,
+              '& .MuiTab-root': {
+                minHeight: 36,
+                py: 0.5, px: 2, mr: 1,
+                borderRadius: 4,
+                textTransform: 'none',
+                color: 'text.secondary',
+              },
+              '& .Mui-selected': {
+                bgcolor: 'action.selected',
+                color: 'text.primary',
+                fontWeight: 'bold',
+              }
+            }}
           >
-            インストール済み ({plugins.length})
-          </button>
-          <button
-            className={`pm-tab ${tab === 'available' ? 'active' : ''}`}
-            onClick={() => setTab('available')}
-          >
-            利用可能 ({registry.filter(r => !r.installed).length})
-          </button>
-          <div style={{ flex: 1 }} />
-          <button
-            className="pm-close-btn"
-            onClick={loadData}
-            title="更新"
-            style={{ padding: '6px' }}
-          >
-            <RefreshIcon sx={{ fontSize: 16 }} />
-          </button>
-        </div>
+            <Tab label={`インストール済み (${plugins.length})`} value="installed" />
+            <Tab label={`利用可能 (${registry.filter(r => !r.installed).length})`} value="available" />
+          </Tabs>
+          <IconButton onClick={loadData} size="small" title="更新">
+            <RefreshIcon fontSize="small" />
+          </IconButton>
+        </Box>
 
-        {/* Content */}
-        <div className="pm-content">
-          {loading && <div className="pm-empty">読み込み中...</div>}
-
-          {!loading && tab === 'installed' && (
-            <>
-              {plugins.length === 0 ? (
-                <div className="pm-empty">
-                  インストール済みのプラグインはありません。<br />
-                  「利用可能」タブからインストールできます。
-                </div>
-              ) : (
-                plugins.map(plugin => (
-                  <div key={plugin.id} className="pm-card">
-                    <div className="pm-card-icon">{plugin.icon}</div>
-                    <div className="pm-card-body">
-                      <div className="pm-card-name">{plugin.name}</div>
-                      <div className="pm-card-meta">
-                        <span className={`pm-badge ${plugin.category}`}>
-                          {getCategoryLabel(plugin.category)}
-                        </span>
-                        <span className="pm-version">v{plugin.version}</span>
-                        <span className="pm-status">
-                          <span className={`pm-status-dot ${plugin.status}`} />
-                          {getStatusLabel(plugin.status)}
-                        </span>
-                      </div>
-
-                      {/* Config Section */}
-                      {editingConfig === plugin.id && (
-                        <div className="pm-config-section">
-                          {Object.entries(configSchema).map(([key, field]) => (
-                            <div key={key} className="pm-config-field">
-                              <label className="pm-config-label">
-                                {field.label} {field.required && '*'}
-                              </label>
-                              <input
-                                className="pm-config-input"
-                                type={field.type === 'secret' ? 'password' : 'text'}
-                                value={configValues[key] || ''}
-                                placeholder={field.default?.toString() || ''}
-                                onChange={(e) => setConfigValues(prev => ({
-                                  ...prev,
-                                  [key]: e.target.value,
-                                }))}
-                              />
-                            </div>
-                          ))}
-                          <div className="pm-config-actions">
-                            <button className="pm-action-btn primary" onClick={handleSaveConfig}>
-                              保存
-                            </button>
-                            <button className="pm-action-btn" onClick={() => setEditingConfig(null)}>
-                              キャンセル
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="pm-card-actions">
-                      {plugin.status === 'running' ? (
-                        <button
-                          className="pm-action-btn"
-                          onClick={() => handleStop(plugin.id)}
+        {errorMsg && <Alert severity="error" sx={{ mt: 1 }}>{errorMsg}</Alert>}
+        
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+        ) : (
+          <List sx={{ mt: 1 }}>
+            {tab === 'installed' && (
+              <>
+                {plugins.length === 0 ? (
+                  <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+                    インストール済みのプラグインはありません。<br />
+                    「利用可能」タブからインストールできます。
+                  </Typography>
+                ) : (
+                  plugins.map(plugin => (
+                    <ListItem 
+                      key={plugin.id} 
+                      sx={{ 
+                        bgcolor: 'background.paper', 
+                        mb: 1.5, 
+                        borderRadius: 2, 
+                        border: 1, 
+                        borderColor: 'divider',
+                        px: 2,
+                        py: 2,
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <Box sx={{ fontSize: 32, mr: 2, display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                        {plugin.icon}
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 0.5 }}>
+                          {plugin.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Chip size="small" label={getCategoryLabel(plugin.category)} color={plugin.category === 'connector' ? 'primary' : plugin.category === 'llm-adapter' ? 'secondary' : 'default'} />
+                          <Typography variant="caption" color="text.secondary">v{plugin.version}</Typography>
+                          <Typography variant="caption" sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 0.5,
+                            color: plugin.status === 'running' ? 'success.main' : plugin.status === 'error' ? 'error.main' : 'text.secondary'
+                          }}>
+                            <Box sx={{ 
+                              width: 6, height: 6, borderRadius: '50%',
+                              bgcolor: plugin.status === 'running' ? 'success.main' : plugin.status === 'error' ? 'error.main' : 'text.disabled'
+                            }} />
+                            {getStatusLabel(plugin.status)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', ml: 2 }}>
+                        <IconButton 
+                          color="error" 
+                          onClick={() => handleUninstall(plugin.id)}
                           disabled={actionLoading === plugin.id}
-                          title="停止"
+                          title="アンインストール"
                         >
-                          <StopIcon sx={{ fontSize: 14 }} />
-                        </button>
-                      ) : (
-                        <button
-                          className="pm-action-btn"
-                          onClick={() => handleStart(plugin.id)}
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </ListItem>
+                  ))
+                )}
+              </>
+            )}
+
+            {tab === 'available' && (
+              <>
+                {registry.filter(r => !r.installed).length === 0 ? (
+                  <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+                    すべてのプラグインがインストール済みです。
+                  </Typography>
+                ) : (
+                  registry.filter(r => !r.installed).map(plugin => (
+                    <ListItem 
+                      key={plugin.id} 
+                      sx={{ 
+                        bgcolor: 'background.paper', 
+                        mb: 1.5, 
+                        borderRadius: 2, 
+                        border: 1, 
+                        borderColor: 'divider',
+                        px: 2,
+                        py: 2,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Box sx={{ fontSize: 32, mr: 2, display: 'flex', alignItems: 'center' }}>
+                        {plugin.icon}
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 0.5 }}>
+                          {plugin.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip size="small" label={getCategoryLabel(plugin.category)} color={plugin.category === 'connector' ? 'primary' : plugin.category === 'llm-adapter' ? 'secondary' : 'default'} />
+                          <Typography variant="caption" color="text.secondary">v{plugin.version}</Typography>
+                          <Chip size="small" label={plugin.license === 'premium' ? 'Premium' : 'Free'} variant="outlined" />
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', ml: 2 }}>
+                        <Button 
+                          variant="contained" 
+                          color="primary"
+                          size="small"
+                          onClick={() => handleInstall(plugin.id)}
                           disabled={actionLoading === plugin.id}
-                          title="起動"
+                          startIcon={<DownloadIcon />}
                         >
-                          <PlayIcon sx={{ fontSize: 14 }} />
-                        </button>
-                      )}
-                      <button
-                        className="pm-action-btn"
-                        onClick={() => editingConfig === plugin.id
-                          ? setEditingConfig(null)
-                          : handleOpenConfig(plugin.id)}
-                        title="設定"
-                      >
-                        <SettingsIcon sx={{ fontSize: 14 }} />
-                      </button>
-                      <button
-                        className="pm-action-btn danger"
-                        onClick={() => handleUninstall(plugin.id)}
-                        disabled={actionLoading === plugin.id}
-                        title="アンインストール"
-                      >
-                        <DeleteIcon sx={{ fontSize: 14 }} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </>
-          )}
-
-          {!loading && tab === 'available' && (
-            <>
-              {registry.filter(r => !r.installed).length === 0 ? (
-                <div className="pm-empty">
-                  すべてのプラグインがインストール済みです。
-                </div>
-              ) : (
-                registry.filter(r => !r.installed).map(plugin => (
-                  <div key={plugin.id} className="pm-card">
-                    <div className="pm-card-icon">{plugin.icon}</div>
-                    <div className="pm-card-body">
-                      <div className="pm-card-name">{plugin.name}</div>
-                      <div className="pm-card-meta">
-                        <span className={`pm-badge ${plugin.category}`}>
-                          {getCategoryLabel(plugin.category)}
-                        </span>
-                        <span className="pm-version">v{plugin.version}</span>
-                        <span className={`pm-badge ${plugin.license === 'premium' ? 'connector' : 'utility'}`}>
-                          {plugin.license === 'premium' ? 'Premium' : 'Free'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="pm-card-actions">
-                      <button
-                        className="pm-action-btn primary"
-                        onClick={() => handleInstall(plugin.id)}
-                        disabled={actionLoading === plugin.id}
-                      >
-                        {actionLoading === plugin.id ? '...' : (
-                          <>
-                            <DownloadIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                            インストール
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </>
-          )}
-        </div>
-
-        {/* License Bar */}
-        {license && (
-          <div className="pm-license-bar">
-            <span>
-              プラン: <span className="pm-license-plan">{license.plan}</span>
-              {license.isDevMode && ' (開発モード)'}
-            </span>
-            <span>
-              Gemini: {license.geminiUsed} / {license.geminiQuota === -1 ? '∞' : license.geminiQuota}
-            </span>
-          </div>
+                          {actionLoading === plugin.id ? '...' : 'インストール'}
+                        </Button>
+                      </Box>
+                    </ListItem>
+                  ))
+                )}
+              </>
+            )}
+          </List>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

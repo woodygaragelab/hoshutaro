@@ -25,21 +25,12 @@ class Settings(BaseSettings):
     # ── Home Directory (set by Launcher, fallback to backend/) ──
     hoshutaro_home: str = str(Path(__file__).resolve().parents[1])
     
-    # ── Legacy LLM Adapter ──
+    # ── LLM Adapter (Global generic settings) ──
     llm_adapter: str = "gemini"
-    llm_base_url: str = "http://127.0.0.1:11434/v1"
-    llm_model: str = ""
-    llm_api_key: str = "none"
     llm_temperature: float = 0.1
     llm_max_tokens: int = 1024
     skills_path: str = "./skills/SKILLS.md"
     debug_mode: bool = False
-    
-    # OpenVINO specific
-    openvino_models_dir: str = r"C:\Users\kazuh\OpenVINO_Models"
-    openvino_model_path: str = ""
-    openvino_device: str = "AUTO"
-    openvino_performance_mode: Literal["LATENCY", "THROUGHPUT", "POWER_SAVING", "AUTO"] = "LATENCY"
 
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),
