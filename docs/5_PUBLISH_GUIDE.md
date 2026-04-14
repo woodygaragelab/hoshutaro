@@ -11,17 +11,18 @@
 Pythonで作ったプラグインをユーザーの環境で動かす場合、依存するライブラリ（`mcp`, `httpx` など）をどうやって渡すかが問題になります。
 一般的な配布方法は以下の2パターンのどちらかです。
 
-### 方式A: venv + requirements.txt （推奨・軽量）
-zipの中に `requirements.txt` を入れ、ユーザーの保守太郎が起動する前にインストールさせる方式です。
-1. コード (`server.py`), `manifest.json`, `requirements.txt` の3つを1つのフォルダに入れる。
-2. そのフォルダごと `.zip` 形式で圧縮する。
-※ `manifest.json` の `command` フィールドは `python server.py` のように設定しておき、保守太郎側にはPython環境がインストールされていることを前提とします。
+### 方式A: 起動スクリプト同梱方式 （推奨・軽量）
+`run.bat` などの起動スクリプトと `requirements.txt` を同梱し、ユーザーの保守太郎が初回起動時に依存関係を自動構築する方式です。（1_GETTING_STARTED.md で作成した方式です）
 
-### 方式B: PyInstaller での単一実行ファイル化
-ユーザーのPCにPythonが入っていなくても動かせるように、`.exe` ファイル化して配布する方式です。
+1. `server.py`, `manifest.json`, `requirements.txt`, `run.bat`, `skills/` などの必要なファイルを準備します。
+2. **これらのファイルを「ZIPのルート直下」になるように** 全選択して `.zip` 形式で圧縮します。（フォルダ自体を圧縮して、解凍時に二重フォルダにならないよう注意してください。解凍した直後の階層に `manifest.json` が見える構造が必須です）
+
+### 方式B: PyInstaller での単一バイナリ化
+ユーザーのPC環境に依存せず動かせるように、ビルドして `.exe` 化して配布する方式です。
+
 1. `pip install pyinstaller` を行い、 `pyinstaller --onefile server.py` を実行。
-2. できた `dist/server.exe` と `manifest.json` を zip にまとめて圧縮する。
-※ `manifest.json` の `command` フィールドは `server.exe` と設定します。
+2. できた `dist/server.exe` と `manifest.json` などを同様に「ZIPのルート直下」になるよう全選択して圧縮します。
+※ `manifest.json` の `command` フィールドは `server.exe` と明記します。
 
 ---
 
@@ -65,6 +66,18 @@ zipの中に `requirements.txt` を入れ、ユーザーの保守太郎が起動
 - `repository`: GitHubのリポジトリ名（`オーナー/リポジトリ`）。
 - `releaseTag`: 対象のリリースバージョン。ここを `v1.0.1` のように変更し、本体リポジトリへ反映するだけでユーザーへ「アップデートがあります」と通知が飛びます。
 - `artifactPattern`: アップロードした .zip のファイル名。プラットフォームごとにファイル名を分けたい場合は `mytool-{platform}.zip` のように記載することも可能です。
+
+---
+
+## 4. 保守太郎によるプラグインのインストールメカニズム（裏側の挙動）
+
+開発者がプラグインを登録した後、ユーザーがUIから「インストール」もしくは「更新」を押した際、裏側では以下のようなライフサイクルが自動実行されます。この挙動を理解しておくことで、予期せぬ動作時のデバッグが容易になります。
+
+1. **レジストリ検知:** `plugin-registry.json` に記載された `repository` と `releaseTag` をもとに、対象の GitHub リポジトリから Release 情報を取得します。
+2. **自動ダウンロード:** 対象 Release の Assets から、`artifactPattern` に合致する対象のZIPファイルをダウンロードします。
+3. **自動解凍:** `~/.gemini/antigravity/plugins/<plugin-id>` の直下へZIPが解凍・展開されます。（このためZIPルート直下に `manifest.json` 等が配置されている必要があります）
+4. **スキル自動ロード:** 展開されたフォルダ直下に `skills/` フォルダが存在する場合、そこに含まれるすべての YAML ファイルを読み込み、即座に保守太郎の「スキル」として登録します。
+5. **プロセス起動:** アプリケーション起動時、またはインストール完了直後に、`manifest.json` の `command` に書かれたスクリプト（`run.bat`等）を子プロセスとして非同期実行し、stdioトランスポートでJSON-RPC通信を開始します。
 
 ---
 

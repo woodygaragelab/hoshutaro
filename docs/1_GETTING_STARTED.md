@@ -15,26 +15,72 @@
 
 ## 1. プロジェクトの作成
 
-まずはプラグインのフォルダを作成します。
+まずはプラグインの独立したGitリポジトリ（フォルダ）を作成します。
+最終的に目指す標準的なリポジトリ構成は以下のようになります：
+
+```text
+hello-world-plugin/
+├── manifest.json       # プラグインのメタデータと設定ファイル（必須）
+├── server.py           # MCPサーバーの実装本体（必須）
+├── requirements.txt    # 依存ライブラリのリスト
+├── run.bat             # 起動および依存解決スクリプト (Windows用)
+├── run.sh              # 起動および依存解決スクリプト (Mac/Linux用)
+└── skills/             # (任意) プラグインに同梱する設定や自動化ワークフロー (YAML群)
+```
+
+**各ファイルの責務:**
+- `manifest.json`: UI設定や起動コマンドなどを定義し、保守太郎本体にプラグインを認識させるメタデータ。
+- `server.py`: プラグインのToolの定義や実処理を行うメインプログラム。
+- `requirements.txt`: 動作に必要な外部ライブラリを指定します。
+- `run.bat` / `run.sh`: プラグイン起動時のエントリポイント。初回起動時に `venv` の自動生成と `pip install` による依存解決を行い、次回以降はそのままサーバーを立ち上げるベストプラクティスです。
+
+それでは、実際にプロジェクトフォルダを作成してみましょう。
 
 ```bash
 mkdir hello-world-plugin
 cd hello-world-plugin
 ```
 
-次に、Pythonの仮想環境を作り、MCP（Model Context Protocol）の公式SDKをインストールします。
+続いて、依存パッケージを指定する `requirements.txt` を作成します。内容には `mcp` フレームワークのみを記述します。
 
-```bash
-python -m venv venv
-# Windowsの場合
-venv\Scripts\activate
-
-# MCP用ライブラリのインストール
-pip install mcp
+```text
+mcp
 ```
 
-保守太郎のプラグインは、配布時にこれら依存関係も丸ごとパッケージ化するか、または「アプリ起動時に `pip install -r requirements.txt` を叩かせる仕組み」にする必要があります。（詳しくは 5_PUBLISH_GUIDE.md で解説します）
-ここでは開発中のローカルテストとして進めます。
+そして、最も重要な **起動スクリプト (run.bat)** を作成します。保守太郎はこのスクリプトを呼び出してプラグインを起動します。この仕組みにより、プラグインを配布した際、ユーザー環境で自動的に依存パッケージがインストールされるようになります。
+
+**[Windows向け: run.bat]**
+```bat
+@echo off
+cd /d "%~dp0"
+
+IF NOT EXIST "venv" (
+    echo [init] Creating venv...
+    python -m venv venv
+    venv\Scripts\python -m pip install --upgrade pip
+    venv\Scripts\python -m pip install -r requirements.txt
+)
+
+venv\Scripts\python server.py
+```
+
+**(任意) [Mac/Linux向け: run.sh]**
+```bash
+#!/bin/bash
+cd "$(dirname "$0")"
+
+if [ ! -d "venv" ]; then
+    echo "[init] Creating venv..."
+    python3 -m venv venv
+    venv/bin/python -m pip install --upgrade pip
+    venv/bin/python -m pip install -r requirements.txt
+fi
+
+venv/bin/python server.py
+```
+
+開発中も、このスクリプトを実行するだけで自動展開とサーバー起動が行われます。
+
 
 ---
 
@@ -53,8 +99,8 @@ pip install mcp
   "license": "free",
   "minAppVersion": "1.0.0",
   "transport": "stdio",
-  "command": "venv/Scripts/python",
-  "args": ["server.py"],
+  "command": "run.bat",
+  "args": [],
   "tools": ["say_hello"],
   "configSchema": {
     "GREETING_WORD": { 
@@ -67,7 +113,7 @@ pip install mcp
 ```
 
 ### ポイント
-- `command` と `args` : 保守太郎はこの通りに子プロセスとして実行します。（環境に依存させないため、最終版では `run.bat` のようなスクリプトを指定するのが一般的です）
+- `command` と `args` : 保守太郎はこの通りに子プロセスとして実行します。上の例では依存関係を自動解決する `run.bat` を指定しています。環境に依存させず、確実に実行させるこの方式がベストプラクティスです。
 - `configSchema` : ユーザーが保守太郎のUI（プラグインマネージャー）上で入力できる環境設定の値です。APIキーなどを入力させたい場合は `type: "secret"` にします。
 
 ---
