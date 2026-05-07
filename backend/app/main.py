@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import health, settings, chat, data, plugins, skills, updater
+from app.routers import health, settings, chat, data, plugins, skills, updater, mu, setup
 
 
 logging.basicConfig(level=logging.INFO)
@@ -44,6 +44,8 @@ app.include_router(data.router)
 app.include_router(plugins.router)
 app.include_router(skills.router)
 app.include_router(updater.router)
+app.include_router(mu.router)
+app.include_router(setup.router)
 
 # touch
 # touch for mcp_hub
