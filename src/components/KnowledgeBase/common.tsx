@@ -25,22 +25,23 @@ import {
   Skeleton,
   Stack,
   Typography,
-  type SxProps,
   type Theme,
 } from '@mui/material'
+import type { SystemStyleObject } from '@mui/system'
 
 // ───────────────────────────────────────────────────────────
 // 標準 sx スニペット（重複排除）
+// 型は `SystemStyleObject<Theme>` — `sx={[a, b]}` の配列要素として受かる必要があるため（SxProps<Theme> だと型エラー）
 // ───────────────────────────────────────────────────────────
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const sxTabularNum: SxProps<Theme> = { fontVariantNumeric: 'tabular-nums' }
+export const sxTabularNum: SystemStyleObject<Theme> = { fontVariantNumeric: 'tabular-nums' }
 // eslint-disable-next-line react-refresh/only-export-components
-export const sxTextBalance: SxProps<Theme> = { textWrap: 'balance' as const }
+export const sxTextBalance: SystemStyleObject<Theme> = { textWrap: 'balance' as const }
 // eslint-disable-next-line react-refresh/only-export-components
-export const sxTextPretty: SxProps<Theme> = { textWrap: 'pretty' as const }
+export const sxTextPretty: SystemStyleObject<Theme> = { textWrap: 'pretty' as const }
 // eslint-disable-next-line react-refresh/only-export-components
-export const sxLineClamp = (lines: number): SxProps<Theme> => ({
+export const sxLineClamp = (lines: number): SystemStyleObject<Theme> => ({
   display: '-webkit-box',
   WebkitLineClamp: lines,
   WebkitBoxOrient: 'vertical',

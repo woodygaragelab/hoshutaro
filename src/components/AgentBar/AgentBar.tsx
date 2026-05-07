@@ -81,6 +81,9 @@ interface AgentBarProps {
 
   // Date jump current focus
   currentVisibleDate?: string;
+
+  // Knowledge Base (Project Mu)
+  onKnowledgeBase?: () => void;
 }
 
 export const AgentBar: React.FC<AgentBarProps> = ({
@@ -109,7 +112,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   showGraph = false,
   onToggleGraph,
   onPluginManager,
-  onSkillRunner
+  onSkillRunner,
+  onKnowledgeBase
 }) => {
   // --- AI Assistant State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -460,6 +464,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                     <div className="menu-item" onClick={() => { alert('Maximo等の外部API連携設定画面（準備中）'); setShowToolsMenu(false); }}>外部連携</div>
                     <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
                     <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>MCP管理</div>
+                    <div className="menu-item" onClick={() => { onKnowledgeBase?.(); setShowToolsMenu(false); }}>ナレッジベース</div>
                   </div>
                 )}
               </div>

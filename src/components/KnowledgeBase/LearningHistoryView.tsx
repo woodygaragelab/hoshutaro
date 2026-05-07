@@ -152,7 +152,7 @@ export function LearningHistoryView({ organization }: Props) {
                     ))}
                   </Stack>
                   {Object.keys(a.metrics ?? {}).length > 0 && (
-                    <Typography variant="caption" sx={{ ...sxLineClamp(2), ...sxTextPretty, ...sxTabularNum }}>
+                    <Typography variant="caption" sx={[sxLineClamp(2), sxTextPretty, sxTabularNum]}>
                       metrics: {Object.entries(a.metrics)
                         .map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(3) : String(v)}`)
                         .join(' / ')}

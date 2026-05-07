@@ -37,16 +37,16 @@
 ### ✅ 完了
 | Track | 範囲 |
 |---|---|
-| **A: Project Mu Engine** | memory CRUD（rules / master_map / training_cache / lora_adapters / prompt_cache / vector_search）、embeddings、cache、3フェーズパイプライン、sql_context_resolver、learning メタ管理、API ルーター 13 endpoints |
+| **A: Project Mu Engine** | memory CRUD（rules / master_map / training_cache / lora_adapters / prompt_cache / vector_search）、embeddings、cache、3フェーズパイプライン、sql_context_resolver、learning メタ管理、API ルーター 13 endpoints、**LoRA トレーナー本体（PEFT + transformers、graceful degradation）** |
 | **B-1: LLM Adapter** | `OpenVinoGemmaAdapter` を transformers + optimum-intel ベースで実装、MTP `assistant_model` 連携、Thinking Mode 抽出、ストリーミング、デバイス自動検出（NPU > GPU > CPU）、依存未インストール時 graceful |
 | **B-2: モデル取得・配置** | `tools/quantize-models/download_and_quantize.py`、`backend/app/mu/setup/downloader.py`、`backend/app/routers/setup.py`（SSE progress） |
 | **UI 9画面** | `src/components/KnowledgeBase/`：Dashboard / RuleEditor / MasterMapView / MappingSimilaritySearch / Location & Classification PatternViews / LoRAAdapterManager / TrainingCacheView / LearningHistoryView + KnowledgeBasePage（親 Tabs）+ hooks + common 基盤。**baseline-ui 制約遵守**、`tsc --noEmit` クリーン |
-| **検証** | 4 テストすべてパス（`backend/tests/test_mu_smoke.py`：memory CRUD / sql_context_resolver / scheduler 閾値 / FastAPI dashboard）、TypeScript エラーなし |
+| **検証** | 5 テスト（`backend/tests/test_mu_smoke.py`：memory CRUD / sql_context_resolver / scheduler 閾値 / lora_trainer graceful degradation / FastAPI dashboard）、TypeScript エラーなし |
 
 ### ❌ 未着手 / 重い依存待ち
 | 項目 | ブロッカー |
 |---|---|
-| Track A LoRA トレーナー本体（`learning/lora_trainer.py`） | PEFT + PyTorch インストール、Intel Arc GPU 推奨 |
+| Track A LoRA 学習の実機動作確認（Gemma 4 E2B 実 SFT・loss 推移・delta 計測） | PEFT + PyTorch + Intel Arc GPU 推奨。コードは実装済み（依存未インストール時 NotImplementedError） |
 | Track B 実モデル動作確認（Gemma 4 E2B 推論ベンチマーク・MTP accept rate 測定） | OpenVINO 依存 + モデルダウンロード |
 | Track C: モノレポ化（pnpm workspace） | 大規模リファクタ、~4-6週間 |
 | Track D: AWS Cloud + 認証 + 繋ぎ層（CDK + Lambda + Cognito + 認証画面 7枚） | AWS アカウント、~4-5週間 |
@@ -54,11 +54,12 @@
 | KnowledgeBasePage の既存 App.tsx 組み込み | App.tsx の構造判断 |
 
 ### スタブ（NotImplementedError）
-- `backend/app/mu/learning/lora_trainer.py` — PEFT 実装手順を docstring 化済
 - `backend/app/mu/learning/model_merger.py` — OpenVINO IR マージ
 - `backend/app/llm/adapters/cloud_proxy.py` — Lambda llm-proxy 経由（Track D）
 - `backend/app/llm/adapters/sagemaker.py` — SageMaker（オンデマンド代替）
 - `OpenVinoGemmaAdapter` の chat/stream/classify/generate は依存未インストール時のみ `HARD_FAIL`
+- `backend/app/mu/learning/lora_trainer.train_lora` は依存未インストール時のみ `NotImplementedError`
+  （torch/transformers/peft/datasets が揃った環境では実 SFT を実行）
 
 ---
 
@@ -113,12 +114,13 @@ npm run dev
 
 ## 5. 続きを進める優先候補
 
-1. **KnowledgeBasePage を App.tsx のメニューに組み込む**（最短、UI 通電）
-2. **LoRA トレーナー本体実装**（PEFT + PyTorch、`backend/app/mu/learning/lora_trainer.py`）
+1. ~~KnowledgeBasePage を App.tsx のメニューに組み込む~~ → 済（PR #1、AgentBar ツールメニューに「ナレッジベース」追加 + fullScreen Dialog）
+2. ~~LoRA トレーナー本体実装~~ → 済（PEFT + transformers、graceful degradation 付き）
 3. **OpenVINO + Gemma 4 E2B 実モデルダウンロード + ベンチマーク**（Track B 動作確認）
-4. **Track C: モノレポ化**（pnpm workspace）
-5. **Track D: AWS Cloud + 認証 + 繋ぎ層**
-6. **Track E: Tauri Desktop**
+4. **main の pre-existing 型エラー片付け**（30+ 件、CI green 化のため）
+5. **Track C: モノレポ化**（pnpm workspace）
+6. **Track D: AWS Cloud + 認証 + 繋ぎ層**
+7. **Track E: Tauri Desktop**
 
 ---
 

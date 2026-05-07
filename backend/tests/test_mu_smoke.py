@@ -14,6 +14,7 @@ Project Mu サブシステムのスモークテスト（依存最小、ローカ
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
@@ -232,6 +233,39 @@ def test_training_scheduler_threshold():
         close_connection()
 
 
+def test_lora_trainer_graceful_degradation():
+    """学習スタック未インストール時に train_lora() が NotImplementedError を投げる。
+
+    依存（torch/transformers/peft/datasets）が揃った環境ではスキップ
+    （実モデル DL を CI で発生させないため）。
+    """
+    tmpdir = _setup_isolated_db()
+    try:
+        from app.mu.memory import db
+        db.reset_for_tests()
+        from app.mu.learning import lora_trainer
+
+        stack = lora_trainer._load_training_stack()
+        if "error" not in stack:
+            print("SKIP: training stack installed (would attempt real training)")
+            return
+
+        async def run() -> str:
+            try:
+                await lora_trainer.train_lora()
+            except NotImplementedError as e:
+                return str(e)
+            return ""
+
+        msg = asyncio.run(run())
+        assert msg, "expected NotImplementedError when training deps are missing"
+        assert "Training deps not installed" in msg, f"unexpected message: {msg}"
+        print("OK: lora_trainer graceful degradation")
+    finally:
+        from app.mu.memory.db import close_connection
+        close_connection()
+
+
 def test_dashboard_endpoint():
     tmpdir = _setup_isolated_db()
     try:
@@ -296,6 +330,7 @@ if __name__ == "__main__":
         test_memory_crud_full_cycle,
         test_sql_context_resolver_without_vectors,
         test_training_scheduler_threshold,
+        test_lora_trainer_graceful_degradation,
         test_dashboard_endpoint,
     ):
         try:

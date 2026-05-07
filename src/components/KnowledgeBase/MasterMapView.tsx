@@ -121,7 +121,7 @@ export function MasterMapView({ organization }: Props) {
                 <TableRow key={m.id} hover>
                   <TableCell sx={sxTabularNum}>{m.id}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ ...sxLineClamp(1), ...sxTextPretty }}>
+                    <Typography variant="body2" sx={[sxLineClamp(1), sxTextPretty]}>
                       {m.raw_name}
                     </Typography>
                   </TableCell>

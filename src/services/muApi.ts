@@ -45,6 +45,7 @@ export interface MuLoraAdapter {
   metrics: Record<string, any>
   organization: string | null
   active: boolean
+  created_at?: string | null
 }
 
 export interface MuTrainingCacheStats {

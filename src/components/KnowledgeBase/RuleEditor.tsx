@@ -176,7 +176,7 @@ export function RuleEditor({ organization }: Props) {
                     <Chip label={rule.task_type} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ ...sxLineClamp(2), ...sxTextPretty }}>
+                    <Typography variant="body2" sx={[sxLineClamp(2), sxTextPretty]}>
                       {rule.instruction_text ?? '—'}
                     </Typography>
                   </TableCell>

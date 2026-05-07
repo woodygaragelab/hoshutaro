@@ -189,7 +189,7 @@ function LoRARow({ adapter, isActive, onActivate }: LoRARowProps) {
       </TableCell>
       <TableCell sx={sxTabularNum}>{adapter.training_examples_count.toLocaleString()}</TableCell>
       <TableCell>
-        <Typography variant="caption" sx={{ ...sxLineClamp(2), ...sxTextPretty }}>
+        <Typography variant="caption" sx={[sxLineClamp(2), sxTextPretty]}>
           {metricsText}
         </Typography>
       </TableCell>

@@ -45,11 +45,12 @@ import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReass
 import { PluginManager } from './components/PluginManager/PluginManager';
 import { SkillRunner } from './components/SkillRunner/SkillRunner';
 import { UpdateNotification } from './components/UpdateNotification/UpdateNotification';
+import { KnowledgeBasePage } from './components/KnowledgeBase';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
 import { transformData } from './utils/dataTransformer';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
+import { AppBar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Snackbar, Toolbar, Alert, SelectChangeEvent, Button, ThemeProvider, Typography, CssBaseline } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { darkTheme } from './theme/darkTheme';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate, SpecificationChange } from './types/maintenanceTask';
@@ -216,6 +217,7 @@ const App: React.FC = () => {
   const [isWorkOrderClassificationEditOpen, setIsWorkOrderClassificationEditOpen] = useState(false);
   const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
   const [isSkillRunnerOpen, setIsSkillRunnerOpen] = useState(false);
+  const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
 
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
@@ -2937,6 +2939,7 @@ const App: React.FC = () => {
           }}
           onPluginManager={() => setIsPluginManagerOpen(true)}
           onSkillRunner={() => setIsSkillRunnerOpen(true)}
+          onKnowledgeBase={() => setIsKnowledgeBaseOpen(true)}
         />
 
         {/* Import File Input */}
@@ -3110,6 +3113,40 @@ const App: React.FC = () => {
           open={isSkillRunnerOpen}
           onClose={() => setIsSkillRunnerOpen(false)}
         />
+
+        {/* Knowledge Base (Project Mu) Full-Screen Dialog */}
+        <Dialog
+          open={isKnowledgeBaseOpen}
+          onClose={() => setIsKnowledgeBaseOpen(false)}
+          fullScreen
+          aria-labelledby="kb-dialog-title"
+        >
+          <AppBar
+            position="sticky"
+            color="default"
+            elevation={0}
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Toolbar variant="dense" sx={{ minHeight: 48 }}>
+              <Typography
+                id="kb-dialog-title"
+                variant="subtitle1"
+                sx={{ flex: 1, fontWeight: 600 }}
+              >
+                ナレッジベース
+              </Typography>
+              <IconButton
+                edge="end"
+                onClick={() => setIsKnowledgeBaseOpen(false)}
+                aria-label="ナレッジベースを閉じる"
+                size="small"
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Toolbar>
+          </AppBar>
+          {isKnowledgeBaseOpen && <KnowledgeBasePage />}
+        </Dialog>
 
         {/* Update Notification */}
         <UpdateNotification
