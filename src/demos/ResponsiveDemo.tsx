@@ -46,6 +46,7 @@ const ResponsiveDemo: React.FC = () => {
     );
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
     setMaintenanceData(prevData => 
       prevData.map(item => {

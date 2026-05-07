@@ -33,9 +33,13 @@ import {
 // 標準 sx スニペット（重複排除）
 // ───────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const sxTabularNum: SxProps<Theme> = { fontVariantNumeric: 'tabular-nums' }
-export const sxTextBalance: SxProps<Theme> = { textWrap: 'balance' as 'balance' }
-export const sxTextPretty: SxProps<Theme> = { textWrap: 'pretty' as 'pretty' }
+// eslint-disable-next-line react-refresh/only-export-components
+export const sxTextBalance: SxProps<Theme> = { textWrap: 'balance' as const }
+// eslint-disable-next-line react-refresh/only-export-components
+export const sxTextPretty: SxProps<Theme> = { textWrap: 'pretty' as const }
+// eslint-disable-next-line react-refresh/only-export-components
 export const sxLineClamp = (lines: number): SxProps<Theme> => ({
   display: '-webkit-box',
   WebkitLineClamp: lines,

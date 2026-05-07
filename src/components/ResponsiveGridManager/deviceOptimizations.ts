@@ -10,6 +10,7 @@ import { DeviceType } from '../CommonEdit/deviceDetection';
  */
 export function generateDeviceErrorMessages(
   error: Error,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   deviceType: DeviceType = 'desktop'
 ): string {
   // Since this is a desktop-only app, always return desktop-optimized messages
@@ -21,6 +22,7 @@ export function generateDeviceErrorMessages(
 /**
  * Get device-specific performance recommendations
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function getPerformanceRecommendations(deviceType: DeviceType = 'desktop'): string[] {
   // Desktop-only recommendations
   return [

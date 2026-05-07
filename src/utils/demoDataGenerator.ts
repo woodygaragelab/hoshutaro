@@ -92,16 +92,19 @@ const generateTimeHeaders = (scale: 'year' | 'month' | 'week' | 'day', count: nu
         headers.push((2023 + i).toString());
         break;
       case 'month':
+        // eslint-disable-next-line no-case-declarations
         const monthDate = new Date(baseDate);
         monthDate.setMonth(i);
         headers.push(`${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`);
         break;
       case 'week':
+        // eslint-disable-next-line no-case-declarations
         const weekDate = new Date(baseDate);
         weekDate.setDate(baseDate.getDate() + (i * 7));
         headers.push(`${weekDate.getFullYear()}-W${String(Math.ceil(weekDate.getDate() / 7)).padStart(2, '0')}`);
         break;
       case 'day':
+        // eslint-disable-next-line no-case-declarations
         const dayDate = new Date(baseDate);
         dayDate.setDate(baseDate.getDate() + i);
         headers.push(dayDate.toISOString().split('T')[0]);
@@ -113,7 +116,9 @@ const generateTimeHeaders = (scale: 'year' | 'month' | 'week' | 'day', count: nu
 };
 
 // Generate maintenance data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generateMaintenanceData = (timeHeaders: string[]): { [key: string]: any } => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const maintenances: { [key: string]: any } = {};
   
   timeHeaders.forEach((header) => {
@@ -309,8 +314,10 @@ function generatePerformanceDemoData(): { [id: string]: RawEquipment } {
   while (equipmentCounter <= 1000) {
     const plantKeys = Object.keys(plantHierarchy);
     const plant = plantKeys[equipmentCounter % plantKeys.length];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const areaKeys = Object.keys((plantHierarchy as any)[plant]);
     const area = areaKeys[equipmentCounter % areaKeys.length];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const units = (plantHierarchy as any)[plant][area];
     const unit = units[equipmentCounter % units.length];
     

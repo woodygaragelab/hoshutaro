@@ -9,9 +9,12 @@ export interface ExcelAnalysisResult {
     sheet_name: string;
     summary: string;
     total_rows: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     structure_info: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptors_info: any[];
     symbol_mapping: Record<string, string>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     preview_records: any[];
     warnings: string[];
   }>;
@@ -48,6 +51,7 @@ export async function uploadExcelFile(file: File, sessionId: string): Promise<Ex
   return res.json();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function confirmExcelImport(sessionId: string): Promise<any> {
   const res = await fetch('/api/data/import/confirm', {
     method: 'POST',
@@ -69,6 +73,7 @@ export async function confirmExcelImport(sessionId: string): Promise<any> {
   return res.json();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function cancelExcelImport(sessionId: string): Promise<any> {
   const res = await fetch('/api/data/import/cancel', {
     method: 'POST',
@@ -115,6 +120,7 @@ export function formatMappingSummary(result: ExcelAnalysisResult): string {
 
       if (sheet.descriptors_info) {
         lines.push('  **列マッピング:**');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped = sheet.descriptors_info.filter((d: any) => d.field !== 'ignore');
         for (const d of mapped.slice(0, 8)) {
           let desc = `    Col${d.col} → ${d.field}`;

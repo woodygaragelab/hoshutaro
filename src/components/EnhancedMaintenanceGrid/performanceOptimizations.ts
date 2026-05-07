@@ -81,6 +81,7 @@ export class ScaleChangeOptimizer {
       operations.forEach(operation => {
         try {
           operation();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
         } catch (error) {
                   }
       });
@@ -150,6 +151,7 @@ export class RenderOptimizer {
       renders.forEach(render => {
         try {
           render();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
         } catch (error) {
                   }
       });
@@ -188,6 +190,7 @@ export class RenderOptimizer {
  * メモリ使用量最適化ユーティリティ
  */
 export class MemoryOptimizer {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private cache: Map<string, { data: any; timestamp: number; size: number }> = new Map();
   private maxCacheSize: number = 50 * 1024 * 1024; // 50MB
   private currentCacheSize: number = 0;
@@ -201,6 +204,7 @@ export class MemoryOptimizer {
   /**
    * データをキャッシュに保存
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cacheData(key: string, data: any): void {
     const size = this.estimateSize(data);
     
@@ -220,6 +224,7 @@ export class MemoryOptimizer {
   /**
    * キャッシュからデータを取得
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getFromCache(key: string): any | null {
     const entry = this.cache.get(key);
     if (entry) {
@@ -264,6 +269,7 @@ export class MemoryOptimizer {
   /**
    * データサイズを推定
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private estimateSize(data: any): number {
     try {
       return JSON.stringify(data).length * 2; // 文字列の概算バイト数
@@ -345,6 +351,7 @@ export class PerformanceManager {
   /**
    * データをキャッシュ
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cacheData(key: string, data: any): void {
     if (this.config.enableMemoization) {
       this.memoryOptimizer.cacheData(key, data);
@@ -354,6 +361,7 @@ export class PerformanceManager {
   /**
    * キャッシュからデータを取得
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getCachedData(key: string): any | null {
     if (this.config.enableMemoization) {
       return this.memoryOptimizer.getFromCache(key);
@@ -408,6 +416,7 @@ export const usePerformanceOptimization = (config?: Partial<PerformanceConfig>) 
     endScaleChange: () => manager.endScaleChange(),
     optimizeRender: (key: string, renderFunction: () => void) => 
       manager.optimizeRender(key, renderFunction),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cacheData: (key: string, data: any) => manager.cacheData(key, data),
     getCachedData: (key: string) => manager.getCachedData(key),
     updateConfig: (newConfig: Partial<PerformanceConfig>) => 

@@ -13,6 +13,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
@@ -34,6 +35,7 @@ const queryClient = new QueryClient({
       retry: (failureCount, error) => {
         // Don't retry on 4xx errors
         if (error && typeof error === 'object' && 'status' in error) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const status = (error as any).status;
           if (status >= 400 && status < 500) {
             return false;

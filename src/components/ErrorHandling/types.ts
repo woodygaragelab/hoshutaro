@@ -16,6 +16,7 @@ export interface ErrorBoundaryProps {
   onRecovery?: () => void;
   onRetry?: () => void;
   onErrorReport?: (errorDetails: ErrorDetails) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onFeedback?: (feedbackData: any) => void;
 }
 
@@ -73,6 +74,7 @@ export interface ErrorContext {
 // Offline Data
 export interface OfflineData {
   key: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
   timestamp: number;
   deviceType: 'desktop' | 'tablet' | 'mobile';
@@ -97,9 +99,11 @@ export enum GridErrorType {
 export interface GridError extends Error {
   type: GridErrorType;
   deviceType: 'desktop' | 'tablet' | 'mobile';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context?: any;
   recoverable: boolean;
   userMessage: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   technicalDetails: any;
   timestamp: number;
 }
@@ -164,6 +168,7 @@ export interface ErrorReport {
   error: GridError;
   context: ErrorContext;
   userActions: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   systemState: any;
   recoveryAttempts: RecoveryAttempt[];
   resolution: 'recovered' | 'unresolved' | 'user_action';

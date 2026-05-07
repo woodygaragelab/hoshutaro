@@ -50,6 +50,7 @@ export const CostTrendGraph: React.FC<CostTrendGraphProps> = ({ data, timeHeader
       const resultsToUse = row.aggregatedSchedule || row.results;
 
       if (resultsToUse) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Object.entries(resultsToUse).forEach(([timeKey, status]: [string, any]) => {
           const yearMatch = String(timeKey).substring(0, 4);
           const year = parseInt(yearMatch, 10);

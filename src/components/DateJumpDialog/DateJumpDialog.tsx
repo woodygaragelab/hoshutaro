@@ -17,6 +17,7 @@ function CustomDay(props: PickersDayProps & { activeTimeHeaders?: string[], time
   const isDataPresent = useMemo(() => {
     if (!activeTimeHeaders || outsideCurrentMonth) return false;
     const utcDate = new Date(Date.UTC(day.year(), day.month(), day.date()));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dateStr = getTimeKey(utcDate, (timeScale as any) || 'day');
     return activeTimeHeaders.includes(dateStr);
   }, [activeTimeHeaders, day, timeScale, outsideCurrentMonth]);
@@ -72,7 +73,9 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
     const sortedHeaders = safeHeaders.sort();
     
     // Parse oldest and newest time key bounds
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const minParsed = parseTimeKey(sortedHeaders[0], timeScale as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const maxParsed = parseTimeKey(sortedHeaders[sortedHeaders.length - 1], timeScale as any);
 
     return { 
@@ -88,6 +91,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
     const targetKey = currentDate || domTimeKey;
 
     if (targetKey) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parsed = parseTimeKey(targetKey, timeScale as any);
       if (parsed) return dayjs(parsed);
     }
@@ -113,6 +117,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
   }
 
   // Track the current calendar view to prevent jumping prematurely during drill-down
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [currentView, setCurrentView] = useState<any>(openTo);
 
   React.useEffect(() => {
@@ -204,6 +209,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
             value={selectedDate} 
             onChange={handleJump}
             onViewChange={(newView) => setCurrentView(newView)}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             views={views as any}
             openTo={openTo}
             minDate={minDate}
@@ -213,6 +219,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
               day: {
                 activeTimeHeaders,
                 timeScale,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               } as any
             }}
           />

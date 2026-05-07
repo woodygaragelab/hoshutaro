@@ -107,6 +107,7 @@ export function useHorizontalVirtualScrolling(
   const totalWidth = cumulativeWidths[cumulativeWidths.length - 1];
 
   // Handle scroll - no-op since we use scrollLeft from config
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleScroll = useCallback((newScrollLeft: number) => {
     // This is handled by the parent component passing scrollLeft to config
   }, []);

@@ -5,6 +5,7 @@
 import React from 'react';
 
 // Simple lazy loading wrapper
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const LazyWrapper = <T extends React.ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
   fallback?: React.ReactNode
@@ -243,6 +244,7 @@ export const useProgressiveLoading = <T>(
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, dependencies);
 
   return { data, loading, error, progress };

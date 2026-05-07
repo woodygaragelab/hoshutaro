@@ -19,6 +19,7 @@ export interface GridColumn {
   type: 'text' | 'number' | 'date' | 'status' | 'cost';
   editable: boolean;
   fixed?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   accessor?: string | ((row: any) => any);
 }
 
@@ -37,6 +38,7 @@ export interface GridState {
   sortColumn: string | null;
   sortDirection: 'asc' | 'desc' | null;
   scrollPosition: { x: number; y: number };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   clipboardData?: any;
 }
 
@@ -66,7 +68,9 @@ export interface DisplayAreaConfig {
 export interface CellEditContext {
   rowId: string;
   columnId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   previousValue: any;
   isValid: boolean;
   errorMessage?: string;
@@ -87,8 +91,10 @@ export interface ClipboardData {
 export interface EnhancedMaintenanceGridProps {
   data: HierarchicalData[];
   columns: GridColumn[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   timeHeaders: any[];
   viewMode: 'status' | 'cost';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
   onTimeCellsDelete?: (cells: {rowId: string, columnId: string}[]) => void;

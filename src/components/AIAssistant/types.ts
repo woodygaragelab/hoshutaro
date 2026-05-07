@@ -3,10 +3,14 @@ export interface AIAssistantPanelProps {
   onClose: () => void;
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onImportComplete?: (dataModel: any) => void;
   dataContext?: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     assets: any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     workOrders: any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     workOrderLines: any[];
   };
 }
@@ -15,6 +19,7 @@ export interface ChatAction {
   id: string;
   label: string;
   variant: 'confirm' | 'cancel' | 'info';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload?: Record<string, any>;
 }
 

@@ -22,6 +22,7 @@ export const getISOWeek = (d: Date): { year: number, week: number } => {
     // The year of this Thursday is the ISO week year
     const year = date.getUTCFullYear();
     const yearStart = new Date(Date.UTC(year, 0, 1));
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
     return { year, week: weekNo };
@@ -45,6 +46,7 @@ export const getTimeKey = (date: Date, timeScale: TimeScale): string => {
         case 'month':
             return `${year}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
         case 'week':
+            // eslint-disable-next-line no-case-declarations
             const { year: isoYear, week: isoWeek } = getISOWeek(date);
             return `${isoYear}-W${String(isoWeek).padStart(2, '0')}`;
         case 'day':

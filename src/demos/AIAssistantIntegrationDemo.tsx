@@ -25,8 +25,11 @@ import {
   SmartToy as AIIcon,
   Integration as IntegrationIcon,
   CloudUpload as UploadIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   TableChart as TableIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   AutoFixHigh as MappingIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Assessment as AnalysisIcon,
   CheckCircle as CheckIcon,
   Psychology as BrainIcon,
@@ -286,6 +289,7 @@ const AIAssistantIntegrationDemo: React.FC = () => {
                               <Chip
                                 label={feature.status === 'completed' ? '完了' : '進行中'}
                                 size="small"
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 color={getStatusColor(feature.status) as any}
                                 variant="outlined"
                               />

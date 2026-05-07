@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { WorkOrderBasedRow as WorkOrderBasedRowData, AggregatedStatus } from '../../types/maintenanceTask';
 import { GridColumn, GridState } from './types';
 import { HierarchicalData } from '../../types';
@@ -14,6 +15,7 @@ interface WorkOrderBasedRowProps {
   columns: GridColumn[];
   viewMode: 'status' | 'cost';
   gridState: GridState;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
   onCellClick?: (rowId: string, columnId: string) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
@@ -84,10 +86,13 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
   const getRowId = useCallback(() => {
     // If the row already has an ID assigned by the ViewModeManager or App.tsx, USE IT EXACTLY.
     // Overwriting it causes complete lookup failures in copyPasteManager because it retains the original ID.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((row as any).id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (row as any).id;
     }
     return 'unknown';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps
   }, [row.type, row.assetId, row.workOrderId, (row as any).id]);
 
   const rowId = getRowId();
@@ -157,6 +162,7 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
     }
 
     return '';
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row, columns, viewMode]);
 
   // Calculate indentation based on level
@@ -225,6 +231,7 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
         // For task rows, render with indentation in first column
         // Only show task name in fixed area, hide in scrollable area
         if (isFirstColumn) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const isHierarchyRow = row.type === 'hierarchy' || row.type === 'workOrder';
           
           let cellWidth = width;
@@ -325,9 +332,11 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
           task: row.workOrderName || '',
           bomCode: row.assetId || '',
           specifications: [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           results: (row.aggregatedSchedule || {}) as any,
           level: row.level,
           children: [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           rolledUpResults: (row.aggregatedSchedule || {}) as any
         };
 

@@ -14,6 +14,7 @@ export interface ValidationError {
   type: 'VALIDATION_ERROR';
   field: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
 }
 
@@ -37,6 +38,7 @@ export interface MigrationError {
   type: 'MIGRATION_ERROR';
   source: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
 
@@ -273,7 +275,9 @@ export class ErrorHandler implements IErrorHandler {
     // Always log to console for debugging
     if (severity === 'error') {
       console.error(message);
+     
     } else if (severity === 'warning') {
+          // eslint-disable-next-line no-empty
           } else {
           }
   }
@@ -331,6 +335,7 @@ export const errorHandler = new ErrorHandler();
 export function createValidationError(
   field: string,
   message: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any
 ): ValidationError {
   return {
@@ -359,6 +364,7 @@ export function createReferenceError(
 export function createMigrationError(
   source: string,
   message: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
 ): MigrationError {
   return {

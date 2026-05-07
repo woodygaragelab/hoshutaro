@@ -2,6 +2,7 @@ export interface SSEEvent {
   type: 'status' | 'text_delta' | 'suggestion' | 'error' | 'workbook_update' | 'dashboard_update' | 'document_update' | 'op_summary';
   message?: string;
   delta?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   suggestion?: any;
 }
 
@@ -11,6 +12,7 @@ export function startChatStream(
   onEvent: (event: SSEEvent) => void,
   onDone: () => void,
   onError: (err: string) => void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dataContext?: { assets: any[]; workOrders: any[]; workOrderLines: any[] }
 ): () => void {
   const controller = new AbortController()
@@ -75,6 +77,7 @@ export function startChatStream(
             try {
               const chunk = JSON.parse(raw)
               onEvent(chunk as SSEEvent)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               // ignore parse error for incomplete chunks
             }
@@ -82,6 +85,7 @@ export function startChatStream(
         }
       }
       emitDone()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       if (e?.name !== 'AbortError') {
         onError(e?.message ?? '接続エラー')

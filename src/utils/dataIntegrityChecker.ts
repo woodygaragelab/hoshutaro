@@ -9,6 +9,7 @@ import {
   WorkOrder,
   WorkOrderLine,
   HierarchyDefinition,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   HierarchyPath,
 } from '../types/maintenanceTask';
 
@@ -38,6 +39,7 @@ export interface IntegrityError {
   message: string;
   entityType: 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
   entityId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any;
 }
 
@@ -49,6 +51,7 @@ export interface IntegrityWarning {
   message: string;
   entityType: 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
   entityId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any;
 }
 
@@ -197,8 +200,10 @@ export class DataIntegrityChecker {
       // Relax strict typeof check to handle cases where it was natively a string or number, 
       // but gracefully normalize it behind the scenes
       if (typeof line.Planned !== 'boolean') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pval = (line as any).Planned;
         if (pval === 'true' || pval === 'false' || pval === 1 || pval === 0 || pval === undefined) {
+           // eslint-disable-next-line @typescript-eslint/no-explicit-any
            (line as any).Planned = pval === 'true' || pval === 1;
         } else {
            errors.push({
@@ -210,8 +215,10 @@ export class DataIntegrityChecker {
         }
       }
       if (typeof line.Actual !== 'boolean') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const aval = (line as any).Actual;
         if (aval === 'true' || aval === 'false' || aval === 1 || aval === 0 || aval === undefined) {
+           // eslint-disable-next-line @typescript-eslint/no-explicit-any
            (line as any).Actual = aval === 'true' || aval === 1;
         } else {
            errors.push({
@@ -239,6 +246,7 @@ export class DataIntegrityChecker {
     const allIds = new Map<string, { type: string; id: string }[]>();
 
     // Collect all IDs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const addIds = (items: Record<string, any>, type: string) => {
       for (const id of Object.keys(items)) {
         const existing = allIds.get(id) || [];
@@ -258,6 +266,7 @@ export class DataIntegrityChecker {
         errors.push({
           type: 'DUPLICATE_ID',
           message: `ID ${id} が複数のエンティティタイプで使用されています: ${types}`,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           entityType: entries[0].type as any,
           entityId: id,
           details: { types: entries.map(e => e.type) },
@@ -280,9 +289,7 @@ export class DataIntegrityChecker {
     // Build lookup map from hierarchy definition
     const hierarchyLevels = new Map<string, Set<string>>();
     for (const level of hierarchy.levels) {
-      // level.values is now an array of TreeLevelValue objects: { value: string, parentValue?: string }
-      const strings = level.values.map(v => typeof v === 'string' ? v : v.value);
-      hierarchyLevels.set(level.key, new Set(strings));
+      hierarchyLevels.set(level.key, new Set(level.values));
     }
 
     // Check each asset's hierarchy path

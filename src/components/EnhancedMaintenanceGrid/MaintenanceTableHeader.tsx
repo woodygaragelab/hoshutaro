@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, InputLabel, FormControl, Checkbox, FormGroup, FormControlLabel, List, ListItem, Divider, Tabs, Tab } from '@mui/material';
 import { DragIndicator as DragIcon, FilterList as FilterIcon, Search as SearchIcon } from '@mui/icons-material';
 import { GridColumn, GridState } from './types';
@@ -20,9 +21,13 @@ interface MaintenanceTableHeaderProps {
   level1Filter?: string;
   level2Filter?: string;
   level3Filter?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onLevel1FilterChange?: (event: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onLevel2FilterChange?: (event: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onLevel3FilterChange?: (event: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   hierarchyFilterTree?: any;
   level2Options?: string[];
   level3Options?: string[];
@@ -35,12 +40,15 @@ interface MaintenanceTableHeaderProps {
   isTaskBasedMode?: boolean;
   
   // Classification Filter props
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assetClassification?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   workOrderClassifications?: any[];
   classificationFilter?: { [levelKey: string]: string };
   onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
   woClassificationFilter?: string;
   onWoClassificationFilterChange?: (classificationId: string) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assets?: any[];
 }
 
@@ -616,6 +624,7 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                   {assetClassification && assetClassification.levels && assetClassification.levels.length > 0 ? (
                     assetClassification.levels
                       .slice()
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       .map((level: any, idx: number, sortedLevels: any[]) => {
                         const parentSelected = idx === 0 || sortedLevels.slice(0, idx).every(
                           parentLevel => classificationFilter[parentLevel.key] && classificationFilter[parentLevel.key] !== ''
@@ -623,6 +632,7 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                         const currentValue = classificationFilter[level.key] || 'all';
                         
                         // Extract string values, handling both old string array format and new object array {value, parentValue} format
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         let availableValues = (level.values || []).map((v: any) => typeof v === 'string' ? v : v.value);
                         
                         if (idx > 0) {

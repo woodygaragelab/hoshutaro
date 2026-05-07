@@ -13,6 +13,7 @@ interface MaintenanceTableBodyProps {
   gridState: GridState;
   viewMode: 'status' | 'cost';
   groupedData?: { [key: string]: HierarchicalData[] };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onCellEdit: (rowId: string, columnId: string, value: any) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
@@ -105,6 +106,7 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   const taskBasedRows = useMemo(() => {
     if (!isTaskBasedMode) return [];
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return data.map((item: any) => {
       // Use predefined type from ViewModeManager if available
       const rowType = item.type || (item.isGroupHeader ? 'hierarchy' : (item.taskId ? 'workOrderLine' : 'asset'));
@@ -120,6 +122,7 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
         taskId: item.taskId || item.workOrderId,
         workOrderId: item.workOrderId || item.taskId,
         workOrderName: item.workOrderName || (item.taskId ? item.task : undefined),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ClassificationId: (item as any).ClassificationId,
         schedule: item.schedule,
         aggregatedSchedule: item.aggregatedSchedule || item.results,

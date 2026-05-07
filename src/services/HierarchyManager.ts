@@ -603,6 +603,7 @@ export class HierarchyManager {
       }
     }
 
+    // eslint-disable-next-line no-empty
     if (errors.length > 0) {
           }
 

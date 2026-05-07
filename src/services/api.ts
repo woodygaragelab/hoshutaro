@@ -27,6 +27,7 @@ export async function updateLLMSettings(settings: LLMSettings): Promise<void> {
   if (!res.ok) throw new Error('Failed to update settings')
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function startLLMAdapter(adapter: string, pluginConfig: Record<string, any>): Promise<{ok: boolean, error?: string}> {
   const res = await fetch('/api/settings/llm/start', {
     method: 'POST',
@@ -37,6 +38,7 @@ export async function startLLMAdapter(adapter: string, pluginConfig: Record<stri
   return res.json()
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function testLLMConnection(adapter: string, pluginConfig: Record<string, any>): Promise<TestConnectionResult> {
   const res = await fetch('/api/settings/llm/test', {
     method: 'POST',
@@ -46,6 +48,7 @@ export async function testLLMConnection(adapter: string, pluginConfig: Record<st
   return res.json()
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getLLMModels(adapter: string, pluginConfig: Record<string, any>): Promise<string[]> {
   const res = await fetch('/api/settings/llm/models', {
     method: 'POST',
@@ -61,6 +64,7 @@ export async function getLLMModels(adapter: string, pluginConfig: Record<string,
   return data.models || []
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function callLLMTool(adapter: string, pluginConfig: Record<string, any>, toolName: string, toolArgs: Record<string, any>): Promise<any> {
   const res = await fetch('/api/settings/llm/tool', {
     method: 'POST',
@@ -89,6 +93,7 @@ export interface PluginInfo {
   version: string
   category?: string
   status?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   configSchema?: Record<string, any>
 }
 
@@ -111,6 +116,7 @@ export async function getLocalModels(base_dir?: string): Promise<LocalModelInfo[
   return data.models || []
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getPluginConfig(pluginId: string): Promise<Record<string, any>> {
   const res = await fetch(`/api/plugins/${pluginId}/config`)
   if (!res.ok) {
@@ -121,6 +127,7 @@ export async function getPluginConfig(pluginId: string): Promise<Record<string, 
   return data.config || {}
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updatePluginConfig(pluginId: string, config: Record<string, any>): Promise<any> {
   const res = await fetch(`/api/plugins/${pluginId}/config`, {
     method: 'PUT',

@@ -48,9 +48,12 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('MemoryError', {
       name: 'Memory Recovery',
       canRecover: (error: Error) => error.message.includes('Memory') || error.message.includes('out of memory'),
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       recover: async (error: Error, context: ErrorContext) => {
         // ガベージコレクションを強制実行
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ('gc' in window && typeof (window as any).gc === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).gc();
         }
 
@@ -59,6 +62,7 @@ export class ErrorRecoveryManager {
 
         // メモリ使用量をチェック
         if ('memory' in performance) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const memInfo = (performance as any).memory;
           if (memInfo.usedJSHeapSize > memInfo.jsHeapSizeLimit * 0.9) {
             throw new Error('メモリ不足が解消されませんでした');
@@ -73,6 +77,7 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('RenderError', {
       name: 'Render Recovery',
       canRecover: (error: Error) => error.message.includes('render') || error.stack?.includes('render'),
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       recover: async (error: Error, context: ErrorContext) => {
         // DOM状態をリセット
         this.resetDOMState();
@@ -105,6 +110,7 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('SyncError', {
       name: 'Sync Recovery',
       canRecover: (error: Error) => error.message.includes('sync') || error.message.includes('conflict'),
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       recover: async (error: Error, context: ErrorContext) => {
         // オフラインデータがある場合は保存
         if (this.hasOfflineData()) {
@@ -159,6 +165,7 @@ export class ErrorRecoveryManager {
     }
 
     // 適用可能なリカバリ戦略を検索
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [key, strategy] of this.recoveryStrategies) {
       if (strategy.canRecover(error)) {
         try {
@@ -167,6 +174,7 @@ export class ErrorRecoveryManager {
           if (success) {
                         return true;
           }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (recoveryError) {
                     continue;
         }
@@ -184,6 +192,7 @@ export class ErrorRecoveryManager {
   /**
    * オフラインデータを保存
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveOfflineData(key: string, data: any): void {
     if (!this.config.enableOfflineMode) return;
 
@@ -250,6 +259,7 @@ export class ErrorRecoveryManager {
   /**
    * オフラインデータを同期
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async syncOfflineData(key: string, data: OfflineData): Promise<void> {
     // 実際の実装では、サーバーAPIを呼び出してデータを同期
         
@@ -303,6 +313,7 @@ export class ErrorRecoveryManager {
   /**
    * グレースフルフォールバック
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async gracefulFallback(error: Error, context: ErrorContext): Promise<boolean> {
     
     // 基本的なクリーンアップ

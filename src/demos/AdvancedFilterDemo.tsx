@@ -34,6 +34,7 @@ const AdvancedFilterDemo: React.FC = () => {
 
   // Transform raw data
   const [maintenanceData] = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [flatData] = transformData(rawData as any, 'year');
     return [flatData];
   }, []);

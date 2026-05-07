@@ -25,6 +25,7 @@ import { excelProcessingService } from '../services/ExcelProcessingService';
 
 interface ExcelDropZoneProps {
   onFileProcessed: (result: ExcelImportResult, file: File) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onPreviewGenerated?: (previewData: any[], mappings: DataMappingSuggestion[]) => void;
 }
 
@@ -55,6 +56,7 @@ const ExcelDropZone: React.FC<ExcelDropZoneProps> = ({
     if (files.length > 0) {
       await processFile(files[0]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,6 +64,7 @@ const ExcelDropZone: React.FC<ExcelDropZoneProps> = ({
     if (files && files.length > 0) {
       await processFile(files[0]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const processFile = async (file: File) => {

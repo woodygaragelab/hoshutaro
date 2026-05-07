@@ -241,6 +241,7 @@ export class ExcelProcessingService {
     return matrix[str2.length][str1.length];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private validateData(dataRows: any[][], headers: string[]): ImportError[] {
     const errors: ImportError[] = [];
 
@@ -336,6 +337,7 @@ export class ExcelProcessingService {
     return !isNaN(Number(cleanValue)) && cleanValue !== '';
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async generatePreviewData(file: File, mappingSuggestions: DataMappingSuggestion[]): Promise<any[]> {
     try {
       const arrayBuffer = await this.readFileAsArrayBuffer(file);
@@ -347,7 +349,9 @@ export class ExcelProcessingService {
       const headers = jsonData[0] as string[];
       const dataRows = jsonData.slice(1, 6); // 最初の5行のみプレビュー
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return dataRows.map((row: any[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mappedRow: any = {};
         headers.forEach((header, index) => {
           const suggestion = mappingSuggestions.find(s => s.sourceColumn === header);

@@ -86,12 +86,15 @@ const ViewModeDemo: React.FC = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
       };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
       };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleUpdateItem = (updatedItem: HierarchicalData) => {
       };
 

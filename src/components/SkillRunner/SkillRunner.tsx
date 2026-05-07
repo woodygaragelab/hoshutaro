@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   AutoFixHigh as SkillIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material';

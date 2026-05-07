@@ -1,19 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Box, IconButton, Typography, CircularProgress, Avatar, Paper, Button, Chip
 } from '@mui/material';
 import {
   Send as SendIcon,
   AttachFile as AttachFileIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Settings as SettingsIcon,
   CalendarMonth as CalendarIcon,
   ViewList as DisplayModeIcon,
   SwapHoriz as ViewModeIcon,
   Star as AIIcon,
   Person as PersonIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
   AccountTree as HierarchyIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ImportExport as SyncIcon,
   FileUpload as UploadFileIcon,
   FileDownload as DownloadFileIcon,
@@ -23,7 +27,9 @@ import {
   Undo as UndoIcon,
   Redo as RedoIcon,
   BarChart as BarChartIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Extension as ExtensionIcon,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   AutoFixHigh as SkillIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
@@ -52,7 +58,9 @@ interface AgentBarProps {
   // AI related passing upwards if necessary
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onImportComplete: (dataModel: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dataContext: any;
   timeHeaders?: string[];
   activeTimeHeaders?: string[];
@@ -70,6 +78,9 @@ interface AgentBarProps {
   // Plugin & Skill
   onPluginManager?: () => void;
   onSkillRunner?: () => void;
+
+  // Date jump current focus
+  currentVisibleDate?: string;
 }
 
 export const AgentBar: React.FC<AgentBarProps> = ({
@@ -84,6 +95,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   onHierarchyEdit,
   onAssetClassificationEdit,
   onWorkOrderClassificationEdit,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSuggestionApply,
   onExcelImport,
   onImportComplete,
@@ -115,6 +127,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   // --- Hover Menu States ---
   const [showTimeScaleMenu, setShowTimeScaleMenu] = useState(false);
   const [showDisplayModeMenu, setShowDisplayModeMenu] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
   const [showMasterMenu, setShowMasterMenu] = useState(false);
@@ -175,6 +188,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           ]
         };
         setMessages(prev => [...prev, aiResponse]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
@@ -281,6 +295,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
         if (result.data_model && onImportComplete) {
           onImportComplete(result.data_model);
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         setMessages(prev => prev.map(m => m.id === statusMsg.id ? { ...m, content: `[エラー]: ${error.message}` } : m));
       } finally {

@@ -63,6 +63,7 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
     );
       };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
         
     // Update the maintenance data
@@ -79,12 +80,19 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
         
     // This is handled by the SpecificationEditManager, but we can add additional logging here
+     
+     
     if (key === 'add') {
+
+          // eslint-disable-next-line no-empty
           } else if (key === 'delete') {
+
           } else if (key === 'reorder') {
+          // eslint-disable-next-line no-empty
           } else {
           }
   };

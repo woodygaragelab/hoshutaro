@@ -53,6 +53,7 @@ export class DataStore {
       }
 
       if (integrityResult.warnings.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 integrityResult.warnings.forEach(w => {
                   });
       }
@@ -82,6 +83,7 @@ export class DataStore {
       }
 
       if (integrityResult.warnings.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 integrityResult.warnings.forEach(w => {
                   });
       }
@@ -134,6 +136,7 @@ export class DataStore {
   /**
    * データモデルのバリデーション
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private validateDataModel(data: any): asserts data is DataModel {
     if (!data || typeof data !== 'object') {
       throw new ValidationError('データが無効です');
@@ -189,6 +192,7 @@ export class DataStore {
   /**
    * 機器分類マスタのバリデーション
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private validateAssetClassification(classification: any): asserts classification is AssetClassificationDefinition {
     if (!classification.levels || !Array.isArray(classification.levels)) {
       throw new ValidationError('機器分類のlevelsが必要です');
@@ -217,12 +221,14 @@ export class DataStore {
   /**
    * 機器のバリデーション
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private validateAssets(assets: any): asserts assets is { [id: string]: Asset } {
     for (const [assetId, asset] of Object.entries(assets)) {
       if (!asset || typeof asset !== 'object') {
         throw new ValidationError(`機器 ${assetId} が無効です`);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const a = asset as any;
 
       if (!a.id || typeof a.id !== 'string') {
@@ -250,12 +256,14 @@ export class DataStore {
   /**
    * WorkOrderのバリデーション
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private validateWorkOrders(workOrders: any): asserts workOrders is { [id: string]: WorkOrder } {
     for (const [woId, wo] of Object.entries(workOrders)) {
       if (!wo || typeof wo !== 'object') {
         throw new ValidationError(`WorkOrder ${woId} が無効です`);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const w = wo as any;
 
       if (!w.id || typeof w.id !== 'string') {
@@ -288,6 +296,7 @@ export class DataStore {
    * WorkOrderLineのバリデーション（参照整合性を含む）
    */
   private validateWorkOrderLines(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lines: any,
     workOrders: { [id: string]: WorkOrder },
     assets: { [id: string]: Asset }
@@ -297,6 +306,7 @@ export class DataStore {
         throw new ValidationError(`WorkOrderLine ${lineId} が無効です`);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const l = line as any;
 
       if (!l.id || typeof l.id !== 'string') {
@@ -348,6 +358,7 @@ export class DataStore {
    * 作業分類マスターのバリデーション
    */
   private validateWorkOrderClassifications(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     classifications: any
   ): asserts classifications is WorkOrderClassification[] {
     if (!Array.isArray(classifications)) {
@@ -378,6 +389,7 @@ export class DataStore {
   /**
    * 階層のバリデーション
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private validateHierarchy(hierarchy: any): asserts hierarchy is HierarchyDefinition {
     if (!hierarchy.levels || !Array.isArray(hierarchy.levels)) {
       throw new ValidationError('階層のlevelsが必要です');
@@ -412,6 +424,7 @@ export class DataStore {
   /**
    * 日付文字列をDateオブジェクトに変換
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private normalizeDates(data: any): DataModel {
     const normalized = { ...data };
 

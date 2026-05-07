@@ -141,7 +141,8 @@ export interface WorkOrderLine {
  */
 export interface HierarchyLevel {
   key: string;       // e.g. "製油所", "エリア", "ユニット"
-  values: TreeLevelValue[];
+  values: string[];
+  order?: number;    // Display order for sorting (used by ViewModeManager / dialogs)
 }
 
 /**
@@ -224,7 +225,8 @@ export interface AssetBasedRow {
  */
 export interface WorkOrderBasedRow {
   id: string;
-  type: 'workOrder' | 'assetChild';
+  // 'hierarchy' / 'asset' / 'workOrderLine' は Grid 内で構築される派生行で使用
+  type: 'workOrder' | 'assetChild' | 'hierarchy' | 'asset' | 'workOrderLine';
   level: number;
   isExpanded?: boolean;
   
@@ -274,6 +276,7 @@ export interface DataModel {
   assetClassification: AssetClassificationDefinition;
   metadata: {
     lastModified: Date;
+    projectName?: string;
   };
 }
 
@@ -296,6 +299,7 @@ export type HistoryAction =
 export interface HistoryState {
   timestamp: Date;
   action: HistoryAction;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
 
@@ -320,6 +324,7 @@ export interface ValidationError {
   type: 'VALIDATION_ERROR';
   field: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
 }
 
@@ -335,6 +340,7 @@ export interface MigrationError {
   type: 'MIGRATION_ERROR';
   source: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
 

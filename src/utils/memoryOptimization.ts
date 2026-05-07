@@ -16,6 +16,7 @@ export class MemoryMonitor {
     }
 
     this.checkInterval = window.setInterval(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const memory = (performance as any).memory;
       const usage = memory.usedJSHeapSize;
       
@@ -38,6 +39,7 @@ export class MemoryMonitor {
 
   getCurrentUsage(): number {
     if ('memory' in performance) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (performance as any).memory.usedJSHeapSize;
     }
     return 0;
@@ -46,6 +48,7 @@ export class MemoryMonitor {
   forceGarbageCollection() {
     // Force garbage collection if available (Chrome DevTools)
     if ('gc' in window) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).gc();
     }
   }
@@ -243,6 +246,7 @@ export const stringInterner = new StringInterner();
 try {
   if (import.meta.env?.DEV) {
     memoryMonitor.start();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     memoryMonitor.onHighMemoryUsage((usage) => {
           });
   }

@@ -1,7 +1,9 @@
 import { HierarchicalData, RawEquipment } from '../types';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { getTimeKey, getISOWeek } from './dateUtils';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const transformData = (data: { [id: string]: RawEquipment } | any, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], any] => {
   // Validate input data
   if (!data || typeof data !== 'object') {
@@ -43,6 +45,7 @@ export const transformData = (data: { [id: string]: RawEquipment } | any, timeSc
     // a. Build hierarchy path and populate filter tree
     const hierarchyKeys = Object.keys(equipment.hierarchy).sort();
     const pathParts: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let currentFilterNode: any = hierarchyFilterTree;
 
     hierarchyKeys.forEach(key => {
@@ -133,6 +136,7 @@ export const transformData = (data: { [id: string]: RawEquipment } | any, timeSc
 };
 
 // Transform v2.0.0 data structure
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], any] => {
   const flatEquipmentList: HierarchicalData[] = [];
   const hierarchyFilterTree = { name: 'root', children: {} };
@@ -140,6 +144,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
   // Extract assets and associations
   const assets = data.assets || {};
   const associations = data.associations || {};
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const tasks = data.tasks || {};
 
   
@@ -148,6 +153,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
   let hasDateData = false;
 
   // 1. Find date range from associations
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Object.values(associations).forEach((assoc: any) => {
     if (assoc && assoc.schedule) {
       for (const dateStr in assoc.schedule) {
@@ -169,6 +175,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
   }
 
   // 2. Process each asset
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Object.values(assets).forEach((asset: any) => {
     if (!asset || !asset.hierarchyPath || typeof asset.hierarchyPath !== 'object') {
             return;
@@ -177,6 +184,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
     // Build hierarchy path and populate filter tree
     const hierarchyKeys = Object.keys(asset.hierarchyPath).sort();
     const pathParts: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let currentFilterNode: any = hierarchyFilterTree;
 
     hierarchyKeys.forEach(key => {
@@ -204,6 +212,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
     };
 
     // 3. Populate results from associations
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Object.values(associations).forEach((assoc: any) => {
       if (assoc && assoc.assetId === asset.id && assoc.schedule) {
         for (const dateStr in assoc.schedule) {

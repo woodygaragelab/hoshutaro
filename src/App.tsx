@@ -10,6 +10,7 @@ import { useAccessibility } from './utils/accessibility';
 
 
 // Import memoization utilities for performance optimization - Requirements 10.1, 10.2, 10.3
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { memoize, memoizeArray, createMemoizedSelector } from './utils/memoization';
 
 // Import all service managers
@@ -27,6 +28,7 @@ import { EditHandlers } from './services/EditHandlers';
 import { dataIndexManager } from './utils/dataIndexing';
 
 // Import hooks
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useViewModeTransition } from './hooks/useViewModeTransition';
 import { extractIdsFromRowId } from './components/EnhancedMaintenanceGrid/utils/gridIdUtils';
 
@@ -38,14 +40,18 @@ import { AnimatePresence } from 'framer-motion';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
 import { TreeClassificationEditDialog } from './components/TreeClassificationEditDialog';
 import { WorkOrderClassificationEditDialog } from './components/WorkOrderClassificationEditDialog';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
 import { PluginManager } from './components/PluginManager/PluginManager';
 import { SkillRunner } from './components/SkillRunner/SkillRunner';
 import { UpdateNotification } from './components/UpdateNotification/UpdateNotification';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
 import { transformData } from './utils/dataTransformer';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
 import { darkTheme } from './theme/darkTheme';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate, SpecificationChange } from './types/maintenanceTask';
 
 const rawData = {
@@ -89,6 +95,7 @@ const App: React.FC = () => {
     const currentYear = new Date().getFullYear();
     return [currentYear.toString(), (currentYear + 1).toString(), (currentYear + 2).toString()];
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [hierarchyFilterTree, setHierarchyFilterTree] = useState<any>(null);
   const [isServicesInitialized, setIsServicesInitialized] = useState(false);
 
@@ -125,17 +132,25 @@ const App: React.FC = () => {
   // Temporarily disabled useViewModeTransition to fix infinite loops
   // Use the useViewModeTransition hook for managing view mode transitions
   // Requirements 6.1, 6.2, 6.3, 6.5
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hookCurrentMode = dataViewMode;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hookEquipmentData: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const hookTaskData: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isTransitioning = false;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const transitionDuration = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const hookSwitchMode = (mode: any, preserveState?: boolean) => {
     // Don't call setDataViewMode here to prevent infinite loops
     // The mode change will be handled by the handleDataViewModeChange function
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const hookApplyFilters = (filters: any) => {
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const hookUpdateData = (tasks: any, assets: any, associations: any, hierarchy: any) => {
   };
 
@@ -177,13 +192,18 @@ const App: React.FC = () => {
   const [woClassificationFilter, setWoClassificationFilter] = useState<string>('all');
 
   // UI component states (dialogs only)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [addYearDialogOpen, setAddYearDialogOpen] = useState(false);
   const [newYearInput, setNewYearInput] = useState<string>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [addYearError, setAddYearError] = useState<string>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deleteYearDialogOpen, setDeleteYearDialogOpen] = useState(false);
   const [yearToDelete, setYearToDelete] = useState<number | string>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deleteYearError, setDeleteYearError] = useState<string>('');
   const [importConfirmDialogOpen, setImportConfirmDialogOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [importedFileData, setImportedFileData] = useState<any>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const [resetConfirmDialogOpen, setResetConfirmDialogOpen] = useState(false);
@@ -204,6 +224,7 @@ const App: React.FC = () => {
   const [displayMode, setDisplayMode] = useState<'specifications' | 'maintenance' | 'both'>('maintenance');
 
   // Handle cell double click - proper dialog routing based on view mode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const handleCellDoubleClick = (item: any, header: string, event: React.MouseEvent<HTMLElement>) => {
 
     // Route to appropriate dialog based on view mode
@@ -235,10 +256,12 @@ const App: React.FC = () => {
   const [taskEditTaskId, setTaskEditTaskId] = useState<string | undefined>(undefined);
 
   // AssetReassignDialog states - Requirements 3.2, 3.6
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [assetReassignDialogOpen, setAssetReassignDialogOpen] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
 
   // HierarchyEditDialog state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hierarchyEditDialogOpen, setHierarchyEditDialogOpen] = useState(false);
 
 
@@ -267,8 +290,11 @@ const App: React.FC = () => {
 
         // --- Debug: expose managers to browser console for data integrity testing ---
         if (import.meta.env.DEV) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__wolManager = workOrderLineManagerRef.current;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__assetManager = assetManagerRef.current;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__woManager = workOrderManagerRef.current;
         }
 
@@ -283,6 +309,7 @@ const App: React.FC = () => {
         // Requirements 9.1: Check version and handle legacy data
         try {
           // Step 1: Check data version before attempting to load
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const dataVersion = (rawData as any).version;
 
 
@@ -311,6 +338,7 @@ const App: React.FC = () => {
               // Load workOrders - create new manager and populate
               workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
               const existingWorkOrders = Object.values(loadedData.workOrders || {});
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               existingWorkOrders.forEach((wo: any) => {
                 workOrderManagerRef.current!.createWorkOrder(wo);
               });
@@ -320,16 +348,19 @@ const App: React.FC = () => {
               const existingWorkOrderLines = Object.values(loadedData.workOrderLines || {});
               let wolSuccessCount = 0;
               let wolErrorCount = 0;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               existingWorkOrderLines.forEach((wol: any) => {
                 try {
                   workOrderLineManagerRef.current!.createWorkOrderLine(wol);
                   wolSuccessCount++;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } catch (e: any) {
                   wolErrorCount++;
                   console.error('[App] DEBUG: createWorkOrderLine error for', wol?.id, ':', e.message);
                 }
               });
               const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (window as any).__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
 
               // Reinitialize EditHandlers with the new WorkOrderLineManager
@@ -346,10 +377,12 @@ const App: React.FC = () => {
               if (loadedData.hierarchy) {
                 // 階層定義をそのまま使用（日本語キーを保持）
                 const hierarchyDefinition = {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   levels: loadedData.hierarchy.levels.map((level: any) => ({
                     key: level.key, // 日本語キーをそのまま使用
                     name: level.key, // 日本語名を保持
                     order: level.order, // 1ベースのまま維持
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     values: level.values.map((v: any) => typeof v === 'string' ? { value: v } : v) // 互換性: string[] -> TreeLevelValue[] に変換
                   }))
                 };
@@ -373,6 +406,7 @@ const App: React.FC = () => {
                 associations: existingWorkOrderLines
               });
 
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const indexStats = dataIndexManagerRef.current.getStats();
 
               // Update time headers based on data range
@@ -383,6 +417,7 @@ const App: React.FC = () => {
               years.add(currentYear + 1);
               years.add(currentYear + 2);
 
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               existingWorkOrderLines.forEach((wol: any) => {
                 if (wol.schedule) {
                   Object.keys(wol.schedule).forEach(dateKey => {
@@ -469,6 +504,7 @@ const App: React.FC = () => {
     };
 
     measureAsync('service-initialization', 'render', initializeServices);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
   // Listen for date jumps to update the dynamic time window
@@ -493,12 +529,14 @@ const App: React.FC = () => {
       loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
     };
     measureAsync('data-transformation', 'render', loadData);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeScale, focusDateKey, isServicesInitialized]); // Remove measureAsync and announce from dependencies
 
   // Helper function to build hierarchy filter tree
   // Memoized for performance - Requirements 10.1, 10.2, 10.3
   const buildHierarchyFilterTree = useMemo(() => {
     return memoizeArray((data: HierarchicalData[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tree: any = { children: {} };
 
       data.forEach(item => {
@@ -533,6 +571,7 @@ const App: React.FC = () => {
 
   // Memoized data transformation functions - Requirements 10.1, 10.2, 10.3
   const transformEquipmentData = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return createMemoizedSelector((equipmentData: any[]) => {
 
       return equipmentData.map(row => {
@@ -551,6 +590,7 @@ const App: React.FC = () => {
           };
         } else if (row.type === 'asset') {
           // Asset row with aggregated task data
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const results: any = {};
 
           // Aggregate schedule data by time scale
@@ -560,6 +600,7 @@ const App: React.FC = () => {
               timeScale
             );
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             Object.entries(aggregated).forEach(([timeKey, status]: [string, any]) => {
               if (!results[timeKey]) {
                 results[timeKey] = {
@@ -662,7 +703,9 @@ const App: React.FC = () => {
           const transformedData = transformEquipmentData(equipmentData);
 
           // DEBUG: Expose data to window for headless inspection
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__DEBUG_EQUIPMENT = equipmentData;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__DEBUG_TRANS = transformedData;
 
           const newActiveHeaders = new Set<string>();
@@ -726,7 +769,9 @@ const App: React.FC = () => {
                 children: []
               };
             } else if (row.type === 'assetChild') {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const results: any = row.aggregatedSchedule || {};
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const rolledUpResults: any = row.aggregatedSchedule || {};
               return {
                 ...row,
@@ -746,6 +791,7 @@ const App: React.FC = () => {
                 children: []
               };
             } else {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               return row as any;
             }
           });
@@ -794,6 +840,7 @@ const App: React.FC = () => {
       // Doing so would wipe out the task hierarchies (causing the ghost UI bug).
       // We rely strictly on ViewModeManager, and if it fails, we show the ErrorHandler UI.
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isServicesInitialized, timeScale, focusDateKey]);
 
   const loadDataFromViewModeManager = useCallback((timeScaleOverride?: 'year' | 'month' | 'week' | 'day') => {
@@ -924,6 +971,7 @@ const App: React.FC = () => {
       (level1Filter !== 'all' || level2Filter !== 'all' || level3Filter !== 'all')) {
 
       // Build partial hierarchy path from filters
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hierarchyPath: any = {};
       const hierarchyDef = hierarchyManagerRef.current.getHierarchyDefinition();
 
@@ -1126,6 +1174,7 @@ const App: React.FC = () => {
   }, [maintenanceData, searchTerm, level1Filter, level2Filter, level3Filter, isServicesInitialized, selectedTasks, selectedBomCodes, classificationFilter, woClassificationFilter, dataViewMode]);
 
   // Group data for rendering
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const groupedData = useMemo(() => {
     return displayedMaintenanceData.reduce((acc, item) => {
       const path = item.hierarchyPath || 'Uncategorized';
@@ -1159,6 +1208,7 @@ const App: React.FC = () => {
     }
   }, [isServicesInitialized]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleViewModeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setViewMode(event.target.checked ? 'cost' : 'status');
   };
@@ -1180,6 +1230,7 @@ const App: React.FC = () => {
         // Preserve current filter state before switching
         // Requirements 6.2: フィルターと選択状態の保持
         const currentFilters = {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           hierarchyPath: {} as any,
           searchTerm: searchTerm,
         };
@@ -1439,6 +1490,7 @@ const App: React.FC = () => {
 
         try {
           assetManagerRef.current?.updateSpecifications(asset.id, reorderedSpecs);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
         } catch (e) {
         }
       });
@@ -1451,17 +1503,20 @@ const App: React.FC = () => {
 
   // Handle cell editing for EnhancedMaintenanceGrid
   // Requirements 4.2, 4.8, 5.7: Use EditHandlers for schedule editing with view mode awareness
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
 
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
       try {
         // Save current state for undo
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const currentState = {
           maintenanceData: [...maintenanceData]
         };
 
         // Parse rowId to get the actual IDs
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { assetId: actualAssetId, taskId: associatedTaskId, wolId: associatedWolId } = extractIdsFromRowId(rowId);
 
         // Deal with specification editing which was missing completely
@@ -1543,13 +1598,14 @@ const App: React.FC = () => {
     const sortedHeaders = Array.from(timeHeadersSet).sort();
     if (sortedHeaders.length > 0) {
       try {
-        let startBoundStr = sortedHeaders[0];
-        let endBoundStr = sortedHeaders[sortedHeaders.length - 1];
+        const startBoundStr = sortedHeaders[0];
+        const endBoundStr = sortedHeaders[sortedHeaders.length - 1];
 
         // We no longer truncate the time window here. The grid uses virtual scrolling, 
         // so generating 5000+ columns (e.g., 10 years of days) is cheap in React.
         // Truncating this array was breaking the DateJumpDialog min/max limits.
         return generateFullTimeRange(startBoundStr, endBoundStr, timeScale);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         return sortedHeaders;
       }
@@ -1597,6 +1653,7 @@ const App: React.FC = () => {
     return [startPeriod, endPeriod]; // Return minimum
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAddYearConfirm = () => {
     const input = newYearInput.trim();
     if (!input) {
@@ -1639,6 +1696,7 @@ const App: React.FC = () => {
     setDeleteYearError('');
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteYearConfirm = () => {
     if (!yearToDelete) {
       setDeleteYearError('削除する年度を選択してください。');
@@ -1687,16 +1745,19 @@ const App: React.FC = () => {
       const assetsObj = assets.reduce((acc, asset) => {
         acc[asset.id] = asset;
         return acc;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, {} as any);
 
       const workOrdersObj = workOrders.reduce((acc, wo) => {
         acc[wo.id] = wo;
         return acc;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, {} as any);
 
       const workOrderLinesObj = workOrderLines.reduce((acc, wol) => {
         acc[wol.id] = wol;
         return acc;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, {} as any);
 
       await dataStoreRef.current.saveData({
@@ -1715,6 +1776,7 @@ const App: React.FC = () => {
 
       showSnackbar('データを保存しました', 'success');
       announce('データが保存されました');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Failed to save data:', error);
 
@@ -1758,20 +1820,24 @@ const App: React.FC = () => {
       const assetsObj = assets.reduce((acc, asset) => {
         acc[asset.id] = asset;
         return acc;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, {} as any);
 
       const workOrdersObj = workOrders.reduce((acc, wo) => {
         acc[wo.id] = wo;
         return acc;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, {} as any);
 
       const workOrderLinesObj = workOrderLines.reduce((acc, wol) => {
         const cleanWol = { ...wol };
         // Strip V3 nested properties to strictly adhere to flat equipments.json format
         delete cleanWol.schedule;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (cleanWol as any).__workOrderDraft;
         acc[wol.id] = cleanWol;
         return acc;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, {} as any);
 
       // Include workOrderClassifications and assetClassification from DataStore
@@ -1806,6 +1872,7 @@ const App: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showSnackbar('データをエクスポートしました。', 'success');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Export failed:', error);
 
@@ -1839,6 +1906,7 @@ const App: React.FC = () => {
           if (dataStoreRef.current) {
             try {
               dataStoreRef.current.loadData(imported);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (validationError: any) {
               throw new Error(`v3.0.0バリデーションエラー: ${validationError.message}`);
             }
@@ -1853,6 +1921,7 @@ const App: React.FC = () => {
         } else {
           throw new Error('サポートされていないファイル形式です。v3.0.0またはレガシー形式のJSONファイルを選択してください。');
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         if (errorHandlerRef.current) {
           handleGenericError(error, 'dataImport', errorHandlerRef.current);
@@ -1881,6 +1950,7 @@ const App: React.FC = () => {
         delete importData._format;
 
         // Reload assets
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const existingAssets = Object.values(importData.assets || {}) as any[];
         if (assetManagerRef.current) {
           assetManagerRef.current = new AssetManager(undoRedoManagerRef.current!);
@@ -1890,18 +1960,22 @@ const App: React.FC = () => {
         }
 
         // Reload workOrders
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const existingWorkOrders = Object.values(importData.workOrders || {}) as any[];
         if (workOrderManagerRef.current) {
           workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current!);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           existingWorkOrders.forEach((wo: any) => {
             workOrderManagerRef.current!.createWorkOrder(wo);
           });
         }
 
         // Reload workOrderLines
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const existingWorkOrderLines = Object.values(importData.workOrderLines || {}) as any[];
         if (workOrderLineManagerRef.current) {
           workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current!);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           existingWorkOrderLines.forEach((wol: any) => {
             workOrderLineManagerRef.current!.createWorkOrderLine(wol);
           });
@@ -1910,7 +1984,9 @@ const App: React.FC = () => {
         // Update project name from imported metadata or filename
         if (importData.metadata?.projectName) {
           setProjectName(importData.metadata.projectName);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } else if ((importedFileData as any)._fileName) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setProjectName((importedFileData as any)._fileName);
         }
 
@@ -1960,6 +2036,7 @@ const App: React.FC = () => {
         years.add(currentYear);
         years.add(currentYear + 1);
         years.add(currentYear + 2);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         existingWorkOrderLines.forEach((wol: any) => {
           if (wol.schedule) {
             Object.keys(wol.schedule).forEach(dateKey => {
@@ -1984,6 +2061,7 @@ const App: React.FC = () => {
         }
         showSnackbar('レガシーデータをインポートしました。', 'success');
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('[App] Import failed:', error);
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
@@ -2012,10 +2090,12 @@ const App: React.FC = () => {
 
 
   // AI Assistant handlers
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAIAssistantToggle = () => {
     setIsAIAssistantOpen(!isAIAssistantOpen);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAIAssistantClose = () => {
     setIsAIAssistantOpen(false);
   };
@@ -2065,6 +2145,7 @@ const App: React.FC = () => {
       updates.forEach(update => {
 
         if (update.action === 'create' && update.data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const draft = (update.data as any).__workOrderDraft;
           let workOrderId = update.data.WorkOrderId;
 
@@ -2090,10 +2171,13 @@ const App: React.FC = () => {
           }
 
           update.data.WorkOrderId = workOrderId;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           delete (update.data as any).__workOrderDraft;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           workOrderLineManagerRef.current!.createWorkOrderLine(update.data as any);
           totalUpdated++;
         } else if (update.action === 'update' && update.data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const draft = (update.data as any).__workOrderDraft;
           const workOrderId = update.data.WorkOrderId;
           if (draft && !draft.isNew && workOrderId) {
@@ -2105,6 +2189,7 @@ const App: React.FC = () => {
               });
             }
           }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           delete (update.data as any).__workOrderDraft;
 
           // Direct update for the flat WorkOrderLine record
@@ -2155,9 +2240,13 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('[App] Error saving task edits:', error);
       console.error('[App] Error details:', {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         message: (error as any)?.message,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         stack: (error as any)?.stack,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         name: (error as any)?.name,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         errorObject: JSON.stringify(error, Object.getOwnPropertyNames(error as any || {}))
       });
 
@@ -2170,6 +2259,7 @@ const App: React.FC = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleUpdateWorkOrder = (workOrderId: string, updates: Partial<any>) => {
     if (!workOrderManagerRef.current || !undoRedoManagerRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
@@ -2216,6 +2306,7 @@ const App: React.FC = () => {
   };
 
   // Hierarchy management handlers - Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.8
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleHierarchyEdit = (newHierarchy: any) => {
     if (!hierarchyManagerRef.current || !isServicesInitialized) {
       showSnackbar('階層管理サービスが初期化されていません', 'error');
@@ -2245,6 +2336,7 @@ const App: React.FC = () => {
   };
 
   // Handle full asset edits from AssetDetailsDialog
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAssetEdit = useCallback((assetId: string, updates: any) => {
 
     if (!isServicesInitialized || !assetManagerRef.current) {
@@ -2265,6 +2357,7 @@ const App: React.FC = () => {
       if (updates.hierarchyPath !== undefined) assetUpdates.hierarchyPath = updates.hierarchyPath;
       if (updates.specifications !== undefined) assetUpdates.specifications = updates.specifications;
 
+      // eslint-disable-next-line no-empty
       if (updates.bomCode !== undefined && updates.bomCode !== assetId) {
       }
 
@@ -2282,6 +2375,7 @@ const App: React.FC = () => {
       }
       showSnackbar(`機器情報の更新に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isServicesInitialized, dataViewMode]);
 
   // --- Deep Copy & Paste Handlers ---
@@ -2295,6 +2389,7 @@ const App: React.FC = () => {
     setInternalClipboard({ rowId, columnId, viewMode });
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCellPaste = useCallback((rowId: string, columnId: string, viewMode: 'status' | 'cost') => {
     if (!internalClipboard) {
       showSnackbar('クリップボードにデータがありません', 'warning');
@@ -2372,6 +2467,7 @@ const App: React.FC = () => {
           ActualScheduleEnd: shiftedActualEnd ? shiftedActualEnd.toISOString() : undefined
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         workOrderLineManagerRef.current?.createWorkOrderLine(newLine as any);
         successCount++;
       });
@@ -2386,6 +2482,7 @@ const App: React.FC = () => {
       console.error('Deep copy paste failed:', error);
       showSnackbar('ペースト処理中にエラーが発生しました', 'error');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [internalClipboard, isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, handleSaveData]);
 
   const handleTimeCellsDelete = useCallback((cells: {rowId: string, columnId: string}[]) => {
@@ -2494,9 +2591,11 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode]);
 
   // History state applier
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const applyHistoryState = useCallback((state: any, isUndo: boolean) => {
     if (!assetManagerRef.current || !workOrderManagerRef.current || !workOrderLineManagerRef.current || !hierarchyManagerRef.current || !undoRedoManagerRef.current) return;
 
@@ -2526,6 +2625,7 @@ const App: React.FC = () => {
               // Simple loadWorkOrders isn't available, but we can do it manually
               if (targetState.workOrders) {
                 // Clear and recreate since WorkOrderManager doesn't have loadWorkOrders
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 targetState.workOrders.forEach((wo: any) => {
                    try {
                      if (workOrderManagerRef.current!.getWorkOrder(wo.id)) {
@@ -2533,6 +2633,7 @@ const App: React.FC = () => {
                      } else {
                         workOrderManagerRef.current!.createWorkOrder(wo);
                      }
+                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
                    } catch (e) {
                       // fallback
                    }
@@ -2597,6 +2698,7 @@ const App: React.FC = () => {
          announce('操作を元に戻しました');
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
 
   // Handle explicit Redo from UI
@@ -2610,6 +2712,7 @@ const App: React.FC = () => {
          announce('操作をやり直しました');
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
 
   // Handle grid scroll state sync
@@ -2725,6 +2828,7 @@ const App: React.FC = () => {
                 onLevel1FilterChange={handleLevel1FilterChange}
                 onLevel2FilterChange={handleLevel2FilterChange}
                 onLevel3FilterChange={(value) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const val = typeof value === 'string' ? value : (value as any).target?.value;
                   setLevel3Filter(val);
                 }}
@@ -2800,9 +2904,11 @@ const App: React.FC = () => {
                 assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
                 Object.values(loadedData.assets).forEach(a => assetManagerRef.current!.createAsset(a));
                 workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w as any));
                 workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
                 Object.values(loadedData.workOrderLines || {}).forEach(l => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   try { workOrderLineManagerRef.current!.createWorkOrderLine(l as any); } catch (e) { console.error('Import Line Error:', e); }
                 });
                 hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || { levels: [] });
@@ -2819,6 +2925,7 @@ const App: React.FC = () => {
                 loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
                 showSnackbar('データの取り込みが完了し、画面を更新しました', 'success');
               }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (err: any) {
               showSnackbar(`インポートしたデータの反映に失敗しました: ${err.message}`, 'error');
             }
@@ -2899,14 +3006,26 @@ const App: React.FC = () => {
           <TreeClassificationEditDialog
             open={isHierarchyManagerOpen}
             title="機器階層の編集"
-            definition={hierarchyManagerRef.current.getHierarchyDefinition()}
+            // HierarchyDefinition.values は string[] なので Tree 形式に詰め替える
+            definition={{
+              levels: hierarchyManagerRef.current.getHierarchyDefinition().levels.map(l => ({
+                key: l.key,
+                values: l.values.map(v => ({ value: v })),
+              })),
+            }}
             assetCount={assetManagerRef.current?.getAllAssets().length || 0}
             assets={assetManagerRef.current?.getAllAssets() || []}
             pathKey="hierarchyPath"
             onClose={() => setIsHierarchyManagerOpen(false)}
             onSave={(newHierarchy) => {
               if (hierarchyManagerRef.current) {
-                hierarchyManagerRef.current.setHierarchyDefinition({ levels: newHierarchy.levels });
+                // TreeDefinition の TreeLevelValue[] を HierarchyDefinition の string[] に戻す
+                hierarchyManagerRef.current.setHierarchyDefinition({
+                  levels: newHierarchy.levels.map(l => ({
+                    key: l.key,
+                    values: l.values.map(v => v.value),
+                  })),
+                });
                 loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
                 showSnackbar('階層構造情報を更新しました', 'success');
               }

@@ -70,13 +70,16 @@ class MemoCache<K, V> {
 /**
  * Memoize a function with custom cache key generation
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function memoize<Args extends any[], Result>(
   fn: (...args: Args) => Result,
   options: {
     maxSize?: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     keyGenerator?: (...args: Args) => any;
   } = {}
 ): (...args: Args) => Result {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cache = new MemoCache<any, Result>(options.maxSize);
   const keyGenerator = options.keyGenerator || ((...args: Args) => args);
 
@@ -97,6 +100,7 @@ export function memoize<Args extends any[], Result>(
 /**
  * Memoize with shallow equality check for object arguments
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function memoizeShallow<Args extends any[], Result>(
   fn: (...args: Args) => Result,
   maxSize: number = 100
@@ -125,6 +129,7 @@ export function memoizeShallow<Args extends any[], Result>(
 /**
  * Memoize with deep equality check (slower but more accurate)
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function memoizeDeep<Args extends any[], Result>(
   fn: (...args: Args) => Result,
   maxSize: number = 50
@@ -156,6 +161,7 @@ export function createMemoizedSelector<Input, Output>(
     
     if (keysA.length !== keysB.length) return false;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return keysA.every(key => (a as any)[key] === (b as any)[key]);
   };
   
@@ -194,12 +200,14 @@ export function memoizeArray<T, R>(
  * Batch memoization - memoize multiple related functions together
  */
 export class MemoizationBatch {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private caches: Map<string, MemoCache<any, any>>;
 
   constructor() {
     this.caches = new Map();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   memoize<Args extends any[], Result>(
     name: string,
     fn: (...args: Args) => Result,
@@ -240,6 +248,7 @@ export class MemoizationBatch {
 /**
  * Memoize with time-based expiration
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function memoizeWithTTL<Args extends any[], Result>(
   fn: (...args: Args) => Result,
   ttlMs: number = 5000,

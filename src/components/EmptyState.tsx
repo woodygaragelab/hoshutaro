@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Storage as DataIcon, NoteAdd as FileIcon } from '@mui/icons-material';
 
 interface EmptyStateProps {

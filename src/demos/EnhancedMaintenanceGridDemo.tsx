@@ -70,6 +70,7 @@ const EnhancedMaintenanceGridDemo: React.FC = () => {
     }, {} as { [key: string]: HierarchicalData[] });
   }, [data]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
         
     setData(prevData => 

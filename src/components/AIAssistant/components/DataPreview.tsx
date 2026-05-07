@@ -20,9 +20,11 @@ import {
 import { DataMappingSuggestion } from '../types';
 
 interface DataPreviewProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any[];
   mappings: DataMappingSuggestion[];
   onApplyMappings?: (mappings: DataMappingSuggestion[]) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onExportData?: (data: any[]) => void;
 }
 
@@ -44,6 +46,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({
   const columns = Object.keys(data[0] || {});
   
   // マッピングされた列名を取得
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getMappedColumnName = (originalColumn: string) => {
     const mapping = mappings.find(m => m.sourceColumn === originalColumn);
     return mapping ? mapping.targetField : originalColumn;

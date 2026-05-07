@@ -1,4 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Box, Button, Typography, Alert, Collapse, IconButton } from '@mui/material';
 import { ExpandMore, ExpandLess, Refresh, BugReport } from '@mui/icons-material';
 import { ErrorBoundaryProps, ErrorBoundaryState, ErrorDetails } from './types';

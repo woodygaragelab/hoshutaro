@@ -12,6 +12,7 @@ export enum AIErrorType {
 export interface AIError {
   type: AIErrorType;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any;
   recoverable: boolean;
   suggestedActions?: string[];
@@ -93,6 +94,7 @@ export class ErrorHandlingService {
 
     if (error.suggestedActions && error.suggestedActions.length > 0) {
       content += '\n\n💡 推奨アクション:';
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       error.suggestedActions.forEach((action, index) => {
         content += `\n• ${action}`;
       });
@@ -106,6 +108,7 @@ export class ErrorHandlingService {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handleError(error: any): AIError {
     // ネットワークエラーの検出
     if (error.name === 'NetworkError' || error.message?.includes('fetch')) {
@@ -186,6 +189,7 @@ export class ErrorHandlingService {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   createRetryMessage(originalError: AIError, retryAction: () => void): ChatMessage {
     return {
       id: Date.now().toString(),
@@ -204,6 +208,7 @@ export class ErrorHandlingService {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   logError(error: AIError, context?: any): void {
     console.error('AI Assistant Error:', {
       type: error.type,
@@ -218,6 +223,7 @@ export class ErrorHandlingService {
     // this.sendErrorToServer(error, context);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   private sendErrorToServer(error: AIError, context?: any): void {
     // エラーログをサーバーに送信する実装
     // fetch('/api/errors', {

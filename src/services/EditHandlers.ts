@@ -88,6 +88,7 @@ export class EditHandlers {
     specIndex: number,
     field: 'key' | 'value',
     value: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     undoRedoManager?: any
   ): void {
     const asset = assetManager.getAsset(assetId);
@@ -128,6 +129,7 @@ export class EditHandlers {
   handleBatchSpecificationUpdate(
     assetManager: AssetManager,
     changes: SpecificationChange[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     undoRedoManager?: any
   ): void {
     if (changes.length === 0) return;
