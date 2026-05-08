@@ -48,8 +48,7 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('MemoryError', {
       name: 'Memory Recovery',
       canRecover: (error: Error) => error.message.includes('Memory') || error.message.includes('out of memory'),
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      recover: async (error: Error, context: ErrorContext) => {
+      recover: async (_error: Error, _context: ErrorContext) => {
         // ガベージコレクションを強制実行
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ('gc' in window && typeof (window as any).gc === 'function') {
@@ -77,8 +76,7 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('RenderError', {
       name: 'Render Recovery',
       canRecover: (error: Error) => error.message.includes('render') || error.stack?.includes('render'),
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      recover: async (error: Error, context: ErrorContext) => {
+      recover: async (_error: Error, _context: ErrorContext) => {
         // DOM状態をリセット
         this.resetDOMState();
 
@@ -110,8 +108,7 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('SyncError', {
       name: 'Sync Recovery',
       canRecover: (error: Error) => error.message.includes('sync') || error.message.includes('conflict'),
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      recover: async (error: Error, context: ErrorContext) => {
+      recover: async (_error: Error, _context: ErrorContext) => {
         // オフラインデータがある場合は保存
         if (this.hasOfflineData()) {
           await this.saveOfflineData();
@@ -164,9 +161,7 @@ export class ErrorRecoveryManager {
       throw new Error(`最大リトライ回数(${this.config.retryAttempts})に達しました`);
     }
 
-    // 適用可能なリカバリ戦略を検索
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for (const [key, strategy] of this.recoveryStrategies) {
+    for (const strategy of this.recoveryStrategies.values()) {
       if (strategy.canRecover(error)) {
         try {
                     const success = await strategy.recover(error, context);
@@ -258,8 +253,7 @@ export class ErrorRecoveryManager {
   /**
    * オフラインデータを同期
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async syncOfflineData(key: string, data: OfflineData): Promise<void> {
+  private async syncOfflineData(_key: string, _data: OfflineData): Promise<void> {
     // 実際の実装では、サーバーAPIを呼び出してデータを同期
         
     // シミュレーション
@@ -312,8 +306,7 @@ export class ErrorRecoveryManager {
   /**
    * グレースフルフォールバック
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async gracefulFallback(error: Error, context: ErrorContext): Promise<boolean> {
+  private async gracefulFallback(_error: Error, _context: ErrorContext): Promise<boolean> {
     
     // 基本的なクリーンアップ
     this.clearCaches();

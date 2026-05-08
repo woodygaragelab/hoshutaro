@@ -151,31 +151,22 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onTaskAssociationUpdate,
   // Data view mode props - Requirements 6.1, 6.2, 6.5
   dataViewMode = 'asset-based',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onDataViewModeChange,
+  onDataViewModeChange: _onDataViewModeChange,
   // Edit scope props - Requirements 4.8, 5.7
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  editScope = 'single-asset',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onEditScopeChange,
+  editScope: _editScope = 'single-asset',
+  onEditScopeChange: _onEditScopeChange,
   // Hierarchy management props - Requirements 3.1, 3.2
   selectedAssets = [],
   onAssetSelectionChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onHierarchyEdit,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onOpenAssetReassignDialog,
+  onHierarchyEdit: _onHierarchyEdit,
+  onOpenAssetReassignDialog: _onOpenAssetReassignDialog,
   onOpenTaskEditDialog,
   onAssetEdit,
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  canUndo,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  canRedo,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onUndo,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onRedo,
+  canUndo: _canUndo,
+  canRedo: _canRedo,
+  onUndo: _onUndo,
+  onRedo: _onRedo,
   // Integrated toolbar props
   searchTerm = '',
   onSearchChange,
@@ -191,12 +182,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onViewModeChange,
   timeScale = 'year',
   onTimeScaleChange,
-  onShowBomCodeChange,
-  onDisplayModeChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  currentYear,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onJumpToDate,
+  onShowBomCodeChange: _onShowBomCodeChange,
+  onDisplayModeChange: _onDisplayModeChange,
+  currentYear: _currentYear,
+  onJumpToDate: _onJumpToDate,
   onCellCopy,
   onCellPaste,
   onTimeCellsDelete,
@@ -864,28 +853,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     setCurrentDisplayAreaConfig(null); // Reset to use the computed displayAreaConfig
   }, [displayMode]);
 
-  // Determine current display area based on selected cell
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getCurrentDisplayArea = useCallback((): 'specifications' | 'maintenance' => {
-    if (!gridState.selectedCell) return 'maintenance';
-
-    const column = processedColumns.find(col => col.id === gridState.selectedCell?.columnId);
-    if (!column) return 'maintenance';
-
-    // Check if column is in specifications area
-    const specColumns = displayAreaConfig.scrollableAreas.specifications?.columns || [];
-    if (specColumns.includes(column.id)) {
-      return 'specifications';
-    }
-
-    return 'maintenance';
-  }, [gridState.selectedCell, processedColumns, displayAreaConfig]);
-
-  // Handle copy operation with cross-area support
   const handleSystemCopy = useCallback(async () => {
     if (!gridState.selectedCell) return;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { rowId, columnId } = gridState.selectedCell;
+    const { columnId } = gridState.selectedCell;
 
     // Is it a specification string?
     if (columnId.startsWith('spec_')) {
@@ -1423,10 +1393,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
   // Stable empty function references with useMemo to prevent re-creation
   const stableOnSearchChange = useMemo(() => onSearchChange || (() => { }), [onSearchChange]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const stableOnShowBomCodeChange = useMemo(() => onShowBomCodeChange || (() => { }), [onShowBomCodeChange]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const stableOnDisplayModeChange = useMemo(() => onDisplayModeChange || (() => { }), [onDisplayModeChange]);
 
   // Desktop-only view
   const renderGridView = useMemo(() => {

@@ -126,10 +126,8 @@ export function extractPlannedActual(status: StatusValue): {
  * Check if status transition is valid
  */
 export function isValidStatusTransition(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  from: StatusValue,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  to: StatusValue
+  _from: StatusValue,
+  _to: StatusValue
 ): boolean {
   // All transitions are valid in this system
   // This function exists for future business rule enforcement

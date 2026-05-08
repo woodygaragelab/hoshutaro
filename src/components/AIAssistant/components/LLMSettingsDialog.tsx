@@ -29,8 +29,6 @@ import {
   testLLMConnection,
   startLLMAdapter,
   getLLMModels,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getLocalModels,
   getInstalledPlugins,
   PluginInfo,
   callLLMTool

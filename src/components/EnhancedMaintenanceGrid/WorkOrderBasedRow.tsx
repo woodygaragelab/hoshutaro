@@ -230,9 +230,6 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
         // For task rows, render with indentation in first column
         // Only show task name in fixed area, hide in scrollable area
         if (isFirstColumn) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const isHierarchyRow = row.type === 'hierarchy' || row.type === 'workOrder';
-          
           let cellWidth = width;
           let cellMinWidth = width;
           let cellMaxWidth = width;

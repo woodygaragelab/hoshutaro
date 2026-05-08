@@ -46,8 +46,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({
   const columns = Object.keys(data[0] || {});
   
   // マッピングされた列名を取得
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getMappedColumnName = (originalColumn: string) => {
+  const _getMappedColumnName = (originalColumn: string) => {
     const mapping = mappings.find(m => m.sourceColumn === originalColumn);
     return mapping ? mapping.targetField : originalColumn;
   };

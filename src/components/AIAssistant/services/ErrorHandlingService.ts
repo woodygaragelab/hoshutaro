@@ -94,8 +94,7 @@ export class ErrorHandlingService {
 
     if (error.suggestedActions && error.suggestedActions.length > 0) {
       content += '\n\n💡 推奨アクション:';
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      error.suggestedActions.forEach((action, index) => {
+      error.suggestedActions.forEach((action) => {
         content += `\n• ${action}`;
       });
     }
@@ -189,8 +188,7 @@ export class ErrorHandlingService {
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  createRetryMessage(originalError: AIError, retryAction: () => void): ChatMessage {
+  createRetryMessage(originalError: AIError, _retryAction: () => void): ChatMessage {
     return {
       id: Date.now().toString(),
       type: 'system',

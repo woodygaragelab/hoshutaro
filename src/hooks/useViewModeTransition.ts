@@ -212,10 +212,6 @@ export function useViewModeTransition({
       newAssociations: WorkOrderLine[],
       newHierarchy: HierarchyDefinition
     ) => {
-      // Create a fresh manager with exactly matching arguments
-      // Note: Data is not explicitly copied here since ViewModeManager handles its own references internally 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const newManager = new ViewModeManager(newAssets, newAssociations, newHierarchy, newWorkOrders);
       viewModeManager.updateData(newAssets, newAssociations, newHierarchy, newWorkOrders);
       const newState = viewModeManager.getCurrentState();
       setCurrentState(newState);

@@ -179,11 +179,9 @@ setTimeout(() => {
 
 // Register service worker for caching and offline support
 registerSW({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSuccess: (registration) => {
+  onSuccess: (_registration) => {
       },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onUpdate: (registration) => {
+  onUpdate: (_registration) => {
         // Show update notification to user
     if (confirm('新しいバージョンが利用可能です。更新しますか？')) {
       window.location.reload();

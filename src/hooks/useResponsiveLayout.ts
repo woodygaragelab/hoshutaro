@@ -137,9 +137,8 @@ export const useResponsiveLayout = (
 
   // Layout utilities
   const getVisibleColumns = useCallback((allColumns: string[]) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { high, medium, low } = layoutConfig.priorityColumns;
-    
+    const { high, medium } = layoutConfig.priorityColumns;
+
     if (responsiveState.isMobile) {
       return allColumns.filter(col => high.includes(col));
     } else if (responsiveState.isTablet) {

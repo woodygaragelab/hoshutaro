@@ -25,8 +25,7 @@ import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelI
 import './AIAssistantPanel.css';
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isOpen,
+  isOpen: _isOpen,
   onClose,
   onSuggestionApply,
   onExcelImport,

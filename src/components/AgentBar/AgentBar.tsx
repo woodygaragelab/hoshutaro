@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Box, IconButton, Typography, CircularProgress, Avatar, Paper, Button, Chip
+  IconButton, Typography, CircularProgress, Avatar, Button, Chip
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -21,8 +20,6 @@ import {
   Undo as UndoIcon,
   Redo as RedoIcon,
   BarChart as BarChartIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  AutoFixHigh as SkillIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
@@ -90,8 +87,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   onHierarchyEdit,
   onAssetClassificationEdit,
   onWorkOrderClassificationEdit,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSuggestionApply,
+  onSuggestionApply: _onSuggestionApply,
   onExcelImport,
   onImportComplete,
   dataContext,
@@ -123,8 +119,6 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   // --- Hover Menu States ---
   const [showTimeScaleMenu, setShowTimeScaleMenu] = useState(false);
   const [showDisplayModeMenu, setShowDisplayModeMenu] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
   const [showMasterMenu, setShowMasterMenu] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);

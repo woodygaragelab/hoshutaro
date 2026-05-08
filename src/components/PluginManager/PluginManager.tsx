@@ -58,8 +58,7 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
   const [tab, setTab] = useState<TabKey>('installed');
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [registry, setRegistry] = useState<RegistryPlugin[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [license, setLicense] = useState<LicenseInfo | null>(null);
+  const [, setLicense] = useState<LicenseInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

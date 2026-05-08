@@ -103,12 +103,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   onSelectedCellChange,
   onEditingCellChange,
   onUpdateItem,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSpecificationEdit,
+  onSpecificationEdit: _onSpecificationEdit,
   onSpecificationColumnReorder,
   onAssetEdit,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  hierarchy,
+  hierarchy: _hierarchy,
   virtualScrolling,
   readOnly,
   onCopy,
@@ -1554,8 +1552,7 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (prop
   }, []);
 
   // Convert the onSpecificationEdit to match the expected interface
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
+  const _handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
     // For now, we'll handle this differently since the original interface expects field/value
     // This is a temporary adapter until we can update the interface
     if (props.onSpecificationEdit) {
@@ -1568,8 +1565,7 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (prop
   }, [props]);
 
   // Create device detection
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const deviceDetection = useMemo(() => ({
+  const _deviceDetection = useMemo(() => ({
     type: 'desktop' as const,
     screenSize: { width: window.innerWidth, height: window.innerHeight },
     orientation: window.innerWidth > window.innerHeight ? 'landscape' as const : 'portrait' as const,

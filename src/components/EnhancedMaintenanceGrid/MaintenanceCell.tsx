@@ -366,17 +366,8 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
 
   // Handle single click
   const handleClick = useCallback(() => {
-    // In equipment-based mode, clicking on time columns (status/cost) should open TaskEditDialog
+    // 装置ベースモードかつ時刻カラムは、データの有無によらず TaskEditDialog を開けるようにする。
     if (isEquipmentBasedMode && (column.type === 'status' || column.type === 'cost')) {
-      // Check if there's any data to edit
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const hasData = value && (
-        (typeof value === 'object' && ('count' in value || 'planned' in value || 'actual' in value)) ||
-        (typeof value === 'string' && value.length > 0)
-      );
-      
-      // Always allow clicking in equipment-based mode for time columns
-      // This allows adding new tasks even if no tasks exist yet
       if (column.id.startsWith('time_')) {
         onCellClick();
         return;
@@ -385,7 +376,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     
     // Default click behavior
     onCellClick();
-  }, [onCellClick, isEquipmentBasedMode, column.type, column.id, value]);
+  }, [onCellClick, isEquipmentBasedMode, column.type, column.id]);
 
   return (
     <Box

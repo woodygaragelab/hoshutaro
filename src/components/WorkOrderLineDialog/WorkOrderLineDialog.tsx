@@ -65,8 +65,7 @@ interface TabPanelProps {
   value: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function TabPanel(props: TabPanelProps) {
+function _TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
     <div
@@ -145,17 +144,13 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   associations,
   allWorkOrders,
   allAssets,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  allWorkOrderLines,
+  allWorkOrderLines: _allWorkOrderLines,
   onSave,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onUpdateWorkOrder,
+  onUpdateWorkOrder: _onUpdateWorkOrder,
   onClose,
   readOnly = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  editScope = 'single-asset',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  dataViewMode = 'asset-based',
+  editScope: _editScope = 'single-asset',
+  dataViewMode: _dataViewMode = 'asset-based',
   workOrderClassifications,
 }) => {
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
@@ -401,8 +396,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [maintenanceRecords]);
 
   // Handle adding a new task association
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleAddTask = useCallback((wo: WorkOrder | null) => {
+  const _handleAddTask = useCallback((wo: WorkOrder | null) => {
     if (!wo) return;
 
     // Check if task already exists
@@ -435,8 +429,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle deleting a task association
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDeleteTask = useCallback((index: number) => {
+  const _handleDeleteTask = useCallback((index: number) => {
     const newItems = [...editItems];
     newItems[index] = { ...newItems[index], isDeleted: true };
     setEditItems(newItems);
@@ -444,8 +437,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle editing task schedule
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleEditSchedule = useCallback((
+  const _handleEditSchedule = useCallback((
     index: number,
     field: 'planned' | 'actual' | 'planCost' | 'actualCost',
     value: boolean | number
@@ -471,8 +463,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle editing default schedule pattern
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleEditDefaultPattern = useCallback((
+  const _handleEditDefaultPattern = useCallback((
     index: number,
     field: 'frequency' | 'interval',
     value: string | number
@@ -507,8 +498,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle toggling pattern editor
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleTogglePatternEditor = useCallback((index: number) => {
+  const _handleTogglePatternEditor = useCallback((index: number) => {
     setExpandedPatternIndex(expandedPatternIndex === index ? null : index);
   }, [expandedPatternIndex]);
 

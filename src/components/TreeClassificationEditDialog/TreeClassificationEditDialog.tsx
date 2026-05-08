@@ -207,10 +207,8 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
   pathKey,
   onSave,
   onSaveLinkedAssets,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onExportJSON,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onImportJSON,
+  onExportJSON: _onExportJSON,
+  onImportJSON: _onImportJSON,
   onClose,
   readOnly = false,
 }) => {
@@ -226,8 +224,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
   const [newLevelKey, setNewLevelKey] = useState('');
   
   // Tab 1 value editing state
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [bulkInputValue, setBulkInputValue] = useState('');
+  const [_bulkInputValue, setBulkInputValue] = useState('');
   const [filterValStr, setFilterValStr] = useState('');
   const [filterParentStr, setFilterParentStr] = useState('');
   const [hiddenVals, setHiddenVals] = useState<Set<string>>(new Set());
@@ -564,8 +561,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
 
   const handleDownloadJSON = () => {
     const dataToExport = {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      levels: activeLevels.map((l, i) => ({
+      levels: activeLevels.map((l) => ({
         key: l.key,
         values: [...l.values]
       }))

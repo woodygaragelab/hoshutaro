@@ -80,8 +80,6 @@ class BundleAnalyzer {
   }
 
   generateReport(): string {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const bundles = this.getBundleInfo();
     const totalSize = this.getTotalBundleSize();
     const compressionRatio = this.getCompressionRatio();
     
