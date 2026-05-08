@@ -87,14 +87,20 @@ export interface LocalModelInfo {
   path: string
 }
 
+export interface ConfigSchemaProperty {
+  default?: unknown
+  label?: string
+  options?: string[]
+  type?: string
+}
+
 export interface PluginInfo {
   id: string
   name: string
   version: string
   category?: string
   status?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  configSchema?: Record<string, any>
+  configSchema?: Record<string, ConfigSchemaProperty>
 }
 
 export async function getInstalledPlugins(): Promise<PluginInfo[]> {
