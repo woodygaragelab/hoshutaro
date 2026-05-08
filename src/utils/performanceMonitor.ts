@@ -39,8 +39,8 @@ class PerformanceMonitor {
       try {
         navigationObserver.observe({ entryTypes: ['navigation'] });
         this.observers.push(navigationObserver);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-      } catch (e) {
+      // eslint-disable-next-line no-empty
+      } catch (_e) {
               }
     }
 
@@ -65,8 +65,8 @@ class PerformanceMonitor {
       try {
         resourceObserver.observe({ entryTypes: ['resource'] });
         this.observers.push(resourceObserver);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-      } catch (e) {
+      // eslint-disable-next-line no-empty
+      } catch (_e) {
               }
     }
   }

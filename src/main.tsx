@@ -6,8 +6,6 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ThemeProvider from './providers/ThemeProvider';
 import { LazyWrapper, SkeletonLoaders } from './utils/loadingOptimization';
 import { performanceMonitor } from './utils/performanceMonitor';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { bundleAnalyzer } from './utils/bundleAnalyzer';
 import { accessibilityManager } from './utils/accessibility';
 import { registerSW } from './utils/serviceWorker';
 

@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { OfflineData, ErrorContext } from './types';
 import { HierarchicalData } from '../../types';
 
 /**

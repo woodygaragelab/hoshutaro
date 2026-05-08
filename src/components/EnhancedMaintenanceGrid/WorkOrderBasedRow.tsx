@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { WorkOrderBasedRow as WorkOrderBasedRowData, AggregatedStatus } from '../../types/maintenanceTask';
+import type { WorkOrderBasedRow as WorkOrderBasedRowData } from '../../types/maintenanceTask';
 import { GridColumn, GridState } from './types';
 import { HierarchicalData } from '../../types';
 import MaintenanceCell from './MaintenanceCell';

@@ -20,13 +20,7 @@ import {
   Tabs,
   Tab,
   Checkbox,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Table,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  TableBody,
   TableCell,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  TableHead,
   TableRow,
   Select,
   MenuItem,
@@ -38,21 +32,14 @@ import {
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Edit as EditIcon,
   Add as AddIcon,
   Save as SaveIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Cancel as CancelIcon,
   Download as DownloadIcon,
   Upload as UploadIcon,
   FilterList as FilterListIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Asset, TreeLevelValue, AssetClassificationPath, HierarchyPath } from '../../types/maintenanceTask';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Virtuoso } from 'react-virtuoso';
+import type { Asset, TreeLevelValue } from '../../types/maintenanceTask';
 import { TableVirtuoso } from 'react-virtuoso';
 
 const FilterPopper: React.FC<{

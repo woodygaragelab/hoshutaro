@@ -24,8 +24,6 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Extension as ExtensionIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,

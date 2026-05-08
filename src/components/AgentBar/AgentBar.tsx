@@ -6,19 +6,13 @@ import {
 import {
   Send as SendIcon,
   AttachFile as AttachFileIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Settings as SettingsIcon,
   CalendarMonth as CalendarIcon,
   ViewList as DisplayModeIcon,
   SwapHoriz as ViewModeIcon,
   Star as AIIcon,
   Person as PersonIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
   AccountTree as HierarchyIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ImportExport as SyncIcon,
   FileUpload as UploadFileIcon,
   FileDownload as DownloadFileIcon,
   ChatBubbleOutline as ChatIcon,
@@ -27,8 +21,6 @@ import {
   Undo as UndoIcon,
   Redo as RedoIcon,
   BarChart as BarChartIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Extension as ExtensionIcon,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   AutoFixHigh as SkillIcon
 } from '@mui/icons-material';

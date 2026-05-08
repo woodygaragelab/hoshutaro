@@ -1,6 +1,5 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, InputLabel, FormControl, Checkbox, FormGroup, FormControlLabel, List, ListItem, Divider, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, Checkbox, FormControlLabel, List, ListItem, Divider, Tabs, Tab } from '@mui/material';
 import { DragIndicator as DragIcon, FilterList as FilterIcon, Search as SearchIcon } from '@mui/icons-material';
 import { GridColumn, GridState } from './types';
 import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';

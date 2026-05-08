@@ -1,6 +1,4 @@
 import { useState, useCallback, useMemo } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { HierarchicalData } from '../../../types';
 import { GridColumn, GridState, GridRange, GridSelection } from '../types';
 
 export const useMaintenanceGridState = (columns: GridColumn[], visibleRowIds: string[]) => {

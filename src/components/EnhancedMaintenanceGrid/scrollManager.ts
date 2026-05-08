@@ -38,8 +38,8 @@ export class ScrollManager {
           return parsed;
         }
       }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-    } catch (error) {
+    // eslint-disable-next-line no-empty
+    } catch (_error) {
           }
 
     return {
@@ -55,8 +55,8 @@ export class ScrollManager {
   private saveScrollState(): void {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.scrollState));
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-    } catch (error) {
+    // eslint-disable-next-line no-empty
+    } catch (_error) {
           }
   }
 
@@ -113,8 +113,8 @@ export class ScrollManager {
     // ローカルストレージからも削除して完全にクリア
     try {
       localStorage.removeItem(this.storageKey);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-    } catch (error) {
+    // eslint-disable-next-line no-empty
+    } catch (_error) {
           }
   }
 

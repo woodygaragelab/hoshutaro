@@ -5,8 +5,6 @@ import {
   Typography,
   Box,
   Popover,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Paper,
   useTheme,
   Fade,
   IconButton,

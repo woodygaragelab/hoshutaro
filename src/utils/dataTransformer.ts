@@ -1,7 +1,5 @@
 import { HierarchicalData, RawEquipment } from '../types';
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { getTimeKey, getISOWeek } from './dateUtils';
+import { getTimeKey } from './dateUtils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const transformData = (data: { [id: string]: RawEquipment } | any, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], any] => {

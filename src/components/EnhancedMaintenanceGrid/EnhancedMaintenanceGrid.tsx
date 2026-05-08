@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 // HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Box, Paper, Snackbar, Alert, Typography, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import { Box, Paper, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from './types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
@@ -13,8 +12,6 @@ import {
   WorkOrderLine,
   HierarchyDefinition,
   WorkOrderLineUpdate,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  WorkOrderBasedRow,
   TimeScale,
   SpecificationChange,
 } from '../../types/maintenanceTask';

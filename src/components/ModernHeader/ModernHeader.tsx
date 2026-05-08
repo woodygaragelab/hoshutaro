@@ -30,15 +30,11 @@ import {
   ViewList as EquipmentIcon,
   Assignment as TaskIcon,
   AccountTree as HierarchyIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  SwapHoriz as ReassignIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { MonthCalendar } from '@mui/x-date-pickers/MonthCalendar';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';

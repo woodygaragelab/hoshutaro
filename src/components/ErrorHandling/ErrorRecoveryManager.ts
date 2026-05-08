@@ -174,8 +174,7 @@ export class ErrorRecoveryManager {
           if (success) {
                         return true;
           }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (recoveryError) {
+        } catch (_recoveryError) {
                     continue;
         }
       }

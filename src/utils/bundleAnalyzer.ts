@@ -39,8 +39,8 @@ class BundleAnalyzer {
 
       try {
         observer.observe({ entryTypes: ['resource'] });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-      } catch (e) {
+      // eslint-disable-next-line no-empty
+      } catch (_e) {
               }
     }
   }

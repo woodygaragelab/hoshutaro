@@ -9,8 +9,6 @@ import {
   WorkOrder,
   WorkOrderLine,
   HierarchyDefinition,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  HierarchyPath,
 } from '../types/maintenanceTask';
 
 /**
