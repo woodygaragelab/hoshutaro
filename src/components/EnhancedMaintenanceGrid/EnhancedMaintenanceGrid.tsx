@@ -138,7 +138,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onColumnResize,
   onRowResize,
   onUpdateItem,
-  virtualScrolling = false,
+  virtualScrolling: _virtualScrolling = false,
   readOnly = false,
   className = '',
   groupedData,
@@ -180,7 +180,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   level2Options = [],
   level3Options = [],
   onViewModeChange,
-  timeScale = 'year',
+  timeScale: _timeScale = 'year',
   onTimeScaleChange,
   onShowBomCodeChange: _onShowBomCodeChange,
   onDisplayModeChange: _onDisplayModeChange,
@@ -537,15 +537,13 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     return cols;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    timeScale, 
-    displayMode, 
-    showBomCode, 
-    memoizedTimeHeaders, 
-    viewMode, 
-    data, 
-    isTaskBasedMode, 
+    displayMode,
+    showBomCode,
+    memoizedTimeHeaders,
+    viewMode,
+    data,
+    isTaskBasedMode,
     isEquipmentBasedMode
   ]);
 
@@ -618,11 +616,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     isCellInSelectedRange
   } = useMaintenanceGridState(columns, visibleRowIds);
 
-  // Auto-enable virtual scrolling for large column counts (week/day views)
-  const autoVirtualScrolling = useMemo(() => {
-    return true; // Use virtual scrolling for performance stability natively
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns, virtualScrolling]);
+  // 仮想スクロールは常に有効（パフォーマンス安定性のため定数）。
+  const autoVirtualScrolling = useMemo(() => true, []);
 
   // Performance optimization hooks - use appropriate data based on mode
   const dataForProcessing = useMemo(() => {
@@ -709,8 +704,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     // For non-time columns, let MaintenanceGridLayout handle (specifications, etc.)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [isEquipmentBasedMode, isTaskBasedMode, dataViewMode, onOpenTaskEditDialog]);
+  }, [onOpenTaskEditDialog]);
 
   // Handle task association updates from dialog
   const handleTaskAssociationUpdate = useCallback((updates: WorkOrderLineUpdate[]) => {
@@ -831,8 +825,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode, isTaskBasedMode]);
+  }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode]);
 
 
 
@@ -933,8 +926,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns]);
+  }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns, visibleRowIds]);
 
   // Handle paste operation with cross-area support
   const handleSystemPaste = useCallback(async () => {
@@ -1073,8 +1065,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       onCellPaste(rowId, columnId, viewMode as any);
       // Optional: notification will be triggered internally by App.tsx if successful
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem]);
+  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem, visibleRowIds]);
 
   // Handle delete operation
   const handleSystemDelete = useCallback(() => {
@@ -1181,20 +1172,17 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       // Delete other editable fields
       handleCellEdit(rowId, columnId, '');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     gridState.selectedCell,
     readOnly,
     processedColumns,
     processedData,
-    onSpecificationEdit,
     onUpdateItem,
-    onCellEdit,
     handleCellEdit,
-    isTaskBasedMode,
-    convertedData,
-    associations,
-    onTaskAssociationUpdate
+    gridState.selectedRange?.end,
+    gridState.selectedRange?.start,
+    onSpecificationBatchUpdate,
+    visibleRowIds,
   ]);
 
   // Handle keyboard navigation
@@ -1360,8 +1348,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       // Regular click: Single selection
       onAssetSelectionChange([assetId]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAssets, onAssetSelectionChange, processedData]);
+  }, [selectedAssets, onAssetSelectionChange, convertedData]);
 
 
 
@@ -1463,17 +1450,21 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         assets={assets}
       />
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     processedData, processedColumns, currentDisplayAreaConfig, displayAreaConfig,
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
-    onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
-    handleSystemCopy, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
+    onSpecificationEdit, onSpecificationColumnReorder, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
+    setSelectedRange, onUpdateItem,
+    autoVirtualScrolling, shouldUseVirtualScrolling, readOnly,
+    handleSystemCopy, handleSystemPaste, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
     expandedWorkOrders, toggleWorkOrderExpanded,
+    isDragging, startDragSelection, updateDragSelection, endDragSelection, isCellInSelectedRange,
     searchTerm, stableOnSearchChange, level1Filter, level2Filter, level3Filter,
     handleLevel1FilterChange, handleLevel2FilterChange, handleLevel3FilterChange,
     hierarchyFilterTree, level2Options, level3Options, uniqueTasks, selectedTasks,
-    onSelectedTasksChange, uniqueBomCodes, selectedBomCodes, onSelectedBomCodesChange
+    onSelectedTasksChange, uniqueBomCodes, selectedBomCodes, onSelectedBomCodesChange,
+    assetClassification, workOrderClassifications, classificationFilter, onClassificationFilterChange,
+    woClassificationFilter, onWoClassificationFilterChange, assets, onScroll,
   ]);
 
 

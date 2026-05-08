@@ -453,8 +453,10 @@ const App: React.FC = () => {
     };
 
     measureAsync('service-initialization', 'render', initializeServices);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+    // マウント時に 1 度だけサービスを初期化する。announce / measureAsync / timeScale を deps に
+    // 入れると初期化処理が再実行されて初期 state が壊れるため意図的に空配列。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Listen for date jumps to update the dynamic time window
   useEffect(() => {
@@ -478,8 +480,10 @@ const App: React.FC = () => {
       loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
     };
     measureAsync('data-transformation', 'render', loadData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeScale, focusDateKey, isServicesInitialized]); // Remove measureAsync and announce from dependencies
+    // dataViewMode の変更時はそれ専用の loader が呼ばれるため、ここでは含めない。
+    // measureAsync / loadDataFromViewModeManagerWithMode は ref を介しており再 effect 不要。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeScale, focusDateKey, isServicesInitialized]);
 
   // Helper function to build hierarchy filter tree
   // Memoized for performance - Requirements 10.1, 10.2, 10.3
@@ -789,7 +793,10 @@ const App: React.FC = () => {
       // Doing so would wipe out the task hierarchies (causing the ghost UI bug).
       // We rely strictly on ViewModeManager, and if it fails, we show the ErrorHandler UI.
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // buildHierarchyFilterTree / generateTimeHeadersFromData / hookEquipmentData / transformEquipmentData は
+    // 同一 hooks スコープ内の関数 / ref。 deps に入れると親再レンダーごとに loader が再生成され
+    // 上位の useEffect が無限ループする。 (ref 経由で安定化済みのため意図的に除外)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isServicesInitialized, timeScale, focusDateKey]);
 
   const loadDataFromViewModeManager = useCallback((timeScaleOverride?: 'year' | 'month' | 'week' | 'day') => {
@@ -1648,7 +1655,7 @@ const App: React.FC = () => {
   };
 
   // --- Data Operations ---
-  const handleSaveData = async () => {
+  const handleSaveData = useCallback(async () => {
     if (!dataStoreRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -1707,7 +1714,7 @@ const App: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
       showSnackbar(`保存エラー: ${errorMessage}`, 'error');
     }
-  };
+  }, [isServicesInitialized, projectName, announce]);
 
   const handleExportData = () => {
     if (!isServicesInitialized || !dataStoreRef.current) {
@@ -2292,8 +2299,7 @@ const App: React.FC = () => {
       }
       showSnackbar(`機器情報の更新に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isServicesInitialized, dataViewMode]);
+  }, [isServicesInitialized, dataViewMode, loadDataFromViewModeManagerWithMode]);
 
   // --- Deep Copy & Paste Handlers ---
   const [internalClipboard, setInternalClipboard] = useState<{
@@ -2398,8 +2404,7 @@ const App: React.FC = () => {
       console.error('Deep copy paste failed:', error);
       showSnackbar('ペースト処理中にエラーが発生しました', 'error');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalClipboard, isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, handleSaveData]);
+  }, [internalClipboard, isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode]);
 
   const handleTimeCellsDelete = useCallback((cells: {rowId: string, columnId: string}[]) => {
     if (!isServicesInitialized || !workOrderLineManagerRef.current) {
@@ -2507,8 +2512,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode]);
+  }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, announce, handleSaveData]);
 
   // History state applier
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2613,8 +2617,7 @@ const App: React.FC = () => {
          announce('操作を元に戻しました');
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
+  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState, announce]);
 
   // Handle explicit Redo from UI
   const handleRedo = useCallback(() => {
@@ -2627,8 +2630,7 @@ const App: React.FC = () => {
          announce('操作をやり直しました');
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
+  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState, announce]);
 
   // Handle grid scroll state sync
   const handleGridScroll = useCallback((dateKey: string) => {

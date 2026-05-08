@@ -161,8 +161,7 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
     }
 
     return '';
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row, columns, viewMode]);
+  }, [row, viewMode]);
 
   // Calculate indentation based on level
   const indentWidth = row.type === 'assetChild' ? 32 : 0; 

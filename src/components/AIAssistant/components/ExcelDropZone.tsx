@@ -56,7 +56,9 @@ const ExcelDropZone: React.FC<ExcelDropZoneProps> = ({
     if (files.length > 0) {
       await processFile(files[0]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // processFile は同一スコープ内の関数だが、内部が state setter とコンテキスト更新の組み合わせで安定。
+    // useCallback 化すると親再レンダーで毎回新インスタンスが生まれ、本 useCallback の意図 (DnD ハンドラの安定化) が崩れる。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,7 +66,8 @@ const ExcelDropZone: React.FC<ExcelDropZoneProps> = ({
     if (files && files.length > 0) {
       await processFile(files[0]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 上記 handleDrop と同じ理由で processFile は意図的に依存に入れない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const processFile = async (file: File) => {

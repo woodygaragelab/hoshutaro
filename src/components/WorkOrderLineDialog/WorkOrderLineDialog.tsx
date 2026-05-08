@@ -552,8 +552,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
       }
     });
     return updates;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maintenanceRecords, assetId, dateKey, associations, contextWorkOrderId, workOrderDrafts]);
+  }, [maintenanceRecords, assetId, workOrderDrafts]);
 
   // Handle save - execute flat record updates directly
   const handleSave = useCallback(() => {

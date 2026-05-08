@@ -107,8 +107,7 @@ export function useViewModeTransition({
           }
 
     return data;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode]);
 
   /**
    * 作業ベースデータを取得（メモ化）
@@ -129,8 +128,7 @@ export function useViewModeTransition({
           }
 
     return data;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode]);
 
   /**
    * 表示モードを切り替え

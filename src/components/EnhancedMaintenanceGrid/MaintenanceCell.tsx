@@ -97,8 +97,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     if (hasChanged) {
       onCellEdit(item.id, column.id, finalValue);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentValue, value, onCellEdit, item.id, column.id, column.type]);
+  }, [currentValue, value, editValue, onCellEdit, item.id, column.id, column.type]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
