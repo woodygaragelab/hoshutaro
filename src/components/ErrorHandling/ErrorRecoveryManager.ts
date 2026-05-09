@@ -50,10 +50,9 @@ export class ErrorRecoveryManager {
       canRecover: (error: Error) => error.message.includes('Memory') || error.message.includes('out of memory'),
       recover: async (_error: Error, _context: ErrorContext) => {
         // ガベージコレクションを強制実行
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ('gc' in window && typeof (window as any).gc === 'function') {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).gc();
+        type WindowWithGC = Window & { gc?: () => void };
+        if ('gc' in window && typeof (window as WindowWithGC).gc === 'function') {
+          (window as WindowWithGC).gc?.();
         }
 
         // キャッシュをクリア
@@ -61,9 +60,9 @@ export class ErrorRecoveryManager {
 
         // メモリ使用量をチェック
         if ('memory' in performance) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const memInfo = (performance as any).memory;
-          if (memInfo.usedJSHeapSize > memInfo.jsHeapSizeLimit * 0.9) {
+          type PerformanceWithMemory = Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } };
+          const memInfo = (performance as PerformanceWithMemory).memory;
+          if (memInfo && memInfo.usedJSHeapSize > memInfo.jsHeapSizeLimit * 0.9) {
             throw new Error('メモリ不足が解消されませんでした');
           }
         }
@@ -186,8 +185,7 @@ export class ErrorRecoveryManager {
   /**
    * オフラインデータを保存
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  saveOfflineData(key: string, data: any): void {
+  saveOfflineData(key: string, data: Record<string, unknown>): void {
     if (!this.config.enableOfflineMode) return;
 
     const offlineData: OfflineData = {

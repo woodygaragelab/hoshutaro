@@ -1,8 +1,15 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Box, Typography, Popover, TextField, IconButton, Select, MenuItem, Checkbox, FormControlLabel, List, ListItem, Divider, Tabs, Tab } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 import { DragIndicator as DragIcon, FilterList as FilterIcon, Search as SearchIcon } from '@mui/icons-material';
 import { GridColumn, GridState } from './types';
 import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
+import type { Asset, AssetClassificationDefinition, AssetClassificationLevel, WorkOrderClassification } from '../../types/maintenanceTask';
+
+/** Hierarchy filter tree (level1 → level2 → level3) used by the equipment hierarchy filter */
+interface HierarchyFilterTree {
+  children?: Record<string, unknown>;
+}
 
 interface MaintenanceTableHeaderProps {
   columns: GridColumn[];
@@ -20,14 +27,10 @@ interface MaintenanceTableHeaderProps {
   level1Filter?: string;
   level2Filter?: string;
   level3Filter?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel1FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel2FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel3FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hierarchyFilterTree?: any;
+  onLevel1FilterChange?: (event: SelectChangeEvent<string>) => void;
+  onLevel2FilterChange?: (event: SelectChangeEvent<string>) => void;
+  onLevel3FilterChange?: (event: SelectChangeEvent<string>) => void;
+  hierarchyFilterTree?: HierarchyFilterTree;
   level2Options?: string[];
   level3Options?: string[];
   uniqueTasks?: string[];
@@ -39,16 +42,13 @@ interface MaintenanceTableHeaderProps {
   isTaskBasedMode?: boolean;
   
   // Classification Filter props
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assetClassification?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  workOrderClassifications?: any[];
+  assetClassification?: AssetClassificationDefinition;
+  workOrderClassifications?: WorkOrderClassification[];
   classificationFilter?: { [levelKey: string]: string };
   onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
   woClassificationFilter?: string;
   onWoClassificationFilterChange?: (classificationId: string) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assets?: any[];
+  assets?: Asset[];
 }
 
 const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = ({
@@ -623,16 +623,16 @@ const MaintenanceTableHeaderComponent: React.FC<MaintenanceTableHeaderProps> = (
                   {assetClassification && assetClassification.levels && assetClassification.levels.length > 0 ? (
                     assetClassification.levels
                       .slice()
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      .map((level: any, idx: number, sortedLevels: any[]) => {
+                      .map((level: AssetClassificationLevel, idx: number, sortedLevels: AssetClassificationLevel[]) => {
                         const parentSelected = idx === 0 || sortedLevels.slice(0, idx).every(
                           parentLevel => classificationFilter[parentLevel.key] && classificationFilter[parentLevel.key] !== ''
                         );
                         const currentValue = classificationFilter[level.key] || 'all';
-                        
+
                         // Extract string values, handling both old string array format and new object array {value, parentValue} format
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        let availableValues = (level.values || []).map((v: any) => typeof v === 'string' ? v : v.value);
+                        let availableValues = (level.values || []).map(
+                          (v: string | { value: string }) => typeof v === 'string' ? v : v.value
+                        );
                         
                         if (idx > 0) {
                           const matchingAssets = assets.filter(asset => {

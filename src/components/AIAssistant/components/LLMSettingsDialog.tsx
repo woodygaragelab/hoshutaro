@@ -72,7 +72,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     if (!hfRepoId) return;
     try {
       const pconf = pluginConfigs['openvino-adapter'] || {};
-      const res = await callLLMTool('openvino-adapter', pconf, 'download_hf_model', { repo_id: hfRepoId });
+      const res = await callLLMTool('openvino-adapter', pconf, 'download_hf_model', { repo_id: hfRepoId }) as { ok?: boolean; error?: string } | null;
       if (res && res.ok) {
         setHfDownloadState({ status: 'downloading' });
         startPollingStatus();
@@ -89,9 +89,14 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     hfTimerRef.current = window.setInterval(async () => {
       try {
         const pconf = pluginConfigs['openvino-adapter'] || {};
-        const state = await callLLMTool('openvino-adapter', pconf, 'get_download_status', {});
+        const state = await callLLMTool('openvino-adapter', pconf, 'get_download_status', {}) as {
+          active?: boolean;
+          status?: 'idle' | 'downloading' | 'completed' | 'error';
+          downloaded_mb?: number;
+          error?: string;
+        } | null;
         if (!state) return;
-        
+
         // サーバー再起動などで状態がロストした場合の中断検知
         if (!state.active && (state.status === 'idle' || !state.status)) {
           if (hfTimerRef.current) clearInterval(hfTimerRef.current);

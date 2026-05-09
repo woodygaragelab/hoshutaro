@@ -294,13 +294,13 @@ export type HistoryAction =
   | 'UPDATE_HIERARCHY'
   | 'REASSIGN_HIERARCHY'
   | 'UPDATE_ASSET'
-  | 'UPDATE_SPECIFICATION';
+  | 'UPDATE_SPECIFICATION'
+  | 'UPDATE_SPECIFICATIONS_BATCH';
 
 export interface HistoryState {
   timestamp: Date;
   action: HistoryAction;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any;
+  data: unknown;
 }
 
 // ============================================================================
@@ -324,8 +324,7 @@ export interface ValidationError {
   type: 'VALIDATION_ERROR';
   field: string;
   message: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any;
+  value: unknown;
 }
 
 export interface ReferenceError {
@@ -340,8 +339,7 @@ export interface MigrationError {
   type: 'MIGRATION_ERROR';
   source: string;
   message: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any;
+  data: unknown;
 }
 
 export interface PerformanceError {
