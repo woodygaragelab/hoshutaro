@@ -80,8 +80,7 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
+  const _handleSpecificationEdit = (_rowId: string, _specIndex: number, key: string, _value: string) => {
         
     // This is handled by the SpecificationEditManager, but we can add additional logging here
      

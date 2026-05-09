@@ -20,13 +20,7 @@ import {
   Tabs,
   Tab,
   Checkbox,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Table,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  TableBody,
   TableCell,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  TableHead,
   TableRow,
   Select,
   MenuItem,
@@ -38,21 +32,14 @@ import {
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Edit as EditIcon,
   Add as AddIcon,
   Save as SaveIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Cancel as CancelIcon,
   Download as DownloadIcon,
   Upload as UploadIcon,
   FilterList as FilterListIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Asset, TreeLevelValue, AssetClassificationPath, HierarchyPath } from '../../types/maintenanceTask';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Virtuoso } from 'react-virtuoso';
+import type { Asset, TreeLevelValue } from '../../types/maintenanceTask';
 import { TableVirtuoso } from 'react-virtuoso';
 
 const FilterPopper: React.FC<{
@@ -220,10 +207,8 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
   pathKey,
   onSave,
   onSaveLinkedAssets,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onExportJSON,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onImportJSON,
+  onExportJSON: _onExportJSON,
+  onImportJSON: _onImportJSON,
   onClose,
   readOnly = false,
 }) => {
@@ -239,8 +224,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
   const [newLevelKey, setNewLevelKey] = useState('');
   
   // Tab 1 value editing state
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [bulkInputValue, setBulkInputValue] = useState('');
+  const [_bulkInputValue, setBulkInputValue] = useState('');
   const [filterValStr, setFilterValStr] = useState('');
   const [filterParentStr, setFilterParentStr] = useState('');
   const [hiddenVals, setHiddenVals] = useState<Set<string>>(new Set());
@@ -577,8 +561,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
 
   const handleDownloadJSON = () => {
     const dataToExport = {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      levels: activeLevels.map((l, i) => ({
+      levels: activeLevels.map((l) => ({
         key: l.key,
         values: [...l.values]
       }))

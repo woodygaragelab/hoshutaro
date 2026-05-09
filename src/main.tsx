@@ -6,8 +6,6 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ThemeProvider from './providers/ThemeProvider';
 import { LazyWrapper, SkeletonLoaders } from './utils/loadingOptimization';
 import { performanceMonitor } from './utils/performanceMonitor';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { bundleAnalyzer } from './utils/bundleAnalyzer';
 import { accessibilityManager } from './utils/accessibility';
 import { registerSW } from './utils/serviceWorker';
 
@@ -181,11 +179,9 @@ setTimeout(() => {
 
 // Register service worker for caching and offline support
 registerSW({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSuccess: (registration) => {
+  onSuccess: (_registration) => {
       },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onUpdate: (registration) => {
+  onUpdate: (_registration) => {
         // Show update notification to user
     if (confirm('新しいバージョンが利用可能です。更新しますか？')) {
       window.location.reload();

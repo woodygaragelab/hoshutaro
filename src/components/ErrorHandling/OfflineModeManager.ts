@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { OfflineData, ErrorContext } from './types';
 import { HierarchicalData } from '../../types';
 
 /**
@@ -190,8 +188,7 @@ export class OfflineModeManager {
    */
   private async syncSingleOperation(key: string, offlineData: OfflineData): Promise<void> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { operation, itemId, data } = offlineData.data;
+      const { data } = offlineData.data;
       
       switch (data.type) {
         case 'cell_edit':
@@ -282,15 +279,11 @@ export class OfflineModeManager {
   private async handleSyncConflict(
     key: string,
     offlineData: OfflineData,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    error: Error
+    _error: Error
   ): Promise<void> {
-        
-    // 競合解決UI を表示する必要がある
-    // ここでは簡単な自動解決を実装
-    
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { operation, itemId, data } = offlineData.data;
+
+    // 競合解決UI を表示する必要がある（自動マージで暫定対応）
+    const { itemId, data } = offlineData.data;
     
     // 最新データを取得
     const latestData = await this.fetchLatestData(itemId);

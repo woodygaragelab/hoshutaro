@@ -1,24 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Box, IconButton, Typography, CircularProgress, Avatar, Paper, Button, Chip
+  IconButton, Typography, CircularProgress, Avatar, Button, Chip
 } from '@mui/material';
 import {
   Send as SendIcon,
   AttachFile as AttachFileIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Settings as SettingsIcon,
   CalendarMonth as CalendarIcon,
   ViewList as DisplayModeIcon,
   SwapHoriz as ViewModeIcon,
   Star as AIIcon,
   Person as PersonIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
   AccountTree as HierarchyIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ImportExport as SyncIcon,
   FileUpload as UploadFileIcon,
   FileDownload as DownloadFileIcon,
   ChatBubbleOutline as ChatIcon,
@@ -27,10 +20,6 @@ import {
   Undo as UndoIcon,
   Redo as RedoIcon,
   BarChart as BarChartIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Extension as ExtensionIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  AutoFixHigh as SkillIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
@@ -98,8 +87,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   onHierarchyEdit,
   onAssetClassificationEdit,
   onWorkOrderClassificationEdit,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSuggestionApply,
+  onSuggestionApply: _onSuggestionApply,
   onExcelImport,
   onImportComplete,
   dataContext,
@@ -131,8 +119,6 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   // --- Hover Menu States ---
   const [showTimeScaleMenu, setShowTimeScaleMenu] = useState(false);
   const [showDisplayModeMenu, setShowDisplayModeMenu] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
   const [showMasterMenu, setShowMasterMenu] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);

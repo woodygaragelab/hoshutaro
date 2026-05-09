@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { WorkOrderBasedRow as WorkOrderBasedRowData, AggregatedStatus } from '../../types/maintenanceTask';
+import type { WorkOrderBasedRow as WorkOrderBasedRowData } from '../../types/maintenanceTask';
 import { GridColumn, GridState } from './types';
 import { HierarchicalData } from '../../types';
 import MaintenanceCell from './MaintenanceCell';
@@ -162,8 +161,7 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
     }
 
     return '';
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row, columns, viewMode]);
+  }, [row, viewMode]);
 
   // Calculate indentation based on level
   const indentWidth = row.type === 'assetChild' ? 32 : 0; 
@@ -231,9 +229,6 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
         // For task rows, render with indentation in first column
         // Only show task name in fixed area, hide in scrollable area
         if (isFirstColumn) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const isHierarchyRow = row.type === 'hierarchy' || row.type === 'workOrder';
-          
           let cellWidth = width;
           let cellMinWidth = width;
           let cellMaxWidth = width;

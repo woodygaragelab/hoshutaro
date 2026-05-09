@@ -107,8 +107,7 @@ export function useViewModeTransition({
           }
 
     return data;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode]);
 
   /**
    * 作業ベースデータを取得（メモ化）
@@ -129,8 +128,7 @@ export function useViewModeTransition({
           }
 
     return data;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode]);
 
   /**
    * 表示モードを切り替え
@@ -212,10 +210,6 @@ export function useViewModeTransition({
       newAssociations: WorkOrderLine[],
       newHierarchy: HierarchyDefinition
     ) => {
-      // Create a fresh manager with exactly matching arguments
-      // Note: Data is not explicitly copied here since ViewModeManager handles its own references internally 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const newManager = new ViewModeManager(newAssets, newAssociations, newHierarchy, newWorkOrders);
       viewModeManager.updateData(newAssets, newAssociations, newHierarchy, newWorkOrders);
       const newState = viewModeManager.getCurrentState();
       setCurrentState(newState);

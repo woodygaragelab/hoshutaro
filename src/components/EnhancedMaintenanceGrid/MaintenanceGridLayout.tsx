@@ -103,12 +103,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   onSelectedCellChange,
   onEditingCellChange,
   onUpdateItem,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSpecificationEdit,
+  onSpecificationEdit: _onSpecificationEdit,
   onSpecificationColumnReorder,
   onAssetEdit,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  hierarchy,
+  hierarchy: _hierarchy,
   virtualScrolling,
   readOnly,
   onCopy,
@@ -351,12 +349,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     return displayAreaConfig.scrollableAreas.specifications?.width || 400;
   }, [displayAreaConfig.scrollableAreas.specifications?.width]);
 
-  // Initialize area widths based on columns and config, and view modes, to ensure alignment upon mode switch
-  // Do NOT include fixedColumnsWidth to prevent resetting user-adjusted widths during regular renders
+  // モード切替時のみ幅をリセット。fixedColumnsWidth / specAreaConfigWidth を deps に入れると
+  // ユーザー調整中に毎回幅がリセットされるため意図的に除外。
   useEffect(() => {
     setFixedAreaWidth(fixedColumnsWidth);
     setSpecAreaWidth(specAreaConfigWidth);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEquipmentBasedMode, isTaskBasedMode, viewMode]);
 
   // Basic scroll synchronization state (currently unused)
@@ -503,8 +501,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       height: '100%',
       overflow: 'auto'
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayAreaConfig.mode]);
+  }, [displayAreaConfig]);
 
   // Handle resizing of areas
   const handleFixedAreaResize = useCallback((delta: number) => {
@@ -614,8 +611,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         onEditingCellChange(rowId, columnId);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, columns, data, viewMode, deviceType, onEditingCellChange]);
+  }, [readOnly, columns, data, deviceType, onEditingCellChange, isEquipmentBasedMode, isTaskBasedMode]);
 
   // Wrapper that calls both external and internal handlers
   const handleCellDoubleClick = useCallback((
@@ -731,8 +727,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       onEditingCellChange(null, null);
     }
 
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange]);
+      }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange, onAssetEdit]);
 
   // Handle dialog close with minimal layout impact
   const handleDialogClose = useCallback(() => {
@@ -780,14 +775,14 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     return () => clearTimeout(debouncedResize);
   }, [onColumnResize]);
 
-  // Copy & Paste handlers (delegated to parent)
-  const handleCopy = useCallback(async () => {
+  // Copy & Paste handlers (delegated to parent) — kept for future inline binding.
+  const _handleCopy = useCallback(async () => {
     if (onCopy) {
       await onCopy();
     }
   }, [onCopy]);
 
-  const handlePaste = useCallback(async () => {
+  const _handlePaste = useCallback(async () => {
     if (onPaste) {
       await onPaste();
     }
@@ -832,13 +827,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         handleCellDoubleClick(navigationResult.rowId, navigationResult.columnId, mockEvent);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     gridState.selectedCell,
     gridState.editingCell,
     handleKeyDown,
-    handleCopy,
-    handlePaste,
     onSelectedCellChange,
     handleCellDoubleClick,
     handleDialogClose
@@ -1554,8 +1546,7 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (prop
   }, []);
 
   // Convert the onSpecificationEdit to match the expected interface
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
+  const _handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
     // For now, we'll handle this differently since the original interface expects field/value
     // This is a temporary adapter until we can update the interface
     if (props.onSpecificationEdit) {
@@ -1568,8 +1559,7 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (prop
   }, [props]);
 
   // Create device detection
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const deviceDetection = useMemo(() => ({
+  const _deviceDetection = useMemo(() => ({
     type: 'desktop' as const,
     screenSize: { width: window.innerWidth, height: window.innerHeight },
     orientation: window.innerWidth > window.innerHeight ? 'landscape' as const : 'portrait' as const,

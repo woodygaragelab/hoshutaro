@@ -244,7 +244,8 @@ export const useProgressiveLoading = <T>(
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // dependencies は呼び出し側が指定するカスタムフックの仕様で、loadFn は dependencies に含めて呼び出し側が管理する。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, dependencies);
 
   return { data, loading, error, progress };

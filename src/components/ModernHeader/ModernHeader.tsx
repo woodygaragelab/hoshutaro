@@ -30,15 +30,11 @@ import {
   ViewList as EquipmentIcon,
   Assignment as TaskIcon,
   AccountTree as HierarchyIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  SwapHoriz as ReassignIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { MonthCalendar } from '@mui/x-date-pickers/MonthCalendar';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
@@ -150,10 +146,8 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   onTimeScaleChange,
   dataViewMode = 'asset-based',
   onDataViewModeChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  editScope = 'single-asset',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onEditScopeChange,
+  editScope: _editScope = 'single-asset',
+  onEditScopeChange: _onEditScopeChange,
   showBomCode,
   onShowBomCodeChange,
   displayMode,
@@ -165,15 +159,12 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   onResetData,
   onAIAssistantToggle,
   isAIAssistantOpen,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  currentYear = new Date().getFullYear(),
+  currentYear: _currentYear = new Date().getFullYear(),
   onJumpToDate,
   hierarchy,
   assets = [],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  selectedAssets = [],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onAssetSelectionChange,
+  selectedAssets: _selectedAssets = [],
+  onAssetSelectionChange: _onAssetSelectionChange,
   onHierarchyEdit,
   canUndo = false,
   canRedo = false,

@@ -1,7 +1,5 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import React, { useCallback, useState, useRef, useEffect } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Box, TextField, Checkbox } from '@mui/material';
+import React, { useCallback, useRef, useEffect } from 'react';
+import { Box } from '@mui/material';
 import { HierarchicalData } from '../../types';
 import { GridColumn, GridState } from './types';
 
@@ -41,8 +39,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   onCellEdit,
   onSelectedCellChange,
   onEditingCellChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onUpdateItem,
+  onUpdateItem: _onUpdateItem,
   onCellDoubleClick,
   readOnly,
   draggedColumnIndex,
@@ -51,8 +48,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   virtualOffset = 0,
   displayColumns,
   isEquipmentBasedMode = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isTaskBasedMode = false,
+  isTaskBasedMode: _isTaskBasedMode = false,
   isFixedArea = false,
   isDragging,
   startDragSelection,
@@ -298,8 +294,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
                   startDragSelection(item.id, column.id);
                 }
               }}
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              onMouseEnter={(e: React.MouseEvent) => {
+              onMouseEnter={() => {
                 if (isDragging && updateDragSelection) {
                   updateDragSelection(item.id, column.id);
                 }

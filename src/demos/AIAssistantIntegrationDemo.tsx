@@ -25,12 +25,6 @@ import {
   SmartToy as AIIcon,
   Integration as IntegrationIcon,
   CloudUpload as UploadIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  TableChart as TableIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  AutoFixHigh as MappingIcon,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Assessment as AnalysisIcon,
   CheckCircle as CheckIcon,
   Psychology as BrainIcon,
   Sync as SyncIcon,

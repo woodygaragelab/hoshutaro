@@ -77,8 +77,7 @@ export function startChatStream(
             try {
               const chunk = JSON.parse(raw)
               onEvent(chunk as SSEEvent)
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (e) {
+            } catch (_e) {
               // ignore parse error for incomplete chunks
             }
           }

@@ -246,8 +246,7 @@ export const stringInterner = new StringInterner();
 try {
   if (import.meta.env?.DEV) {
     memoryMonitor.start();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    memoryMonitor.onHighMemoryUsage((usage) => {
+    memoryMonitor.onHighMemoryUsage((_usage) => {
           });
   }
 } catch {

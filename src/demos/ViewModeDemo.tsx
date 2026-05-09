@@ -90,12 +90,10 @@ const ViewModeDemo: React.FC = () => {
   const handleCellEdit = (rowId: string, columnId: string, value: any) => {
       };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
+  const _handleSpecificationEdit = (_rowId: string, _specIndex: number, _key: string, _value: string) => {
       };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleUpdateItem = (updatedItem: HierarchicalData) => {
+  const _handleUpdateItem = (_updatedItem: HierarchicalData) => {
       };
 
   return (

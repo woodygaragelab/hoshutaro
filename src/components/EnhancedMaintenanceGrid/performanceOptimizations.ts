@@ -81,8 +81,8 @@ export class ScaleChangeOptimizer {
       operations.forEach(operation => {
         try {
           operation();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-        } catch (error) {
+        // eslint-disable-next-line no-empty
+        } catch (_error) {
                   }
       });
     });
@@ -151,8 +151,8 @@ export class RenderOptimizer {
       renders.forEach(render => {
         try {
           render();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-        } catch (error) {
+        // eslint-disable-next-line no-empty
+        } catch (_error) {
                   }
       });
 

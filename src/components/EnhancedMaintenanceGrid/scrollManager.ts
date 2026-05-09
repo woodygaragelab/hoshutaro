@@ -38,8 +38,8 @@ export class ScrollManager {
           return parsed;
         }
       }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-    } catch (error) {
+    // eslint-disable-next-line no-empty
+    } catch (_error) {
           }
 
     return {
@@ -55,8 +55,8 @@ export class ScrollManager {
   private saveScrollState(): void {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.scrollState));
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-    } catch (error) {
+    // eslint-disable-next-line no-empty
+    } catch (_error) {
           }
   }
 
@@ -113,8 +113,8 @@ export class ScrollManager {
     // ローカルストレージからも削除して完全にクリア
     try {
       localStorage.removeItem(this.storageKey);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-    } catch (error) {
+    // eslint-disable-next-line no-empty
+    } catch (_error) {
           }
   }
 
@@ -302,13 +302,16 @@ export const useScrollManager = (storageKey?: string) => {
   const scrollManager = new ScrollManager(storageKey);
   const scrollSynchronizer = new ScrollSynchronizer();
 
-  // クリーンアップ
+  // クリーンアップ。scrollManager / scrollSynchronizer はコンポーネントマウント時のインスタンスを
+  // クロージャで掴んで unmount 時に解放する想定。deps に入れると毎レンダーで再 effect が走り、
+  // cleanup が直近のインスタンスを誤って破棄するため意図的に空配列。
+  // (本来は useRef / useMemo で安定化すべき技術負債)
   React.useEffect(() => {
     return () => {
       scrollManager.cleanup();
       scrollSynchronizer.cleanup();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

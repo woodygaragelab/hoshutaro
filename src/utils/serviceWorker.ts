@@ -21,8 +21,7 @@ const getPublicUrl = () => {
   }
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const isDevelopment = () => {
+const _isDevelopment = () => {
   try {
     return import.meta.env?.DEV || false;
   } catch {

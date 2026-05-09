@@ -5,8 +5,6 @@ import CircleIcon from '@mui/icons-material/Circle';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import { HierarchicalData } from '../../types';
 import { GridColumn } from './types';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { getDisplaySymbolWithCount } from '../../utils/dataAggregation';
 import type { AggregatedStatus } from '../../types/maintenanceTask';
 
 interface MaintenanceCellProps {
@@ -99,8 +97,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     if (hasChanged) {
       onCellEdit(item.id, column.id, finalValue);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentValue, value, onCellEdit, item.id, column.id, column.type]);
+  }, [currentValue, value, editValue, onCellEdit, item.id, column.id, column.type]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -368,17 +365,8 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
 
   // Handle single click
   const handleClick = useCallback(() => {
-    // In equipment-based mode, clicking on time columns (status/cost) should open TaskEditDialog
+    // 装置ベースモードかつ時刻カラムは、データの有無によらず TaskEditDialog を開けるようにする。
     if (isEquipmentBasedMode && (column.type === 'status' || column.type === 'cost')) {
-      // Check if there's any data to edit
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const hasData = value && (
-        (typeof value === 'object' && ('count' in value || 'planned' in value || 'actual' in value)) ||
-        (typeof value === 'string' && value.length > 0)
-      );
-      
-      // Always allow clicking in equipment-based mode for time columns
-      // This allows adding new tasks even if no tasks exist yet
       if (column.id.startsWith('time_')) {
         onCellClick();
         return;
@@ -387,7 +375,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     
     // Default click behavior
     onCellClick();
-  }, [onCellClick, isEquipmentBasedMode, column.type, column.id, value]);
+  }, [onCellClick, isEquipmentBasedMode, column.type, column.id]);
 
   return (
     <Box

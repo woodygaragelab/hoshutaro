@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 // HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Box, Paper, Snackbar, Alert, Typography, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import { Box, Paper, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from './types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
@@ -13,8 +12,6 @@ import {
   WorkOrderLine,
   HierarchyDefinition,
   WorkOrderLineUpdate,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  WorkOrderBasedRow,
   TimeScale,
   SpecificationChange,
 } from '../../types/maintenanceTask';
@@ -141,7 +138,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onColumnResize,
   onRowResize,
   onUpdateItem,
-  virtualScrolling = false,
+  virtualScrolling: _virtualScrolling = false,
   readOnly = false,
   className = '',
   groupedData,
@@ -154,31 +151,22 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onTaskAssociationUpdate,
   // Data view mode props - Requirements 6.1, 6.2, 6.5
   dataViewMode = 'asset-based',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onDataViewModeChange,
+  onDataViewModeChange: _onDataViewModeChange,
   // Edit scope props - Requirements 4.8, 5.7
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  editScope = 'single-asset',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onEditScopeChange,
+  editScope: _editScope = 'single-asset',
+  onEditScopeChange: _onEditScopeChange,
   // Hierarchy management props - Requirements 3.1, 3.2
   selectedAssets = [],
   onAssetSelectionChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onHierarchyEdit,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onOpenAssetReassignDialog,
+  onHierarchyEdit: _onHierarchyEdit,
+  onOpenAssetReassignDialog: _onOpenAssetReassignDialog,
   onOpenTaskEditDialog,
   onAssetEdit,
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  canUndo,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  canRedo,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onUndo,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onRedo,
+  canUndo: _canUndo,
+  canRedo: _canRedo,
+  onUndo: _onUndo,
+  onRedo: _onRedo,
   // Integrated toolbar props
   searchTerm = '',
   onSearchChange,
@@ -192,14 +180,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   level2Options = [],
   level3Options = [],
   onViewModeChange,
-  timeScale = 'year',
+  timeScale: _timeScale = 'year',
   onTimeScaleChange,
-  onShowBomCodeChange,
-  onDisplayModeChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  currentYear,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onJumpToDate,
+  onShowBomCodeChange: _onShowBomCodeChange,
+  onDisplayModeChange: _onDisplayModeChange,
+  currentYear: _currentYear,
+  onJumpToDate: _onJumpToDate,
   onCellCopy,
   onCellPaste,
   onTimeCellsDelete,
@@ -551,15 +537,13 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     return cols;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    timeScale, 
-    displayMode, 
-    showBomCode, 
-    memoizedTimeHeaders, 
-    viewMode, 
-    data, 
-    isTaskBasedMode, 
+    displayMode,
+    showBomCode,
+    memoizedTimeHeaders,
+    viewMode,
+    data,
+    isTaskBasedMode,
     isEquipmentBasedMode
   ]);
 
@@ -632,11 +616,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     isCellInSelectedRange
   } = useMaintenanceGridState(columns, visibleRowIds);
 
-  // Auto-enable virtual scrolling for large column counts (week/day views)
-  const autoVirtualScrolling = useMemo(() => {
-    return true; // Use virtual scrolling for performance stability natively
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns, virtualScrolling]);
+  // 仮想スクロールは常に有効（パフォーマンス安定性のため定数）。
+  const autoVirtualScrolling = useMemo(() => true, []);
 
   // Performance optimization hooks - use appropriate data based on mode
   const dataForProcessing = useMemo(() => {
@@ -723,8 +704,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     // For non-time columns, let MaintenanceGridLayout handle (specifications, etc.)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [isEquipmentBasedMode, isTaskBasedMode, dataViewMode, onOpenTaskEditDialog]);
+  }, [onOpenTaskEditDialog]);
 
   // Handle task association updates from dialog
   const handleTaskAssociationUpdate = useCallback((updates: WorkOrderLineUpdate[]) => {
@@ -845,8 +825,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode, isTaskBasedMode]);
+  }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode]);
 
 
 
@@ -867,28 +846,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     setCurrentDisplayAreaConfig(null); // Reset to use the computed displayAreaConfig
   }, [displayMode]);
 
-  // Determine current display area based on selected cell
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getCurrentDisplayArea = useCallback((): 'specifications' | 'maintenance' => {
-    if (!gridState.selectedCell) return 'maintenance';
-
-    const column = processedColumns.find(col => col.id === gridState.selectedCell?.columnId);
-    if (!column) return 'maintenance';
-
-    // Check if column is in specifications area
-    const specColumns = displayAreaConfig.scrollableAreas.specifications?.columns || [];
-    if (specColumns.includes(column.id)) {
-      return 'specifications';
-    }
-
-    return 'maintenance';
-  }, [gridState.selectedCell, processedColumns, displayAreaConfig]);
-
-  // Handle copy operation with cross-area support
   const handleSystemCopy = useCallback(async () => {
     if (!gridState.selectedCell) return;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { rowId, columnId } = gridState.selectedCell;
+    const { columnId } = gridState.selectedCell;
 
     // Is it a specification string?
     if (columnId.startsWith('spec_')) {
@@ -966,8 +926,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns]);
+  }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns, visibleRowIds]);
 
   // Handle paste operation with cross-area support
   const handleSystemPaste = useCallback(async () => {
@@ -1106,8 +1065,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       onCellPaste(rowId, columnId, viewMode as any);
       // Optional: notification will be triggered internally by App.tsx if successful
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem]);
+  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem, visibleRowIds]);
 
   // Handle delete operation
   const handleSystemDelete = useCallback(() => {
@@ -1214,20 +1172,17 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       // Delete other editable fields
       handleCellEdit(rowId, columnId, '');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     gridState.selectedCell,
     readOnly,
     processedColumns,
     processedData,
-    onSpecificationEdit,
     onUpdateItem,
-    onCellEdit,
     handleCellEdit,
-    isTaskBasedMode,
-    convertedData,
-    associations,
-    onTaskAssociationUpdate
+    gridState.selectedRange?.end,
+    gridState.selectedRange?.start,
+    onSpecificationBatchUpdate,
+    visibleRowIds,
   ]);
 
   // Handle keyboard navigation
@@ -1393,8 +1348,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       // Regular click: Single selection
       onAssetSelectionChange([assetId]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAssets, onAssetSelectionChange, processedData]);
+  }, [selectedAssets, onAssetSelectionChange, convertedData]);
 
 
 
@@ -1426,10 +1380,6 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
   // Stable empty function references with useMemo to prevent re-creation
   const stableOnSearchChange = useMemo(() => onSearchChange || (() => { }), [onSearchChange]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const stableOnShowBomCodeChange = useMemo(() => onShowBomCodeChange || (() => { }), [onShowBomCodeChange]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const stableOnDisplayModeChange = useMemo(() => onDisplayModeChange || (() => { }), [onDisplayModeChange]);
 
   // Desktop-only view
   const renderGridView = useMemo(() => {
@@ -1500,17 +1450,21 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         assets={assets}
       />
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     processedData, processedColumns, currentDisplayAreaConfig, displayAreaConfig,
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
-    onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
-    handleSystemCopy, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
+    onSpecificationEdit, onSpecificationColumnReorder, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
+    setSelectedRange, onUpdateItem,
+    autoVirtualScrolling, shouldUseVirtualScrolling, readOnly,
+    handleSystemCopy, handleSystemPaste, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
     expandedWorkOrders, toggleWorkOrderExpanded,
+    isDragging, startDragSelection, updateDragSelection, endDragSelection, isCellInSelectedRange,
     searchTerm, stableOnSearchChange, level1Filter, level2Filter, level3Filter,
     handleLevel1FilterChange, handleLevel2FilterChange, handleLevel3FilterChange,
     hierarchyFilterTree, level2Options, level3Options, uniqueTasks, selectedTasks,
-    onSelectedTasksChange, uniqueBomCodes, selectedBomCodes, onSelectedBomCodesChange
+    onSelectedTasksChange, uniqueBomCodes, selectedBomCodes, onSelectedBomCodesChange,
+    assetClassification, workOrderClassifications, classificationFilter, onClassificationFilterChange,
+    woClassificationFilter, onWoClassificationFilterChange, assets, onScroll,
   ]);
 
 

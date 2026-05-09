@@ -29,10 +29,6 @@ import {
   testLLMConnection,
   startLLMAdapter,
   getLLMModels,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getLocalModels,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  LocalModelInfo,
   getInstalledPlugins,
   PluginInfo,
   callLLMTool
@@ -116,8 +112,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
              handleFetchModels();
           }
         }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e) {
+      } catch (_e) {
         // network polling drop
       }
     }, 3000);
@@ -171,8 +166,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
                  }
                }
                configs[adapter.id] = conf;
-             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-             } catch (e) {
+             } catch (_e) {
                configs[adapter.id] = {};
              }
            }
