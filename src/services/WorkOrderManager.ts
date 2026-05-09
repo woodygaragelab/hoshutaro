@@ -78,8 +78,7 @@ export class WorkOrderManager {
     createWorkOrder(
         data: Omit<WorkOrder, 'id' | 'CreatedAt' | 'UpdatedAt'> & { id?: string }
     ): WorkOrder {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        this.validateWorkOrderData(data as any); // validate
+        this.validateWorkOrderData(data);
 
         const now = new Date();
         const id = data.id || this.generateId();

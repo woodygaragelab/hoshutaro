@@ -1,5 +1,30 @@
 import { MaintenanceSuggestion } from '../components/AIAssistant/types';
 
+/** Excel-side structure metadata reported by backend */
+export interface ExcelStructureInfo {
+  pattern?: string;
+  implied_hierarchy?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/** Per-column descriptor returned by backend after Excel analysis */
+export interface ExcelColumnDescriptor {
+  col: number | string;
+  field: string;
+  month?: number | string;
+  sub?: string;
+  label?: string;
+  [key: string]: unknown;
+}
+
+/** Preview record (one row sample) returned by backend */
+export interface ExcelPreviewRecord {
+  asset_id?: string;
+  asset_name?: string;
+  hierarchyPath?: Record<string, string>;
+  [key: string]: unknown;
+}
+
 export interface ExcelAnalysisResult {
   success: boolean;
   status: string;
@@ -9,13 +34,10 @@ export interface ExcelAnalysisResult {
     sheet_name: string;
     summary: string;
     total_rows: number;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    structure_info: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    descriptors_info: any[];
+    structure_info: ExcelStructureInfo;
+    descriptors_info: ExcelColumnDescriptor[];
     symbol_mapping: Record<string, string>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    preview_records: any[];
+    preview_records: ExcelPreviewRecord[];
     warnings: string[];
   }>;
   suggestions?: MaintenanceSuggestion[];
@@ -51,8 +73,7 @@ export async function uploadExcelFile(file: File, sessionId: string): Promise<Ex
   return res.json();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function confirmExcelImport(sessionId: string): Promise<any> {
+export async function confirmExcelImport(sessionId: string): Promise<unknown> {
   const res = await fetch('/api/data/import/confirm', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -73,8 +94,7 @@ export async function confirmExcelImport(sessionId: string): Promise<any> {
   return res.json();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function cancelExcelImport(sessionId: string): Promise<any> {
+export async function cancelExcelImport(sessionId: string): Promise<unknown> {
   const res = await fetch('/api/data/import/cancel', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -120,8 +140,7 @@ export function formatMappingSummary(result: ExcelAnalysisResult): string {
 
       if (sheet.descriptors_info) {
         lines.push('  **列マッピング:**');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mapped = sheet.descriptors_info.filter((d: any) => d.field !== 'ignore');
+        const mapped = sheet.descriptors_info.filter((d) => d.field !== 'ignore');
         for (const d of mapped.slice(0, 8)) {
           let desc = `    Col${d.col} → ${d.field}`;
           if (d.month) desc += ` (${d.month}月)`;

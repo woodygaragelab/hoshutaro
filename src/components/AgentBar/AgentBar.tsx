@@ -225,7 +225,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           setMessages(prev => prev.map(m => {
             if (m.id === assistantMsgId) {
               const suggestions = m.suggestions ? [...m.suggestions] : [];
-              suggestions.push(event.suggestion);
+              // SSE-borne payload comes through as `unknown`; assume backend-issued shape matches MaintenanceSuggestion
+              suggestions.push(event.suggestion as MaintenanceSuggestion);
               return { ...m, suggestions };
             }
             return m;
@@ -275,11 +276,17 @@ export const AgentBar: React.FC<AgentBarProps> = ({
       setMessages(prev => [...prev, statusMsg]);
 
       try {
-        const result = await confirmExcelImport(sessionId);
+        const result = await confirmExcelImport(sessionId) as {
+          imported_assets?: number;
+          imported_work_orders?: number;
+          imported_lines?: number;
+          error_count?: number;
+          data_model?: unknown;
+        };
         setMessages(prev => prev.map(m => m.id === statusMsg.id ? {
           ...m,
           content: `✅ インポート完了！\n機器: ${result.imported_assets}件\n作業: ${result.imported_work_orders}件\n明細: ${result.imported_lines}件`
-            + (result.error_count > 0 ? `\n⚠️ エラー: ${result.error_count}件` : '')
+            + ((result.error_count ?? 0) > 0 ? `\n⚠️ エラー: ${result.error_count}件` : '')
         } : m));
 
         if (result.data_model && onImportComplete) {

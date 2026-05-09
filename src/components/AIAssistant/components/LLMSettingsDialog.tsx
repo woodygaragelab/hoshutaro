@@ -47,8 +47,7 @@ const DEFAULT_SETTINGS: LLMSettings = {
 
 export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onClose }) => {
   const [settings, setSettings] = useState<LLMSettings>(DEFAULT_SETTINGS);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [pluginConfigs, setPluginConfigs] = useState<Record<string, Record<string, any>>>({});
+  const [pluginConfigs, setPluginConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -73,16 +72,15 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     if (!hfRepoId) return;
     try {
       const pconf = pluginConfigs['openvino-adapter'] || {};
-      const res = await callLLMTool('openvino-adapter', pconf, 'download_hf_model', { repo_id: hfRepoId });
+      const res = await callLLMTool('openvino-adapter', pconf, 'download_hf_model', { repo_id: hfRepoId }) as { ok?: boolean; error?: string } | null;
       if (res && res.ok) {
         setHfDownloadState({ status: 'downloading' });
         startPollingStatus();
       } else {
         setHfDownloadState({ status: 'error', error: res?.error || 'Unknown error' });
       }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      setHfDownloadState({ status: 'error', error: e.message });
+    } catch (e) {
+      setHfDownloadState({ status: 'error', error: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -91,9 +89,14 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     hfTimerRef.current = window.setInterval(async () => {
       try {
         const pconf = pluginConfigs['openvino-adapter'] || {};
-        const state = await callLLMTool('openvino-adapter', pconf, 'get_download_status', {});
+        const state = await callLLMTool('openvino-adapter', pconf, 'get_download_status', {}) as {
+          active?: boolean;
+          status?: 'idle' | 'downloading' | 'completed' | 'error';
+          downloaded_mb?: number;
+          error?: string;
+        } | null;
         if (!state) return;
-        
+
         // サーバー再起動などで状態がロストした場合の中断検知
         if (!state.active && (state.status === 'idle' || !state.status)) {
           if (hfTimerRef.current) clearInterval(hfTimerRef.current);
@@ -143,13 +146,12 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
            }
            
            const llmAdapters = pluginsData.filter((p: PluginInfo) => p.category === 'llm-adapter');
-           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-           const configs: Record<string, any> = {};
-           
+           const configs: Record<string, Record<string, unknown>> = {};
+
            for (const adapter of llmAdapters) {
              try {
                const conf = await getPluginConfig(adapter.id);
-               
+
                // 後方互換性
                if (adapter.id === 'ollama-adapter') {
                  if (conf.LLM_BASE_URL === undefined && conf.OLLAMA_BASE_URL !== undefined) conf.LLM_BASE_URL = conf.OLLAMA_BASE_URL;
@@ -157,11 +159,11 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
                  if (conf.LLM_API_KEY === undefined && conf.OLLAMA_API_KEY !== undefined) conf.LLM_API_KEY = conf.OLLAMA_API_KEY;
                }
 
-               if (adapter.configSchema) {
-                 for (const [key, prop] of Object.entries(adapter.configSchema)) {
+               const schema = adapter.configSchema;
+               if (schema) {
+                 for (const key of Object.keys(schema)) {
                    if (conf[key] === undefined) {
-                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                     conf[key] = (prop as any).default || '';
+                     conf[key] = schema[key].default ?? '';
                    }
                  }
                }
@@ -190,14 +192,12 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     setAdapterStarted(newAdapter === 'gemini');
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleGlobalChange = (field: keyof LLMSettings, value: any) => {
+  const handleGlobalChange = (field: keyof LLMSettings, value: unknown) => {
     setSettings(prev => ({ ...prev, [field]: value }));
     setTestResult(null);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handlePluginChange = (pluginId: string, field: string, value: any) => {
+  const handlePluginChange = (pluginId: string, field: string, value: unknown) => {
     setPluginConfigs(prev => ({
       ...prev,
       [pluginId]: {
@@ -223,9 +223,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
       } else {
         setStartResult({ ok: false, message: res.error || '起動に失敗しました。' });
       }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      setStartResult({ ok: false, message: e.message });
+    } catch (e) {
+      setStartResult({ ok: false, message: e instanceof Error ? e.message : String(e) });
     } finally {
       setStarting(false);
     }
@@ -240,9 +239,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
       if (models.length > 0) {
         setModelDropdownOpen(true);
       }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      alert('モデル一覧の取得に失敗しました: ' + e.message);
+    } catch (e) {
+      alert('モデル一覧の取得に失敗しました: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setFetchingModels(false);
     }
@@ -263,9 +261,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
       const pconf = pluginConfigs[settings.llm_adapter] || {};
       const res = await testLLMConnection(settings.llm_adapter, pconf);
       setTestResult(res);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      setTestResult({ ok: false, latency_ms: 0, error: e.message });
+    } catch (e) {
+      setTestResult({ ok: false, latency_ms: 0, error: e instanceof Error ? e.message : String(e) });
     } finally {
       setTesting(false);
     }
@@ -276,9 +273,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     try {
       await doSaveParams();
       onClose();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      alert('保存に失敗しました: ' + e.message);
+    } catch (e) {
+      alert('保存に失敗しました: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
@@ -292,9 +288,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     
     const pconf = pluginConfigs[settings.llm_adapter] || {};
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return Object.entries(activePlugin.configSchema).map(([key, schemaDef]: [string, any]) => {
-      const val = pconf[key] !== undefined ? pconf[key] : (schemaDef.default || '');
+    return Object.entries(activePlugin.configSchema).map(([key, schemaDef]) => {
+      const val = pconf[key] !== undefined ? pconf[key] : (schemaDef.default ?? '');
       
       if (key === 'LLM_MODEL') {
         return (
@@ -344,7 +339,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
           type={key.includes('KEY') ? 'password' : 'text'}
           value={val}
           onChange={(e) => handlePluginChange(settings.llm_adapter, key, e.target.value)}
-          placeholder={schemaDef.default || ''}
+          placeholder={typeof schemaDef.default === 'string' ? schemaDef.default : ''}
         />
       );
     });

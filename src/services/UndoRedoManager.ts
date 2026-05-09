@@ -56,8 +56,7 @@ export class UndoRedoManager {
    * @param action - 操作タイプ
    * @param data - 操作に関連するデータ
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  pushState(action: HistoryAction, data: any): void {
+  pushState(action: HistoryAction, data: unknown): void {
     if (this.muted) return;
     
     const state: HistoryState = {
