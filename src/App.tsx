@@ -277,8 +277,7 @@ const App: React.FC = () => {
         // Requirements 9.1: Check version and handle legacy data
         try {
           // Step 1: Check data version before attempting to load
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const dataVersion = (rawData as any).version;
+          const dataVersion = rawData.version;
 
 
           if (dataVersion === '3.0.0') {
@@ -306,8 +305,7 @@ const App: React.FC = () => {
               // Load workOrders - create new manager and populate
               workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
               const existingWorkOrders = Object.values(loadedData.workOrders || {});
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              existingWorkOrders.forEach((wo: any) => {
+              existingWorkOrders.forEach(wo => {
                 workOrderManagerRef.current!.createWorkOrder(wo);
               });
 
@@ -316,15 +314,13 @@ const App: React.FC = () => {
               const existingWorkOrderLines = Object.values(loadedData.workOrderLines || {});
               let wolSuccessCount = 0;
               let wolErrorCount = 0;
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              existingWorkOrderLines.forEach((wol: any) => {
+              existingWorkOrderLines.forEach(wol => {
                 try {
                   workOrderLineManagerRef.current!.createWorkOrderLine(wol);
                   wolSuccessCount++;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } catch (e: any) {
+                } catch (e) {
                   wolErrorCount++;
-                  console.error('[App] DEBUG: createWorkOrderLine error for', wol?.id, ':', e.message);
+                  console.error('[App] DEBUG: createWorkOrderLine error for', wol?.id, ':', e instanceof Error ? e.message : String(e));
                 }
               });
               const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
@@ -343,15 +339,19 @@ const App: React.FC = () => {
               // Load hierarchy - 日本語キーをそのまま使用（変換しない）
               if (loadedData.hierarchy) {
                 // 階層定義をそのまま使用（日本語キーを保持）
-                const hierarchyDefinition = {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  levels: loadedData.hierarchy.levels.map((level: any) => ({
-                    key: level.key, // 日本語キーをそのまま使用
-                    name: level.key, // 日本語名を保持
-                    order: level.order, // 1ベースのまま維持
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    values: level.values.map((v: any) => typeof v === 'string' ? { value: v } : v) // 互換性: string[] -> TreeLevelValue[] に変換
-                  }))
+                // values は旧 JSON 形式で string[] のことがあるため、TreeLevelValue[] に互換変換。
+                type LegacyHierarchyLevel = {
+                  key: string;
+                  order?: number;
+                  values: Array<string | { value: string; parentValue?: string }>;
+                };
+                const legacyLevels = loadedData.hierarchy.levels as unknown as LegacyHierarchyLevel[];
+                const hierarchyDefinition: HierarchyDefinition = {
+                  levels: legacyLevels.map(level => ({
+                    key: level.key,
+                    order: level.order,
+                    values: level.values.map(v => (typeof v === 'string' ? { value: v } : v)),
+                  })),
                 };
 
                 hierarchyManagerRef.current?.setHierarchyDefinition(hierarchyDefinition);
@@ -383,8 +383,7 @@ const App: React.FC = () => {
               years.add(currentYear + 1);
               years.add(currentYear + 2);
 
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              existingWorkOrderLines.forEach((wol: any) => {
+              existingWorkOrderLines.forEach(wol => {
                 if (wol.schedule) {
                   Object.keys(wol.schedule).forEach(dateKey => {
                     const year = parseInt(dateKey.slice(0, 4), 10);
