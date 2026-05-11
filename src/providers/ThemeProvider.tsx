@@ -35,9 +35,8 @@ const queryClient = new QueryClient({
       retry: (failureCount, error) => {
         // Don't retry on 4xx errors
         if (error && typeof error === 'object' && 'status' in error) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const status = (error as any).status;
-          if (status >= 400 && status < 500) {
+          const status = (error as { status: unknown }).status;
+          if (typeof status === 'number' && status >= 400 && status < 500) {
             return false;
           }
         }

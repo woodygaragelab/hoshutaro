@@ -1,11 +1,12 @@
+import type { AggregatedStatus } from './types/maintenanceTask';
+
 export interface HierarchicalData {
   id: string;
   task: string;
   level: number;
   bomCode: string;
   specifications: { key: string; value: string; order: number }[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  children: any[];
+  children: HierarchicalData[];
   results: { [timeKey: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };
   rolledUpResults: { [timeKey: string]: { planned: boolean; actual: boolean; planCost: number; actualCost: number; } };
   hierarchyPath?: string; // For breadcrumb display
@@ -14,8 +15,7 @@ export interface HierarchicalData {
   isGroupHeader?: boolean; // Flag for group header rows
   workOrderId?: string; // WorkOrder ID for filtering in workorder-based mode
   type?: string; // Row type for grid mode discrimination ('hierarchy' | 'asset' | 'workOrder' | ...)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  aggregatedSchedule?: any; // Aggregated rolled-up schedule used by CostTrendGraph
+  aggregatedSchedule?: { [timeKey: string]: AggregatedStatus }; // Aggregated rolled-up schedule used by CostTrendGraph
 }
 
 export type RawEquipment = {

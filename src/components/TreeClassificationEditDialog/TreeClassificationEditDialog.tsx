@@ -39,7 +39,7 @@ import {
   FilterList as FilterListIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-import type { Asset, TreeLevelValue, HierarchyDefinition } from '../../types/maintenanceTask';
+import type { Asset, TreeLevelValue, HierarchyDefinition, HierarchyPath, AssetClassificationPath } from '../../types/maintenanceTask';
 import { TableVirtuoso } from 'react-virtuoso';
 
 const FilterPopper: React.FC<{
@@ -169,8 +169,8 @@ export interface TreeClassificationEditDialogProps {
   assets: Asset[];
   pathKey: 'classificationPath' | 'hierarchyPath';
   onSave: (definition: HierarchyDefinition) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onSaveLinkedAssets?: (updatedAssets: { id: string; path: any }[]) => void;
+  // path は pathKey ('hierarchyPath' | 'classificationPath') に応じて両 path 型のいずれかを取りうる。
+  onSaveLinkedAssets?: (updatedAssets: { id: string; path: HierarchyPath | AssetClassificationPath }[]) => void;
   onExportJSON?: () => void;
   onImportJSON?: (file: File) => void;
   onClose: () => void;
@@ -264,8 +264,8 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
       const states = assets.map(a => ({
         id: a.id,
         name: a.name,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        path: { ...(a[pathKey as keyof Asset] as any || {}) },
+        // a[pathKey] は HierarchyPath か AssetClassificationPath。どちらも object 形なので spread して clone。
+        path: { ...((a[pathKey as keyof Asset] as HierarchyPath | AssetClassificationPath | undefined) ?? {}) } as HierarchyPath | AssetClassificationPath,
         isModified: false,
         selected: false,
       }));
@@ -532,8 +532,9 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.levels && Array.isArray(json.levels)) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-          const importedLevels = json.levels.map((l: any, i: number) => ({
+          // 外部 JSON 由来。期待 shape: { key?: string; values?: string[] }
+          type ImportedLevelInput = { key?: string; values?: unknown };
+          const importedLevels = (json.levels as ImportedLevelInput[]).map((l) => ({
             key: l.key,
             values: Array.isArray(l.values) ? l.values : [],
             isNew: false,

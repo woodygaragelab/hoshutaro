@@ -22,6 +22,7 @@ import {
   BarChart as BarChartIcon,
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
+import type { Asset, WorkOrder, WorkOrderLine, DataModel } from '../../types/maintenanceTask';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
 import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelImport } from '../../services/ExcelProcessingService';
 import { LLMSettingsDialog } from '../AIAssistant/components/LLMSettingsDialog';
@@ -47,10 +48,12 @@ interface AgentBarProps {
   // AI related passing upwards if necessary
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onImportComplete: (dataModel: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dataContext: any;
+  onImportComplete: (dataModel: DataModel) => void;
+  dataContext: {
+    assets: Asset[];
+    workOrders: WorkOrder[];
+    workOrderLines: WorkOrderLine[];
+  };
   timeHeaders?: string[];
   activeTimeHeaders?: string[];
 
@@ -178,12 +181,12 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           ]
         };
         setMessages(prev => [...prev, aiResponse]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
-          content: `[エラー]: ${error.message}`,
+          content: `[エラー]: ${errMsg}`,
           timestamp: new Date()
         }]);
       } finally {
@@ -290,11 +293,13 @@ export const AgentBar: React.FC<AgentBarProps> = ({
         } : m));
 
         if (result.data_model && onImportComplete) {
-          onImportComplete(result.data_model);
+          // confirmExcelImport の戻り data_model は API 由来の unknown。
+          // 実体は DataModel 形状を前提に渡しているので boundary 越しに cast する。
+          onImportComplete(result.data_model as DataModel);
         }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
-        setMessages(prev => prev.map(m => m.id === statusMsg.id ? { ...m, content: `[エラー]: ${error.message}` } : m));
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        setMessages(prev => prev.map(m => m.id === statusMsg.id ? { ...m, content: `[エラー]: ${errMsg}` } : m));
       } finally {
         setIsLoading(false);
       }

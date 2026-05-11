@@ -43,6 +43,7 @@ import 'dayjs/locale/ja';
 dayjs.extend(weekOfYear);
 import Legend from '../EnhancedMaintenanceGrid/Legend';
 import { ViewMode, HierarchyDefinition, Asset } from '../../types/maintenanceTask';
+import type { FilterTreeNode } from '../../utils/dataTransformer';
 import HierarchyEditDialog from '../HierarchyEditDialog/HierarchyEditDialog';
 import './ModernHeader.css';
 
@@ -60,8 +61,7 @@ interface ModernHeaderProps {
   onLevel1FilterChange: (event: SelectChangeEvent) => void;
   onLevel2FilterChange: (event: SelectChangeEvent) => void;
   onLevel3FilterChange: (event: SelectChangeEvent) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hierarchyFilterTree: any;
+  hierarchyFilterTree: FilterTreeNode | null;
   level2Options: string[];
   level3Options: string[];
   
@@ -438,8 +438,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
         >
           <Button
             variant={timeScale === 'year' ? 'contained' : 'outlined'}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onClick={() => onTimeScaleChange({ target: { value: 'year' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'year' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,
@@ -455,8 +454,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
           <Button
             variant={timeScale === 'month' ? 'contained' : 'outlined'}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onClick={() => onTimeScaleChange({ target: { value: 'month' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'month' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,
@@ -472,8 +470,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
           <Button
             variant={timeScale === 'week' ? 'contained' : 'outlined'}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onClick={() => onTimeScaleChange({ target: { value: 'week' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'week' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,
@@ -489,8 +486,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
           <Button
             variant={timeScale === 'day' ? 'contained' : 'outlined'}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onClick={() => onTimeScaleChange({ target: { value: 'day' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'day' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,

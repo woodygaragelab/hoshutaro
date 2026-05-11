@@ -83,8 +83,7 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
         }),
       ]);
       setPlugins(pluginList || []);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setRegistry((registryData as any).plugins || []);
+      setRegistry(registryData.plugins || []);
       if (licenseData) setLicense(licenseData);
     } finally {
       setLoading(false);

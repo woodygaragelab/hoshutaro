@@ -377,11 +377,10 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [maintenanceRecords]);
 
   // Handle editing a maintenance record field
-  const handleEditRecord = useCallback((
+  const handleEditRecord = useCallback(<K extends keyof MaintenanceRecord>(
     index: number,
-    field: keyof MaintenanceRecord,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    value: any
+    field: K,
+    value: MaintenanceRecord[K]
   ) => {
     const newRecords = [...maintenanceRecords];
     newRecords[index] = {
@@ -525,10 +524,12 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
 
       const draft = workOrderDrafts[record.workOrderId!];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lineData: Partial<WorkOrderLine> & { __workOrderDraft?: any } = {
+      // CLAUDE.md パターン: 内部 field __workOrderDraft は App.tsx 側で取り出して削除する
+      // 一時 piggyback 領域。Partial<WorkOrderLine> に拡張型を交差させる。
+      type DataWithDraft = Partial<WorkOrderLine> & { __workOrderDraft?: WorkOrderDraft };
+      const lineData: DataWithDraft = {
          WorkOrderId: record.workOrderId,
-         name: record.lineName, 
+         name: record.lineName,
          AssetId: record.assetId || assetId,
          PlanScheduleStart: toDate(record.planStartDate),
          PlanScheduleEnd: toDate(record.planEndDate),
@@ -545,8 +546,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         updates.push({ lineId: record.associationId, action: 'update', data: { ...lineData, UpdatedAt: new Date() } });
         processedAssocIds.add(record.associationId);
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        updates.push({ lineId: `assoc-${Date.now()}-${Math.random()}`, action: 'create', data: { ...lineData, CreatedAt: new Date(), UpdatedAt: new Date() } as any });
+        updates.push({ lineId: `assoc-${Date.now()}-${Math.random()}`, action: 'create', data: { ...lineData, CreatedAt: new Date(), UpdatedAt: new Date() } });
       }
     });
     return updates;

@@ -50,8 +50,10 @@ export const CostTrendGraph: React.FC<CostTrendGraphProps> = ({ data, timeHeader
       const resultsToUse = row.aggregatedSchedule || row.results;
 
       if (resultsToUse) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Object.entries(resultsToUse).forEach(([timeKey, status]: [string, any]) => {
+        // resultsToUse には HierarchicalData.results の StatusEntry 形 (planCost/actualCost) と
+        // AggregatedStatus 形 (totalPlanCost/totalActualCost) と外部 API 形 (PlanCost/ActualCost)
+        // が混在しうるため、Record<string, unknown> で受けて Number 化で吸収する。
+        Object.entries(resultsToUse as Record<string, Record<string, unknown>>).forEach(([timeKey, status]) => {
           const yearMatch = String(timeKey).substring(0, 4);
           const year = parseInt(yearMatch, 10);
           if (!isNaN(year)) {
@@ -61,7 +63,7 @@ export const CostTrendGraph: React.FC<CostTrendGraphProps> = ({ data, timeHeader
             // プロパティが存在しない場合はNumber()でNaNになるため、|| 0 で受ける
             const pCost = Number(status.planCost) || Number(status.totalPlanCost) || Number(status.PlanCost) || 0;
             const aCost = Number(status.actualCost) || Number(status.totalActualCost) || Number(status.ActualCost) || 0;
-            
+
             aggregatedCosts[year].plan += isNaN(pCost) ? 0 : pCost;
             aggregatedCosts[year].actual += isNaN(aCost) ? 0 : aCost;
           }
