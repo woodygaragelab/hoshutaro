@@ -1452,8 +1452,9 @@ const App: React.FC = () => {
 
   // Handle cell editing for EnhancedMaintenanceGrid
   // Requirements 4.2, 4.8, 5.7: Use EditHandlers for schedule editing with view mode awareness
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
+  // value は dispatch 先 (cell type) によって string / boolean / { planCost, actualCost } 等に変わるため
+  // ここでは unknown を受け、各分岐内で適切に narrow / convert する。
+  const handleCellEdit = (rowId: string, columnId: string, value: unknown) => {
 
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
@@ -2157,15 +2158,12 @@ const App: React.FC = () => {
       handleCloseTaskEditDialog();
     } catch (error) {
       console.error('[App] Error saving task edits:', error);
+      const errAsError = error instanceof Error ? error : null;
       console.error('[App] Error details:', {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        message: (error as any)?.message,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        stack: (error as any)?.stack,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        name: (error as any)?.name,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        errorObject: JSON.stringify(error, Object.getOwnPropertyNames(error as any || {}))
+        message: errAsError?.message,
+        stack: errAsError?.stack,
+        name: errAsError?.name,
+        errorObject: errAsError ? JSON.stringify(error, Object.getOwnPropertyNames(errAsError)) : String(error),
       });
 
       // Use ErrorHandler with proper error type detection
@@ -2177,8 +2175,7 @@ const App: React.FC = () => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleUpdateWorkOrder = (workOrderId: string, updates: Partial<any>) => {
+  const handleUpdateWorkOrder = (workOrderId: string, updates: Partial<WorkOrder>) => {
     if (!workOrderManagerRef.current || !undoRedoManagerRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -2224,8 +2221,7 @@ const App: React.FC = () => {
   };
 
   // Hierarchy management handlers - Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.8
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleHierarchyEdit = (newHierarchy: any) => {
+  const handleHierarchyEdit = (newHierarchy: HierarchyDefinition) => {
     if (!hierarchyManagerRef.current || !isServicesInitialized) {
       showSnackbar('階層管理サービスが初期化されていません', 'error');
       return;
@@ -2254,8 +2250,14 @@ const App: React.FC = () => {
   };
 
   // Handle full asset edits from AssetDetailsDialog
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAssetEdit = useCallback((assetId: string, updates: any) => {
+  // updates は UI 寄りの field 名 (assetName / bomCode) を含むため Asset 直接ではなく
+  // 専用 shape として受け取り、内部で Asset 形式に変換する。
+  const handleAssetEdit = useCallback((assetId: string, updates: {
+    assetName?: string;
+    bomCode?: string;
+    hierarchyPath?: Asset['hierarchyPath'];
+    specifications?: Asset['specifications'];
+  }) => {
 
     if (!isServicesInitialized || !assetManagerRef.current) {
       showSnackbar('サービスが初期化されていません', 'error');
@@ -2372,19 +2374,20 @@ const App: React.FC = () => {
           shiftedActualEnd = shiftDateByTimeScale(new Date(line.ActualScheduleEnd), sourceTimeKey, targetTimeKey, timeScale);
         }
 
-        const newLine = {
+        // WorkOrderLine の Plan/ActualSchedule* は Date 型。toISOString は不要 (旧コードは
+        // any cast でズレを吸収していた)。
+        const newLine: Omit<WorkOrderLine, 'id' | 'CreatedAt' | 'UpdatedAt'> & { id?: string } = {
           ...line,
-          id: undefined, // Manager will assign fresh UUID
+          id: undefined,
           AssetId: target.assetId,
           WorkOrderId: target.taskId || line.WorkOrderId,
-          PlanScheduleStart: shiftedStart.toISOString(),
-          PlanScheduleEnd: shiftedEnd ? shiftedEnd.toISOString() : undefined,
-          ActualScheduleStart: shiftedActualStart ? shiftedActualStart.toISOString() : undefined,
-          ActualScheduleEnd: shiftedActualEnd ? shiftedActualEnd.toISOString() : undefined
+          PlanScheduleStart: shiftedStart,
+          PlanScheduleEnd: shiftedEnd ?? line.PlanScheduleEnd,
+          ActualScheduleStart: shiftedActualStart ?? line.ActualScheduleStart,
+          ActualScheduleEnd: shiftedActualEnd ?? line.ActualScheduleEnd,
         };
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        workOrderLineManagerRef.current?.createWorkOrderLine(newLine as any);
+        workOrderLineManagerRef.current?.createWorkOrderLine(newLine);
         successCount++;
       });
 
@@ -2815,12 +2818,10 @@ const App: React.FC = () => {
                 assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
                 Object.values(loadedData.assets).forEach(a => assetManagerRef.current!.createAsset(a));
                 workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w as any));
+                Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w));
                 workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
                 Object.values(loadedData.workOrderLines || {}).forEach(l => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  try { workOrderLineManagerRef.current!.createWorkOrderLine(l as any); } catch (e) { console.error('Import Line Error:', e); }
+                  try { workOrderLineManagerRef.current!.createWorkOrderLine(l); } catch (e) { console.error('Import Line Error:', e); }
                 });
                 hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || { levels: [] });
                 viewModeManagerRef.current?.updateData(
