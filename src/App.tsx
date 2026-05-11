@@ -42,7 +42,7 @@ import { SkillRunner } from './components/SkillRunner/SkillRunner';
 import { UpdateNotification } from './components/UpdateNotification/UpdateNotification';
 import { KnowledgeBasePage } from './components/KnowledgeBase';
 import { getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
-import { transformData } from './utils/dataTransformer';
+import { transformData, type FilterTreeNode } from './utils/dataTransformer';
 import { AppBar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Snackbar, Toolbar, Alert, SelectChangeEvent, Button, ThemeProvider, Typography, CssBaseline } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { darkTheme } from './theme/darkTheme';
@@ -52,7 +52,9 @@ import type {
   Asset,
   WorkOrderLine,
   HierarchyDefinition,
+  HierarchyPath,
   AssetBasedRow,
+  DataModel,
   ViewMode,
   ViewModeState,
 } from './types/maintenanceTask';
@@ -98,8 +100,7 @@ const App: React.FC = () => {
     const currentYear = new Date().getFullYear();
     return [currentYear.toString(), (currentYear + 1).toString(), (currentYear + 2).toString()];
   });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [hierarchyFilterTree, setHierarchyFilterTree] = useState<any>(null);
+  const [hierarchyFilterTree, setHierarchyFilterTree] = useState<FilterTreeNode | null>(null);
   const [isServicesInitialized, setIsServicesInitialized] = useState(false);
 
   // Control states
@@ -195,8 +196,18 @@ const App: React.FC = () => {
   const [yearToDelete, setYearToDelete] = useState<number | string>('');
   const [_deleteYearError, setDeleteYearError] = useState<string>('');
   const [importConfirmDialogOpen, setImportConfirmDialogOpen] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [importedFileData, setImportedFileData] = useState<any>(null);
+  // インポートファイル一時保持。v3 (DataModel) と legacy (timeHeaders / maintenanceData / timeScale)
+  // のどちらか + 派生 metadata (_format / _fileName) を持つ可能性があるため広めの型に。
+  const [importedFileData, setImportedFileData] = useState<
+    | ((Partial<DataModel> & {
+        _format?: 'v3' | 'legacy';
+        _fileName?: string;
+        timeHeaders?: string[];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        maintenanceData?: any;
+        timeScale?: 'year' | 'month' | 'week' | 'day';
+      }) | null)
+  >(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const [resetConfirmDialogOpen, setResetConfirmDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -931,8 +942,7 @@ const App: React.FC = () => {
       (level1Filter !== 'all' || level2Filter !== 'all' || level3Filter !== 'all')) {
 
       // Build partial hierarchy path from filters
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const hierarchyPath: any = {};
+      const hierarchyPath: HierarchyPath = {};
       const hierarchyDef = hierarchyManagerRef.current.getHierarchyDefinition();
 
       if (hierarchyDef && hierarchyDef.levels.length > 0) {
@@ -1170,9 +1180,8 @@ const App: React.FC = () => {
       measureAsync('view-mode-switch', 'render', async () => {
         // Preserve current filter state before switching
         // Requirements 6.2: フィルターと選択状態の保持
-        const currentFilters = {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          hierarchyPath: {} as any,
+        const currentFilters: { hierarchyPath: HierarchyPath; searchTerm: string } = {
+          hierarchyPath: {},
           searchTerm: searchTerm,
         };
 
@@ -1743,28 +1752,25 @@ const App: React.FC = () => {
       const workOrderLines = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
       const hierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
 
-      const assetsObj = assets.reduce((acc, asset) => {
+      const assetsObj = assets.reduce<{ [id: string]: Asset }>((acc, asset) => {
         acc[asset.id] = asset;
         return acc;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }, {} as any);
+      }, {});
 
-      const workOrdersObj = workOrders.reduce((acc, wo) => {
+      const workOrdersObj = workOrders.reduce<{ [id: string]: typeof workOrders[number] }>((acc, wo) => {
         acc[wo.id] = wo;
         return acc;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }, {} as any);
+      }, {});
 
-      const workOrderLinesObj = workOrderLines.reduce((acc, wol) => {
-        const cleanWol = { ...wol };
-        // Strip V3 nested properties to strictly adhere to flat equipments.json format
-        delete cleanWol.schedule;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delete (cleanWol as any).__workOrderDraft;
+      const workOrderLinesObj = workOrderLines.reduce<{ [id: string]: WorkOrderLine }>((acc, wol) => {
+        // Strip V3 nested properties + draft 用一時フィールド (__workOrderDraft) を除去し、
+        // 旧 equipments.json の flat 形式にそろえる。
+        const { schedule: _schedule, ...rest } = wol;
+        const cleanWol = rest as WorkOrderLine & { __workOrderDraft?: unknown };
+        delete cleanWol.__workOrderDraft;
         acc[wol.id] = cleanWol;
         return acc;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }, {} as any);
+      }, {});
 
       // Include workOrderClassifications and assetClassification from DataStore
       const sourceWorkOrderClassifications = dataStoreRef.current?.getWorkOrderClassifications() || [];
@@ -1910,10 +1916,8 @@ const App: React.FC = () => {
         // Update project name from imported metadata or filename
         if (importData.metadata?.projectName) {
           setProjectName(importData.metadata.projectName);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } else if ((importedFileData as any)._fileName) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setProjectName((importedFileData as any)._fileName);
+        } else if (importedFileData._fileName) {
+          setProjectName(importedFileData._fileName);
         }
 
         // Reinitialize EditHandlers

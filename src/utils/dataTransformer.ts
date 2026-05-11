@@ -1,7 +1,7 @@
 import { HierarchicalData, RawEquipment } from '../types';
 import { getTimeKey } from './dateUtils';
 
-interface FilterTreeNode {
+export interface FilterTreeNode {
   name: string;
   children: { [name: string]: FilterTreeNode };
 }
