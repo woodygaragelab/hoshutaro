@@ -28,6 +28,7 @@
 - 用語: ユーザー対外は **Plugin / Skill の 2 概念のみ**、内部詳細（MCP / Adapter / Orchestrator）は隠す
 
 詳細仕様: [docs/PROJECT_MU.md](docs/PROJECT_MU.md)、[docs/CONCEPTS.md](docs/CONCEPTS.md)、[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/4_SKILL_RECIPES.md](docs/4_SKILL_RECIPES.md)
+Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND_INTEGRATION.md)、[docs/7_AUTH_AND_USERS.md](docs/7_AUTH_AND_USERS.md)、`.claude/plans/track-d-aws-cloud.md`（worktree のみ）
 完全な実装計画: `.claude/plans/aws-qwen3-6-35b-deepseek-v4-gemma4-30b-staged-kay.md`（worktree 経由でのみ参照可、本リポにはコピー無し。必要なら最初に読み込み）
 
 ---
@@ -193,7 +194,13 @@ npm run build   # tsc -b && vite build
    - 作業: PEFT + PyTorch + transformers + datasets 依存インストール、Gemma 4 E2B-it / -it-assistant モデル DL + 量子化、OpenVINO 経由 MTP ベンチマーク、LoRA SFT 動作確認（100ペア × 1epoch）
    - ブロッカー: HuggingFace Token 取得、Intel Arc GPU 推奨（CPU だと遅い）
 
-2. **Track D: AWS Cloud + 認証 + 繋ぎ層** — ~4-5週間。CDK + Lambda + Cognito + 認証画面 7枚。
+2. **Track D: AWS Cloud + 認証 + 繋ぎ層** — ~4-5週間。Amplify Gen2 (= CDK + TypeScript) + Lambda + Cognito + AppSync + DynamoDB + 認証画面 7枚。
+   - **Sprint 0 (設計、完了済)**: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND_INTEGRATION.md) + [docs/7_AUTH_AND_USERS.md](docs/7_AUTH_AND_USERS.md) + `.claude/plans/track-d-aws-cloud.md` (worktree)
+   - **Sprint 1 (Week 1)**: 認証基盤 (amplify/auth 拡張 + post-confirmation Lambda + 認証画面 7枚 + App.tsx AuthGuard)
+   - **Sprint 2 (Week 2)**: データ基盤 (DynamoDB UserSettings/LLMSettings/SyncMetadata + user-sync Lambda)
+   - **Sprint 3 (Week 3)**: LLM 中継 (llm-proxy Lambda + AWS Bedrock + cloud_proxy.py 実装 + SSE streaming)
+   - **Sprint 4 (Week 4)**: 連携 + 管理 (maximo-proxy + user-management + E2E)
+   - **Sprint 5 (Week 5)**: 本番化 + 観測性 + ドキュメント整備
 
 3. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。
 
