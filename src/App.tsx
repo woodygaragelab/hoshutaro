@@ -2924,26 +2924,14 @@ const App: React.FC = () => {
           <TreeClassificationEditDialog
             open={isHierarchyManagerOpen}
             title="機器階層の編集"
-            // HierarchyDefinition.values は string[] なので Tree 形式に詰め替える
-            definition={{
-              levels: hierarchyManagerRef.current.getHierarchyDefinition().levels.map(l => ({
-                key: l.key,
-                values: l.values.map(v => ({ value: v })),
-              })),
-            }}
+            definition={hierarchyManagerRef.current.getHierarchyDefinition()}
             assetCount={assetManagerRef.current?.getAllAssets().length || 0}
             assets={assetManagerRef.current?.getAllAssets() || []}
             pathKey="hierarchyPath"
             onClose={() => setIsHierarchyManagerOpen(false)}
             onSave={(newHierarchy) => {
               if (hierarchyManagerRef.current) {
-                // TreeDefinition の TreeLevelValue[] を HierarchyDefinition の string[] に戻す
-                hierarchyManagerRef.current.setHierarchyDefinition({
-                  levels: newHierarchy.levels.map(l => ({
-                    key: l.key,
-                    values: l.values.map(v => v.value),
-                  })),
-                });
+                hierarchyManagerRef.current.setHierarchyDefinition(newHierarchy);
                 loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
                 showSnackbar('階層構造情報を更新しました', 'success');
               }

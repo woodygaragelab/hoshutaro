@@ -119,7 +119,7 @@ interface ModernHeaderProps {
   onRedo?: () => void;
 
   // Classification filters
-  assetClassification?: { levels: Array<{ key: string; order: number; values: string[] }> };
+  assetClassification?: { levels: Array<{ key: string; order: number; values: { value: string; parentValue?: string }[] }> };
   workOrderClassifications?: Array<{ id: string; name: string }>;
   classificationFilter?: { [key: string]: string };
   onClassificationFilterChange?: (filter: { [key: string]: string }) => void;
@@ -752,7 +752,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                                 >
                                   <MenuItem value="">すべて</MenuItem>
                                   {level.values.map(v => (
-                                    <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    <MenuItem key={v.value} value={v.value}>{v.value}</MenuItem>
                                   ))}
                                 </Select>
                               </FormControl>

@@ -87,10 +87,12 @@ export const HierarchyEditDialog: React.FC<HierarchyEditDialogProps> = ({
   // Initialize levels from hierarchy
   useEffect(() => {
     if (open) {
+      // 内部 state は string[] で扱う (UI が単純文字列ベースのため)。
+      // HierarchyLevel.values は TreeLevelValue[] なので value プロパティだけ取り出す。
       const initialLevels: LevelEditState[] = hierarchy.levels.map(level => ({
         key: level.key,
-        order: level.order,
-        values: [...level.values],
+        order: level.order ?? 0,
+        values: level.values.map(v => v.value),
         isNew: false,
         isModified: false,
         isDeleted: false,
@@ -396,13 +398,13 @@ export const HierarchyEditDialog: React.FC<HierarchyEditDialogProps> = ({
       return;
     }
     
-    // Build new hierarchy definition
+    // Build new hierarchy definition (string[] → TreeLevelValue[])
     const activeLevels = levels.filter(l => !l.isDeleted);
     const newHierarchy: HierarchyDefinition = {
       levels: activeLevels.map(l => ({
         key: l.key,
         order: l.order,
-        values: [...l.values],
+        values: l.values.map(value => ({ value })),
       })),
     };
     

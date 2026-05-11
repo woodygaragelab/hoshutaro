@@ -42,8 +42,8 @@ const validV3Json = () => ({
   },
   hierarchy: {
     levels: [
-      { key: 'plant', values: ['P1', 'P2'] },
-      { key: 'area', values: ['A1', 'A2'] },
+      { key: 'plant', values: [{ value: 'P1' }, { value: 'P2' }] },
+      { key: 'area', values: [{ value: 'A1' }, { value: 'A2' }] },
     ],
   },
   workOrderClassifications: [
@@ -51,7 +51,7 @@ const validV3Json = () => ({
   ],
   assetClassification: {
     levels: [
-      { key: 'category', values: ['boiler', 'pump'] },
+      { key: 'category', values: [{ value: 'boiler' }, { value: 'pump' }] },
     ],
   },
   metadata: {
@@ -210,8 +210,8 @@ describe('DataStore.loadData', () => {
     it('rejects a hierarchy with duplicate level keys', () => {
       const data = validV3Json();
       data.hierarchy.levels = [
-        { key: 'plant', values: ['P1'] },
-        { key: 'plant', values: ['P2'] },
+        { key: 'plant', values: [{ value: 'P1' }] },
+        { key: 'plant', values: [{ value: 'P2' }] },
       ];
       expect(() => store.loadData(data)).toThrow(/重複/);
     });

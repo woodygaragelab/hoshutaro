@@ -46,8 +46,8 @@ const makeModel = (overrides: Partial<DataModel> = {}): DataModel => ({
   workOrderLines: { 'wol-1': makeLine('wol-1', 'wo-1', 'a-1') },
   hierarchy: {
     levels: [
-      { key: 'plant', values: ['P1', 'P2'] },
-      { key: 'area', values: ['A1', 'A2'] },
+      { key: 'plant', values: [{ value: 'P1' }, { value: 'P2' }] },
+      { key: 'area', values: [{ value: 'A1' }, { value: 'A2' }] },
     ],
   },
   workOrderClassifications: [],

@@ -273,10 +273,10 @@ export class DataIntegrityChecker {
   ): IntegrityError[] {
     const errors: IntegrityError[] = [];
 
-    // Build lookup map from hierarchy definition
+    // Build lookup map from hierarchy definition (TreeLevelValue[] → Set<string>)
     const hierarchyLevels = new Map<string, Set<string>>();
     for (const level of hierarchy.levels) {
-      hierarchyLevels.set(level.key, new Set(level.values));
+      hierarchyLevels.set(level.key, new Set(level.values.map(v => v.value)));
     }
 
     // Check each asset's hierarchy path

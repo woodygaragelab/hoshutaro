@@ -39,7 +39,7 @@ import {
   FilterList as FilterListIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-import type { Asset, TreeLevelValue } from '../../types/maintenanceTask';
+import type { Asset, TreeLevelValue, HierarchyDefinition } from '../../types/maintenanceTask';
 import { TableVirtuoso } from 'react-virtuoso';
 
 const FilterPopper: React.FC<{
@@ -157,22 +157,18 @@ const FilterPopper: React.FC<{
   );
 };
 
-export interface TreeDefinition {
-  levels: {
-    key: string;
-
-    values: TreeLevelValue[];
-  }[];
-}
-
+/**
+ * 旧称 `TreeDefinition` は `HierarchyDefinition` (`AssetClassificationDefinition` も構造同型) に統合済。
+ * pathKey で hierarchyPath / classificationPath のどちらを更新対象とするか切り替える。
+ */
 export interface TreeClassificationEditDialogProps {
   open: boolean;
   title: string;
-  definition: TreeDefinition;
+  definition: HierarchyDefinition;
   assetCount: number;
   assets: Asset[];
-  pathKey: 'classificationPath' | 'hierarchyPath'; // どちらのプロパティを更新対象とするか
-  onSave: (definition: TreeDefinition) => void;
+  pathKey: 'classificationPath' | 'hierarchyPath';
+  onSave: (definition: HierarchyDefinition) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onSaveLinkedAssets?: (updatedAssets: { id: string; path: any }[]) => void;
   onExportJSON?: () => void;
@@ -513,7 +509,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
     // Basic validation
     if (activeLevels.length < 1) { setValidationError('最低1つのレベルが必要です'); return; }
     
-    const newDef: TreeDefinition = {
+    const newDef: HierarchyDefinition = {
       levels: activeLevels.map(l => ({ key: l.key, values: [...l.values] }))
     };
 

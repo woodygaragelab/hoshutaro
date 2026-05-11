@@ -88,7 +88,7 @@ export const AssetReassignDialog: React.FC<AssetReassignDialogProps> = ({
       }
 
       // Check if value exists in level's allowed values
-      if (level.values.length > 0 && !level.values.includes(path[level.key])) {
+      if (level.values.length > 0 && !level.values.some(v => v.value === path[level.key])) {
         return `階層レベル「${level.key}」の値「${path[level.key]}」は無効です`;
       }
     }
@@ -261,9 +261,9 @@ export const AssetReassignDialog: React.FC<AssetReassignDialogProps> = ({
                       <em>値が定義されていません</em>
                     </MenuItem>
                   ) : (
-                    level.values.map((value) => (
-                      <MenuItem key={value} value={value}>
-                        {value}
+                    level.values.map((v) => (
+                      <MenuItem key={v.value} value={v.value}>
+                        {v.value}
                       </MenuItem>
                     ))
                   )}

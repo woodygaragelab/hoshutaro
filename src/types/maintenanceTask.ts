@@ -138,10 +138,13 @@ export interface WorkOrderLine {
 
 /**
  * HierarchyLevel — one level in the location hierarchy
+ *
+ * values は parentValue を持つ TreeLevelValue[] (parentValue は省略可)。
+ * 親子関係を持たない平坦な location でも `values: [{ value: 'foo' }]` の形で表す。
  */
 export interface HierarchyLevel {
   key: string;       // e.g. "製油所", "エリア", "ユニット"
-  values: string[];
+  values: TreeLevelValue[];
   order?: number;    // Display order for sorting (used by ViewModeManager / dialogs)
 }
 
