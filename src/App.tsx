@@ -204,8 +204,8 @@ const App: React.FC = () => {
         _format?: 'v3' | 'legacy';
         _fileName?: string;
         timeHeaders?: string[];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        maintenanceData?: any;
+        // legacy 形式の maintenanceData は廃止予定 (unknown のまま受け、ハンドラ側で必要に応じて narrow)
+        maintenanceData?: unknown;
         timeScale?: 'year' | 'month' | 'week' | 'day';
       }) | null)
   >(null);
@@ -505,9 +505,8 @@ const App: React.FC = () => {
   // Helper function to build hierarchy filter tree
   // Memoized for performance - Requirements 10.1, 10.2, 10.3
   const buildHierarchyFilterTree = useMemo(() => {
-    return memoizeArray((data: HierarchicalData[]) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tree: any = { children: {} };
+    return memoizeArray((data: HierarchicalData[]): FilterTreeNode => {
+      const tree: FilterTreeNode = { name: 'root', children: {} };
 
       data.forEach(item => {
         if (item.hierarchyPath) {
@@ -516,7 +515,7 @@ const App: React.FC = () => {
 
           pathParts.forEach((part) => {
             if (!currentNode.children[part]) {
-              currentNode.children[part] = { children: {} };
+              currentNode.children[part] = { name: part, children: {} };
             }
             currentNode = currentNode.children[part];
           });
@@ -1976,7 +1975,8 @@ const App: React.FC = () => {
       } else {
         // Legacy import
         setTimeHeaders(importedFileData.timeHeaders);
-        setMaintenanceData(importedFileData.maintenanceData);
+        // legacy 形式の maintenanceData は runtime shape が HierarchicalData[] 互換である前提
+        setMaintenanceData(importedFileData.maintenanceData as HierarchicalData[]);
         setTimeScale(importedFileData.timeScale || 'year');
         if (importedFileData._fileName) {
           setProjectName(importedFileData._fileName);
@@ -2060,12 +2060,22 @@ const App: React.FC = () => {
 
       const newWoIdMap = new Map<string, string>(); // Maps NEW_xx draft IDs to actual created WO IDs
 
+      // WorkOrderLineUpdate.data に WorkOrderLineDialog から付加される一時 field
+      // (WorkOrderDraft) を表すローカル型。永続化前に必ず削除される。
+      type WorkOrderDraft = {
+        id: string;
+        isNew: boolean;
+        name?: string;
+        classificationId?: string;
+      };
+      type DataWithDraft = NonNullable<WorkOrderLineUpdate['data']> & { __workOrderDraft?: WorkOrderDraft };
+
       // Process each update
       updates.forEach(update => {
 
         if (update.action === 'create' && update.data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const draft = (update.data as any).__workOrderDraft;
+          const dataWithDraft = update.data as DataWithDraft;
+          const draft = dataWithDraft.__workOrderDraft;
           let workOrderId = update.data.WorkOrderId;
 
           if (draft && draft.isNew) {
@@ -2090,14 +2100,14 @@ const App: React.FC = () => {
           }
 
           update.data.WorkOrderId = workOrderId;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          delete (update.data as any).__workOrderDraft;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          workOrderLineManagerRef.current!.createWorkOrderLine(update.data as any);
+          delete dataWithDraft.__workOrderDraft;
+          // update.data は Partial<WorkOrderLine>。createWorkOrderLine は必須 field を要求するが
+          // ここでは Dialog から組み立て済の前提 (実機検証で担保) として cast で素通し。
+          workOrderLineManagerRef.current!.createWorkOrderLine(update.data as Parameters<typeof workOrderLineManagerRef.current.createWorkOrderLine>[0]);
           totalUpdated++;
         } else if (update.action === 'update' && update.data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const draft = (update.data as any).__workOrderDraft;
+          const dataWithDraft = update.data as DataWithDraft;
+          const draft = dataWithDraft.__workOrderDraft;
           const workOrderId = update.data.WorkOrderId;
           if (draft && !draft.isNew && workOrderId) {
             const existingWo = workOrderManagerRef.current!.getWorkOrder(workOrderId);
@@ -2108,8 +2118,7 @@ const App: React.FC = () => {
               });
             }
           }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          delete (update.data as any).__workOrderDraft;
+          delete dataWithDraft.__workOrderDraft;
 
           // Direct update for the flat WorkOrderLine record
           workOrderLineManagerRef.current!.updateWorkOrderLine(update.lineId, update.data);
@@ -2512,8 +2521,28 @@ const App: React.FC = () => {
   }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, announce, handleSaveData]);
 
   // History state applier
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const applyHistoryState = useCallback((state: any, isUndo: boolean) => {
+  // state.data の shape は HistoryAction ごとに異なる union だが、各分岐で必要な field のみを
+  // 参照する性質のため、共通の包括型 (HistoryStateData) で受けて分岐内で narrow する。
+  type WorkOrderLineLike = WorkOrderLine & { id: string };
+  type WorkOrderLike = WorkOrder & { id: string };
+  type AssetLike = Asset & { id: string };
+  type HistoryStateData = {
+    line?: WorkOrderLineLike;
+    previousLine?: WorkOrderLineLike;
+    updatedLine?: WorkOrderLineLike;
+    previousState?: { workOrderLines?: WorkOrderLine[]; workOrders?: WorkOrder[] };
+    updatedState?: { workOrderLines?: WorkOrderLine[]; workOrders?: WorkOrder[] };
+    wo?: WorkOrderLike;
+    previousWo?: WorkOrderLike;
+    updatedWo?: WorkOrderLike;
+    isCreate?: boolean;
+    asset?: AssetLike;
+    previousAsset?: AssetLike;
+    updatedAsset?: AssetLike;
+    previousHierarchy?: HierarchyDefinition;
+    updatedHierarchy?: HierarchyDefinition;
+  };
+  const applyHistoryState = useCallback((state: { action: string; data: HistoryStateData }, isUndo: boolean) => {
     if (!assetManagerRef.current || !workOrderManagerRef.current || !workOrderLineManagerRef.current || !hierarchyManagerRef.current || !undoRedoManagerRef.current) return;
 
     undoRedoManagerRef.current.mute();
@@ -2521,17 +2550,17 @@ const App: React.FC = () => {
       const { action, data } = state;
       switch (action) {
         case 'CREATE_WORK_ORDER_LINE':
-          if (isUndo) workOrderLineManagerRef.current.deleteLine(data.line.id);
-          else workOrderLineManagerRef.current.createLine(data.line);
+          if (isUndo) workOrderLineManagerRef.current.deleteLine(data.line!.id);
+          else workOrderLineManagerRef.current.createLine(data.line!);
           break;
         case 'DELETE_WORK_ORDER_LINE':
-          if (isUndo) workOrderLineManagerRef.current.createLine(data.line);
-          else workOrderLineManagerRef.current.deleteLine(data.line.id);
+          if (isUndo) workOrderLineManagerRef.current.createLine(data.line!);
+          else workOrderLineManagerRef.current.deleteLine(data.line!.id);
           break;
         case 'UPDATE_WORK_ORDER_LINE':
           if (data.previousLine && data.updatedLine) {
             workOrderLineManagerRef.current.updateLine(
-               isUndo ? data.previousLine.id : data.updatedLine.id, 
+               isUndo ? data.previousLine.id : data.updatedLine.id,
                isUndo ? data.previousLine : data.updatedLine
             );
           } else if (data.previousState) {
@@ -2542,8 +2571,7 @@ const App: React.FC = () => {
               // Simple loadWorkOrders isn't available, but we can do it manually
               if (targetState.workOrders) {
                 // Clear and recreate since WorkOrderManager doesn't have loadWorkOrders
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                targetState.workOrders.forEach((wo: any) => {
+                targetState.workOrders.forEach(wo => {
                    try {
                      if (workOrderManagerRef.current!.getWorkOrder(wo.id)) {
                         workOrderManagerRef.current!.updateWorkOrder(wo.id, wo);
@@ -2567,17 +2595,17 @@ const App: React.FC = () => {
           }
           break;
         case 'CREATE_WORK_ORDER':
-          if (isUndo) workOrderManagerRef.current.deleteWorkOrder(data.wo.id);
-          else workOrderManagerRef.current.createWorkOrder(data.wo);
+          if (isUndo) workOrderManagerRef.current.deleteWorkOrder(data.wo!.id);
+          else workOrderManagerRef.current.createWorkOrder(data.wo!);
           break;
         case 'DELETE_WORK_ORDER':
-          if (isUndo) workOrderManagerRef.current.createWorkOrder(data.wo);
-          else workOrderManagerRef.current.deleteWorkOrder(data.wo.id);
+          if (isUndo) workOrderManagerRef.current.createWorkOrder(data.wo!);
+          else workOrderManagerRef.current.deleteWorkOrder(data.wo!.id);
           break;
         case 'UPDATE_ASSET':
           if (data.isCreate) {
-             if (isUndo) assetManagerRef.current.deleteAsset(data.asset.id);
-             else assetManagerRef.current.createAsset(data.asset);
+             if (isUndo) assetManagerRef.current.deleteAsset(data.asset!.id);
+             else assetManagerRef.current.createAsset(data.asset!);
           } else if (data.previousAsset && data.updatedAsset) {
              assetManagerRef.current.updateAsset(
                isUndo ? data.previousAsset.id : data.updatedAsset.id,
@@ -2586,7 +2614,7 @@ const App: React.FC = () => {
           }
           break;
         case 'UPDATE_HIERARCHY':
-          hierarchyManagerRef.current.setHierarchyDefinition(isUndo ? data.previousHierarchy : data.updatedHierarchy);
+          hierarchyManagerRef.current.setHierarchyDefinition(isUndo ? data.previousHierarchy! : data.updatedHierarchy!);
           break;
       }
 
@@ -2742,8 +2770,10 @@ const App: React.FC = () => {
                 onLevel1FilterChange={handleLevel1FilterChange}
                 onLevel2FilterChange={handleLevel2FilterChange}
                 onLevel3FilterChange={(value) => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const val = typeof value === 'string' ? value : (value as any).target?.value;
+                  // value は string か MUI SelectChangeEvent のいずれかが渡る
+                  const val = typeof value === 'string'
+                    ? value
+                    : (value as { target?: { value?: string } }).target?.value;
                   setLevel3Filter(val);
                 }}
                 hierarchyFilterTree={hierarchyFilterTree}
@@ -2837,9 +2867,8 @@ const App: React.FC = () => {
                 loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
                 showSnackbar('データの取り込みが完了し、画面を更新しました', 'success');
               }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (err: any) {
-              showSnackbar(`インポートしたデータの反映に失敗しました: ${err.message}`, 'error');
+            } catch (err) {
+              showSnackbar(`インポートしたデータの反映に失敗しました: ${err instanceof Error ? err.message : String(err)}`, 'error');
             }
           }}
           dataContext={{
