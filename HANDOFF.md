@@ -28,7 +28,7 @@
 - 用語: ユーザー対外は **Plugin / Skill の 2 概念のみ**、内部詳細（MCP / Adapter / Orchestrator）は隠す
 
 詳細仕様: [docs/PROJECT_MU.md](docs/PROJECT_MU.md)、[docs/CONCEPTS.md](docs/CONCEPTS.md)、[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/4_SKILL_RECIPES.md](docs/4_SKILL_RECIPES.md)
-Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND_INTEGRATION.md)、[docs/7_AUTH_AND_USERS.md](docs/7_AUTH_AND_USERS.md)、`.claude/plans/track-d-aws-cloud.md`（worktree のみ）
+Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND_INTEGRATION.md)、[docs/7_AUTH_AND_USERS.md](docs/7_AUTH_AND_USERS.md)、[docs/8_TRACK_D_SPRINT_PLAN.md](docs/8_TRACK_D_SPRINT_PLAN.md)
 完全な実装計画: `.claude/plans/aws-qwen3-6-35b-deepseek-v4-gemma4-30b-staged-kay.md`（worktree 経由でのみ参照可、本リポにはコピー無し。必要なら最初に読み込み）
 
 ---
@@ -214,21 +214,33 @@ npm run build   # tsc -b && vite build
 
 ## 6. 新セッション開始時の指示テンプレ（コピペ用）
 
+> ⚠️ **新セッション開始前に §11 "新セッション開始チェックリスト" の手順を必ず実行してください**。`mushitaro/hoshutaro-mu` リモートが設定されていない／main が古い state を tracking しているとドキュメントが見つけられず詰みます。
+
 新しい Claude Code / Claude.ai セッションで以下を貼り付け：
 
 ```
 このリポジトリは HOSHUTARO 次世代版（Project Mu / KASE）です。
-最初に HANDOFF.md を読み、次に docs/PROJECT_MU.md と docs/CONCEPTS.md を確認してください。
-.claude/plans/ に過去の実装計画があります。
+
+最初に以下を実行してリモートと main を最新化してください:
+
+  git remote -v                                # mushitaro が無ければ
+  git remote add mushitaro https://github.com/mushitaro/hoshutaro-mu.git
+  git fetch mushitaro main
+  git checkout main || git checkout -b main mushitaro/main
+  git reset --hard mushitaro/main              # 古い state なら最新化
+
+その後 HANDOFF.md を読み、次に docs/PROJECT_MU.md と docs/CONCEPTS.md を確認してください。
+.claude/plans/ に過去の実装計画があります（任意、最低限 HANDOFF.md + docs/ で進められる）。
 
 現在の状況:
 - Track A/B-1/B-2/B-3 全コード完了（Project Mu Engine + LLM Adapter + Plugin/MCP プラットフォーム）
 - LoRA トレーナー本体実装済（依存未インストール時 graceful）
 - UI 9画面（KnowledgeBase）+ PluginManager + SkillRunner + UpdateNotification + AgentBar 統合完了
 - 技術負債削減完了（eslint-disable 562 → 2、Jest 127 件、no-explicit-any 175件削減、副次バグ修正 10+ 件）
+- Track D 設計フェーズ完了（docs/6 + docs/7 + docs/8、Sprint 0 ✅）
 - CI green（lint/build/test all pass）
 
-次の作業: <ここに今回の依頼内容を書く。例: "Track B-Verify を進めて" >
+次の作業: <ここに今回の依頼内容を書く。例: "Track D Sprint 1 を進めて" "Track B-Verify を進めて" >
 
 制約:
 - 既存の MUI 7 + React Query 5 を使う（baseline-ui スキルの制約遵守）
@@ -346,6 +358,147 @@ PR #37（batch merge 試行）: sandbox policy で denied、CLOSED。
 
 ## 10. 現在の Open PR
 
-なし（本ドキュメント更新 PR を除き）。
+なし。
 
-すべての作業ブランチは整理済み。リモート上に残るのは `main` + 本 PR の作業ブランチのみ。
+すべての作業ブランチは整理済み。リモート上に残るのは `main` のみ。
+
+---
+
+## 11. 新セッション開始チェックリスト
+
+**重要**: 新しい Claude Code セッション、新しい PC、別の worktree から作業を始める時は、**最初に必ず以下のステップを順番に実行**してください。これを怠ると `mushitaro/main` の最新状態が見えず、ドキュメント (HANDOFF.md / docs/8_TRACK_D_SPRINT_PLAN.md 等) が古いか存在しないように見えます。
+
+### Step 0: リポジトリの場所を確認
+
+```bash
+pwd                    # 現在のディレクトリ
+git rev-parse --show-toplevel    # リポジトリ root
+```
+
+リポジトリ root が **`hoshutaro` ディレクトリ** (woodygaragelab/hoshutaro の clone) であることを確認。違う場所にいたら正しい場所へ `cd`。
+
+### Step 1: リモート設定を確認・追加
+
+```bash
+git remote -v
+```
+
+出力に `mushitaro` が **無ければ追加**:
+
+```bash
+git remote add mushitaro https://github.com/mushitaro/hoshutaro-mu.git
+```
+
+期待される最終状態:
+```
+mushitaro       https://github.com/mushitaro/hoshutaro-mu.git (fetch)
+mushitaro       https://github.com/mushitaro/hoshutaro-mu.git (push)
+origin          https://github.com/woodygaragelab/hoshutaro.git (fetch)
+origin          https://github.com/woodygaragelab/hoshutaro.git (push)
+```
+
+### Step 2: 真の main (= mushitaro/main) を fetch
+
+```bash
+git fetch mushitaro main
+```
+
+### Step 3: ローカル main を mushitaro/main に同期
+
+**現在のブランチが main の場合**:
+```bash
+git checkout main
+git reset --hard mushitaro/main    # ⚠️ 未コミットの変更は失う、必要なら stash で退避
+```
+
+**現在のブランチが他のブランチで、未コミットの作業がある場合**:
+```bash
+git stash                          # 退避
+git checkout main
+git reset --hard mushitaro/main
+git checkout -                     # 元のブランチに戻る
+git stash pop                      # 退避を戻す
+```
+
+**worktree や fresh clone で main が無い場合**:
+```bash
+git checkout -b main mushitaro/main
+```
+
+### Step 4: 同期確認
+
+```bash
+git log -1 --oneline mushitaro/main    # mushitaro 側 HEAD
+git log -1 --oneline main              # ローカル main HEAD
+# 両者が一致していれば OK
+```
+
+### Step 5: 必読ドキュメントが見えることを確認
+
+```bash
+ls HANDOFF.md docs/PROJECT_MU.md docs/CONCEPTS.md docs/6_FRONTEND_BACKEND_INTEGRATION.md docs/7_AUTH_AND_USERS.md docs/8_TRACK_D_SPRINT_PLAN.md
+```
+
+すべてのファイルがリストされれば OK。エラーが出る場合は Step 3 の `reset --hard` が成功していない可能性が高い。
+
+### Step 6: 開発環境セットアップ (初回のみ)
+
+```bash
+npm install
+cd backend && pip install -r requirements.txt && cd ..
+```
+
+### Step 7: CI 相当の動作確認
+
+```bash
+npm run lint && npx tsc -b --noEmit && npm run test
+```
+
+すべて clean なら準備完了。
+
+### トラブルシューティング
+
+| 症状 | 原因 | 対策 |
+|---|---|---|
+| `gh pr list` で見えない PR がある | デフォルトリポが origin になっている | `-R mushitaro/hoshutaro-mu` を明示 |
+| HANDOFF.md / docs/ が古い・無い | ローカル main が origin/main (古い) を tracking | Step 3 の `git reset --hard mushitaro/main` |
+| `mushitaro/main` が fetch できない | リモート未設定 / 認証エラー | Step 1 のリモート追加、`gh auth login` で認証 |
+| ブランチを切ろうとして "branch already in worktree" エラー | 別 worktree で同じブランチを使用中 | 別の worktree (`C:\Users\kazuh\hoshutaro\.claude\worktrees\`) を確認・整理 |
+| `npx ampx sandbox` がエラー | AWS 認証情報未設定 | `aws configure` で IAM ユーザー credentials 設定 (Track D で必要) |
+
+---
+
+## 12. ドキュメント階層 (どこに何があるか)
+
+```
+hoshutaro/ (リポジトリ root)
+├── HANDOFF.md                          # ★ まずこれを読む (この文書)
+├── README.md                           # 一般的な README
+├── docs/
+│   ├── README.md                       # docs/ の目次
+│   ├── PROJECT_MU.md                   # Project Mu 正式仕様 (LLM/SQLite/LoRA)
+│   ├── CONCEPTS.md                     # 用語定義 (Plugin/Skill/MCP/Adapter/MTP)
+│   ├── ARCHITECTURE.md                 # 全体アーキテクチャ
+│   ├── DATA_MODEL.md                   # DataModel v3.0.0
+│   ├── 1_GETTING_STARTED.md            # Hello World プラグイン
+│   ├── 2_CONNECTOR_DEVELOPMENT.md      # Connector Plugin 開発
+│   ├── 3_LLM_ADAPTER_DEVELOPMENT.md    # LLM Adapter Plugin 開発
+│   ├── 4_SKILL_RECIPES.md              # Skill レシピ集
+│   ├── 5_PUBLISH_GUIDE.md              # Plugin 公開フロー
+│   ├── 6_FRONTEND_BACKEND_INTEGRATION.md   # ★ Track D アーキテクチャ
+│   ├── 7_AUTH_AND_USERS.md             # ★ Track D 認証フロー + 7 画面
+│   └── 8_TRACK_D_SPRINT_PLAN.md        # ★ Track D Sprint 計画 + 詳細タスク
+├── backend/                            # FastAPI + Project Mu Engine
+├── src/                                # Frontend (React + MUI 7)
+├── amplify/                            # AWS Amplify Gen2 (Track D)
+├── tools/quantize-models/              # OpenVINO INT4/INT8 量子化
+└── .claude/                            # Claude Code 関連 (リポ内、worktree, plans)
+    ├── worktrees/<name>/               # 各 worktree
+    └── plans/                          # 個人作業 plan (gitignored、worktree のみ参照可)
+
+# user-level (ユーザーホーム配下、別管理):
+~/.claude/plans/                        # Claude が auto-generate するプランファイル
+~/.claude/projects/.../memory/          # auto-memory (CLAUDE.md memory)
+```
+
+「**新セッションでドキュメントが見つからない**」と感じたら、まず Step 5 で `ls` してみてください。それでも無ければ Step 3 の `reset --hard` が必要です。
