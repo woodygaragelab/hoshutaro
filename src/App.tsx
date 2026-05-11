@@ -46,7 +46,16 @@ import { transformData } from './utils/dataTransformer';
 import { AppBar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Snackbar, Toolbar, Alert, SelectChangeEvent, Button, ThemeProvider, Typography, CssBaseline } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { darkTheme } from './theme/darkTheme';
-import type { WorkOrderLineUpdate, SpecificationChange } from './types/maintenanceTask';
+import type {
+  WorkOrderLineUpdate,
+  SpecificationChange,
+  Asset,
+  WorkOrderLine,
+  HierarchyDefinition,
+  AssetBasedRow,
+  ViewMode,
+  ViewModeState,
+} from './types/maintenanceTask';
 
 const rawData = {
   version: '3.0.0',
@@ -123,21 +132,22 @@ const App: React.FC = () => {
     setEditScope(scope);
   }, []);
 
-  // Temporarily disabled useViewModeTransition to fix infinite loops
+  // Temporarily disabled useViewModeTransition to fix infinite loops.
   // Use the useViewModeTransition hook for managing view mode transitions
   // Requirements 6.1, 6.2, 6.3, 6.5
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hookEquipmentData: any[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hookSwitchMode = (_mode: any, _preserveState?: boolean) => {
+  const hookEquipmentData: AssetBasedRow[] = [];
+  const hookSwitchMode = (_mode: ViewMode, _preserveState?: boolean) => {
     // Don't call setDataViewMode here to prevent infinite loops
     // The mode change will be handled by the handleDataViewModeChange function
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hookApplyFilters = (_filters: any) => {
+  const hookApplyFilters = (_filters: ViewModeState['filters']) => {
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hookUpdateData = (_tasks: any, _assets: any, _associations: any, _hierarchy: any) => {
+  const hookUpdateData = (
+    _tasks: unknown[],
+    _assets: Asset[],
+    _associations: WorkOrderLine[],
+    _hierarchy: HierarchyDefinition,
+  ) => {
   };
 
   // Original hook disabled:
@@ -240,12 +250,9 @@ const App: React.FC = () => {
 
         // --- Debug: expose managers to browser console for data integrity testing ---
         if (import.meta.env.DEV) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__wolManager = workOrderLineManagerRef.current;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__assetManager = assetManagerRef.current;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__woManager = workOrderManagerRef.current;
+          window.__wolManager = workOrderLineManagerRef.current ?? undefined;
+          window.__assetManager = assetManagerRef.current ?? undefined;
+          window.__woManager = workOrderManagerRef.current ?? undefined;
         }
 
         // Initialize ViewModeManager with empty data (will be populated after loading)
@@ -310,8 +317,7 @@ const App: React.FC = () => {
                 }
               });
               const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (window as any).__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
+              window.__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
 
               // Reinitialize EditHandlers with the new WorkOrderLineManager
               editHandlersRef.current = new EditHandlers(workOrderLineManagerRef.current);
@@ -656,10 +662,8 @@ const App: React.FC = () => {
           const transformedData = transformEquipmentData(equipmentData);
 
           // DEBUG: Expose data to window for headless inspection
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__DEBUG_EQUIPMENT = equipmentData;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__DEBUG_TRANS = transformedData;
+          window.__DEBUG_EQUIPMENT = equipmentData;
+          window.__DEBUG_TRANS = transformedData;
 
           const newActiveHeaders = new Set<string>();
           transformedData.forEach(item => {
@@ -1668,23 +1672,20 @@ const App: React.FC = () => {
       const workOrderLines = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
       const hierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
 
-      const assetsObj = assets.reduce((acc, asset) => {
+      const assetsObj = assets.reduce<{ [id: string]: Asset }>((acc, asset) => {
         acc[asset.id] = asset;
         return acc;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }, {} as any);
+      }, {});
 
-      const workOrdersObj = workOrders.reduce((acc, wo) => {
+      const workOrdersObj = workOrders.reduce<{ [id: string]: typeof workOrders[number] }>((acc, wo) => {
         acc[wo.id] = wo;
         return acc;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }, {} as any);
+      }, {});
 
-      const workOrderLinesObj = workOrderLines.reduce((acc, wol) => {
+      const workOrderLinesObj = workOrderLines.reduce<{ [id: string]: WorkOrderLine }>((acc, wol) => {
         acc[wol.id] = wol;
         return acc;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }, {} as any);
+      }, {});
 
       await dataStoreRef.current.saveData({
         version: '3.0.0',
@@ -1702,8 +1703,7 @@ const App: React.FC = () => {
 
       showSnackbar('データを保存しました', 'success');
       announce('データが保存されました');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save data:', error);
 
       // Use ErrorHandler with proper error type detection
