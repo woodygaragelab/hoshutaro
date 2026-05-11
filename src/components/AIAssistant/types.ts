@@ -1,17 +1,15 @@
+import type { Asset, WorkOrder, WorkOrderLine, DataModel } from '../../types/maintenanceTask';
+
 export interface AIAssistantPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onImportComplete?: (dataModel: any) => void;
+  onImportComplete?: (dataModel: DataModel) => void;
   dataContext?: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    assets: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    workOrders: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    workOrderLines: any[];
+    assets: Asset[];
+    workOrders: WorkOrder[];
+    workOrderLines: WorkOrderLine[];
   };
 }
 
@@ -19,8 +17,7 @@ export interface ChatAction {
   id: string;
   label: string;
   variant: 'confirm' | 'cancel' | 'info';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload?: Record<string, any>;
+  payload?: Record<string, unknown>;
 }
 
 export interface ChatMessage {

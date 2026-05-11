@@ -98,12 +98,12 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           ]
         };
         setMessages(prev => [...prev, aiResponse]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         const errorResponse: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
-          content: `[エラー]: ${error.message}`,
+          content: `[エラー]: ${errMsg}`,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, errorResponse]);
@@ -230,11 +230,11 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         if (result.data_model && onImportComplete) {
           onImportComplete(result.data_model);
         }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         setMessages(prev => prev.map(m => {
           if (m.id === statusMsg.id) {
-            return { ...m, content: `[エラー]: ${error.message}` };
+            return { ...m, content: `[エラー]: ${errMsg}` };
           }
           return m;
         }));

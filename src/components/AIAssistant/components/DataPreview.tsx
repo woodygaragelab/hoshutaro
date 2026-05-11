@@ -20,12 +20,10 @@ import {
 import { DataMappingSuggestion } from '../types';
 
 interface DataPreviewProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any[];
+  data: Record<string, unknown>[];
   mappings: DataMappingSuggestion[];
   onApplyMappings?: (mappings: DataMappingSuggestion[]) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onExportData?: (data: any[]) => void;
+  onExportData?: (data: Record<string, unknown>[]) => void;
 }
 
 const DataPreview: React.FC<DataPreviewProps> = ({

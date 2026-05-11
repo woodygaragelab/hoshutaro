@@ -241,15 +241,14 @@ export class ExcelProcessingService {
     return matrix[str2.length][str1.length];
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private validateData(dataRows: any[][], headers: string[]): ImportError[] {
+  private validateData(dataRows: unknown[][], headers: string[]): ImportError[] {
     const errors: ImportError[] = [];
 
     dataRows.forEach((row, rowIndex) => {
       const actualRowNumber = rowIndex + 2; // ヘッダー行を考慮
 
       // 空行チェック
-      if (row.every(cell => !cell || cell.toString().trim() === '')) {
+      if (row.every(cell => cell == null || String(cell).trim() === '')) {
         errors.push({
           row: actualRowNumber,
           column: 'all',
@@ -262,7 +261,7 @@ export class ExcelProcessingService {
       // 各セルの検証
       row.forEach((cell, colIndex) => {
         const header = headers[colIndex];
-        const cellValue = cell?.toString().trim();
+        const cellValue = cell == null ? '' : String(cell).trim();
 
         // 必須フィールドのチェック（設備IDなど）
         if (this.isRequiredField(header) && (!cellValue || cellValue === '')) {
@@ -337,22 +336,19 @@ export class ExcelProcessingService {
     return !isNaN(Number(cleanValue)) && cleanValue !== '';
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async generatePreviewData(file: File, mappingSuggestions: DataMappingSuggestion[]): Promise<any[]> {
+  async generatePreviewData(file: File, mappingSuggestions: DataMappingSuggestion[]): Promise<Record<string, unknown>[]> {
     try {
       const arrayBuffer = await this.readFileAsArrayBuffer(file);
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      const headers = jsonData[0] as string[];
-      const dataRows = jsonData.slice(1, 6); // 最初の5行のみプレビュー
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return dataRows.map((row: any[]) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mappedRow: any = {};
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+      const headers = jsonData[0] as string[];
+      const dataRows = jsonData.slice(1, 6) as unknown[][]; // 最初の5行のみプレビュー
+
+      return dataRows.map((row) => {
+        const mappedRow: Record<string, unknown> = {};
         headers.forEach((header, index) => {
           const suggestion = mappingSuggestions.find(s => s.sourceColumn === header);
           const fieldName = suggestion ? suggestion.targetField : header;

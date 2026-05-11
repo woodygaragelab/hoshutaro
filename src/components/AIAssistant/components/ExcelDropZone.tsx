@@ -25,8 +25,7 @@ import { excelProcessingService } from '../services/ExcelProcessingService';
 
 interface ExcelDropZoneProps {
   onFileProcessed: (result: ExcelImportResult, file: File) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onPreviewGenerated?: (previewData: any[], mappings: DataMappingSuggestion[]) => void;
+  onPreviewGenerated?: (previewData: Record<string, unknown>[], mappings: DataMappingSuggestion[]) => void;
 }
 
 const ExcelDropZone: React.FC<ExcelDropZoneProps> = ({
