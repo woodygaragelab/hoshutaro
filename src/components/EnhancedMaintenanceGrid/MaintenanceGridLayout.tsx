@@ -15,6 +15,7 @@ import Resizer from './Resizer';
 import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
 import SpecificationEditDialog from '../SpecificationEditDialog/SpecificationEditDialog';
 import { StatusValue, CostValue } from '../CommonEdit/types';
+import type { Specification } from '../../types/maintenanceTask';
 import { useKeyboardNavigation } from './keyboardNavigation';
 import './MaintenanceGridLayout.css';
 // import { useScrollManager } from './scrollManager';
@@ -228,13 +229,16 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   // Note: Horizontal scroll reset logic has been completely removed based on user preference to never reset scroll position.
 
   // Enhanced editing state
+  // currentValue は dialog type ごとに shape が異なるため (tagNo: string /
+  // assetDetails: HierarchicalData / status: StatusValue / cost: CostValue)、
+  // 起点は unknown で受け、use-site (JSX/handler 内) で type discriminator と
+  // 共に narrow する。
   const [editDialogState, setEditDialogState] = useState<{
     type: 'status' | 'cost' | 'assetDetails' | 'tagNo' | null;
     open: boolean;
     rowId: string | null;
     columnId: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    currentValue: any;
+    currentValue: unknown;
     anchorEl: HTMLElement | null;
   }>({
     type: null,
@@ -549,11 +553,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         const taskPart = parts[0].replace('task_', '');
         const assetPart = parts[1];
 
-        item = data.find(d => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const itemData = d as any;
-          return itemData.taskId === taskPart && itemData.assetId === assetPart;
-        });
+        item = data.find(d => d.taskId === taskPart && d.assetId === assetPart);
 
         // eslint-disable-next-line no-empty
         if (item) {
@@ -563,11 +563,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       // Strategy 2: Match asset rows
       if (!item && rowId.startsWith('asset_')) {
         const assetId = rowId.replace('asset_', '');
-        item = data.find(d => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const itemData = d as any;
-          return itemData.assetId === assetId && !itemData.taskId;
-        });
+        item = data.find(d => d.assetId === assetId && !d.taskId);
 
         // eslint-disable-next-line no-empty
         if (item) {
@@ -581,8 +577,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
     
     let editType: 'assetDetails' | 'tagNo' | null = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let currentValue: any = null;
+    // assetDetails: HierarchicalData / tagNo: string で discriminate される。
+    let currentValue: HierarchicalData | string | null = null;
 
     // Determine edit type and current value based on column
     if (isEquipmentBasedMode && (columnId === 'task' || columnId === 'bomCode')) {
@@ -648,8 +644,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   }, [onCellDoubleClick, handleCellDoubleClickInternal]);
 
   // Handle dialog save with layout stability
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleDialogSave = useCallback((value: any) => {
+  // value は dialog type ごとに shape が異なる (string / StatusValue / CostValue /
+  // onAssetEdit updates 形状)。起点 unknown で受け、type discriminator で narrow。
+  const handleDialogSave = useCallback((value: unknown) => {
     if (!editDialogState.rowId || !editDialogState.columnId) return;
 
     const { rowId, columnId, type } = editDialogState;
@@ -686,7 +683,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         if (onAssetEdit) {
           // assetId is usually the rowId for assets in equipment-based mode (stripped of "asset_" if present)
           const actualAssetId = rowId.startsWith('asset_') ? rowId.replace('asset_', '') : rowId;
-          onAssetEdit(actualAssetId, value);
+          // value は SpecificationEditDialog から `{ specifications: SpecificationValue[] }` 形状で渡る (line 下方)
+          onAssetEdit(actualAssetId, value as { assetName?: string; bomCode?: string; hierarchyPath?: Asset['hierarchyPath']; specifications?: Asset['specifications'] });
         }
       }
     };
@@ -1519,7 +1517,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       {editDialogState.type === 'tagNo' && (
         <TagNoEditDialog
           open={editDialogState.open}
-          tagNo={editDialogState.currentValue}
+          tagNo={(editDialogState.currentValue ?? '') as string}
           onSave={handleDialogSave}
           onClose={handleDialogClose}
           readOnly={readOnly}
@@ -1529,7 +1527,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       {editDialogState.type === 'assetDetails' && (
         <SpecificationEditDialog
           open={editDialogState.open}
-          specifications={editDialogState.currentValue?.specifications || []}
+          specifications={(editDialogState.currentValue as HierarchicalData | null)?.specifications as Specification[] || []}
           onSave={(specs) => handleDialogSave({ specifications: specs })}
           onClose={handleDialogClose}
           anchorEl={editDialogState.anchorEl}
