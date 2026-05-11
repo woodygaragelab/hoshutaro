@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-import type { WorkOrderBasedRow as WorkOrderBasedRowData } from '../../types/maintenanceTask';
-import { GridColumn, GridState } from './types';
+import { GridColumn, GridState, GridDerivedRow } from './types';
 import { HierarchicalData } from '../../types';
 import MaintenanceCell from './MaintenanceCell';
 
@@ -10,7 +9,7 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import IconButton from '@mui/material/IconButton';
 
 interface WorkOrderBasedRowProps {
-  row: WorkOrderBasedRowData;
+  row: GridDerivedRow;
   columns: GridColumn[];
   viewMode: 'status' | 'cost';
   gridState: GridState;

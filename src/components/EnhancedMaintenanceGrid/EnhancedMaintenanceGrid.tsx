@@ -577,12 +577,14 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const visibleRowIds = useMemo(() => {
     const ids: string[] = [];
     if (isTaskBasedMode && taskBasedData.length > 0) {
+      // taskBasedData は ViewModeManager.getWorkOrderBasedData() の出力で type は
+      // canonical な 'workOrder' | 'assetChild' のみ。
       const visibleRows = taskBasedData.filter(row => {
-        if (row.type === 'hierarchy' || row.type === 'asset' || row.type === 'workOrder') return true;
-        if ((row.type === 'workOrderLine' || row.type === 'assetChild') && row.workOrderId) {
+        if (row.type === 'workOrder') return true;
+        if (row.type === 'assetChild' && row.workOrderId) {
           return expandedWorkOrders?.has(row.workOrderId);
         }
-        return true; 
+        return true;
       });
       visibleRows.forEach(row => ids.push(row.id));
     } else {

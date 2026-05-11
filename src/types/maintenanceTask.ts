@@ -225,11 +225,14 @@ export interface AssetBasedRow {
 /**
  * WorkOrderBasedRow — row data for workorder-based view
  * Structure: WorkOrder (level 0) → AssetChild (level 1)
+ *
+ * type は ViewModeManager が出力する canonical な 2 値のみ。
+ * Grid レンダリング層で扱う派生行型 (`'hierarchy' | 'asset' | 'workOrderLine'`)
+ * は `EnhancedMaintenanceGrid/types.ts` の `GridDerivedRow` を参照。
  */
 export interface WorkOrderBasedRow {
   id: string;
-  // 'hierarchy' / 'asset' / 'workOrderLine' は Grid 内で構築される派生行で使用
-  type: 'workOrder' | 'assetChild' | 'hierarchy' | 'asset' | 'workOrderLine';
+  type: 'workOrder' | 'assetChild';
   level: number;
   isExpanded?: boolean;
   

@@ -4,6 +4,7 @@
  */
 
 import { HierarchicalData } from '../../types';
+import type { WorkOrderBasedRow, AggregatedStatus, HierarchyPath } from '../../types/maintenanceTask';
 
 /**
  * Grid Column Definition
@@ -105,6 +106,29 @@ export interface EnhancedMaintenanceGridProps {
 export interface GridSelection {
   rowId: string;
   columnId: string;
+}
+
+/**
+ * Grid 内部で扱う派生行型。
+ *
+ * `WorkOrderBasedRow.type` は ViewModeManager が出力する canonical な
+ * `'workOrder' | 'assetChild'` 2 値のみだが、Grid のレンダリング層では
+ * `'hierarchy'` (グループヘッダ) / `'asset'` / `'workOrderLine'` (タスク行)
+ * といった派生行も同じ row として扱う。
+ *
+ * これらの派生型を canonical 型 (`maintenanceTask.ts`) に混ぜると
+ * ViewModeManager 側の type narrow が壊れるため、Grid ローカルに分離する。
+ */
+export type GridRowType = 'workOrder' | 'assetChild' | 'hierarchy' | 'asset' | 'workOrderLine';
+
+export interface GridDerivedRow extends Omit<WorkOrderBasedRow, 'type'> {
+  type: GridRowType;
+  isGroupHeader?: boolean;
+  taskId?: string;
+  schedule?: { [timeKey: string]: AggregatedStatus };
+  hierarchyKey?: string;
+  hierarchyValue?: string;
+  hierarchyPath?: HierarchyPath;
 }
 
 /**
