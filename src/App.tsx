@@ -540,10 +540,9 @@ const App: React.FC = () => {
 
   // Memoized data transformation functions - Requirements 10.1, 10.2, 10.3
   const transformEquipmentData = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return createMemoizedSelector((equipmentData: any[]) => {
+    return createMemoizedSelector((equipmentData: AssetBasedRow[]): HierarchicalData[] => {
 
-      return equipmentData.map(row => {
+      return equipmentData.map((row): HierarchicalData => {
         if (row.type === 'hierarchy') {
           // Hierarchy header row (帯部分)
           return {
@@ -559,18 +558,19 @@ const App: React.FC = () => {
           };
         } else if (row.type === 'asset') {
           // Asset row with aggregated task data
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const results: any = {};
+          const results: HierarchicalData['results'] = {};
 
           // Aggregate schedule data by time scale
           if (row.workOrderLines) {
+            // AssetBasedRow.workOrderLines は WorkOrderLine とは別 shape (UI 用 mapped 構造)。
+            // aggregateEventsByTimeScaleInternal は WorkOrderLine 互換オブジェクトを期待するので
+            // 必要 field を満たす形にキャストして渡す。
             const aggregated = viewModeManagerRef.current!.aggregateEventsByTimeScaleInternal(
-              row.workOrderLines,
+              row.workOrderLines as unknown as WorkOrderLine[],
               timeScale
             );
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            Object.entries(aggregated).forEach(([timeKey, status]: [string, any]) => {
+            Object.entries(aggregated).forEach(([timeKey, status]) => {
               if (!results[timeKey]) {
                 results[timeKey] = {
                   planned: false,
@@ -602,9 +602,11 @@ const App: React.FC = () => {
             rolledUpResults: {}
           };
         } else {
-          // Fallback for unknown row types
+          // Fallback for unknown row types — TS exhaustiveness 対策
+          // (`row.type` は AssetBasedRow 上は 'hierarchy' | 'asset' なので通常は到達しない)
+          const fallback = row as AssetBasedRow & { id?: string };
           return {
-            id: `unknown_${row.id || 'no-id'}`,
+            id: `unknown_${fallback.id || 'no-id'}`,
             task: row.hierarchyValue || row.assetName || 'Unknown',
             bomCode: '',
             specifications: [],
@@ -719,12 +721,12 @@ const App: React.FC = () => {
           const taskBasedData = viewModeManagerRef.current.getWorkOrderBasedData(effectiveTimeScale);
 
 
-          // Transform task-based data to legacy format for grid compatibility
-          const transformedData = taskBasedData.map(row => {
+          // Transform task-based data to legacy format for grid compatibility.
+          // ...row spread は HierarchyPath (object) と HierarchicalData.hierarchyPath (string)
+          // が衝突するため使わず、必要 field のみを明示的にコピーする。
+          const transformedData: HierarchicalData[] = taskBasedData.map((row): HierarchicalData => {
             if (row.type === 'workOrder') {
               return {
-                ...row,
-                type: row.type,
                 id: row.id,
                 task: row.workOrderName || '',
                 bomCode: '',
@@ -733,16 +735,29 @@ const App: React.FC = () => {
                 rolledUpResults: {},
                 isGroupHeader: false, // In task mode, work order acts as parent but it has its own schedule
                 level: row.level,
-                children: []
+                children: [],
+                type: row.type,
+                workOrderId: row.workOrderId,
+                aggregatedSchedule: row.aggregatedSchedule,
               };
             } else if (row.type === 'assetChild') {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const results: any = row.aggregatedSchedule || {};
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const rolledUpResults: any = row.aggregatedSchedule || {};
+              // AggregatedStatus ({ totalPlanCost, totalActualCost, ... }) を
+              // HierarchicalData.results の shape ({ planCost, actualCost, ... }) に変換。
+              const results: HierarchicalData['results'] = {};
+              const rolledUpResults: HierarchicalData['rolledUpResults'] = {};
+              if (row.aggregatedSchedule) {
+                Object.entries(row.aggregatedSchedule).forEach(([timeKey, status]) => {
+                  const cell = {
+                    planned: status.planned,
+                    actual: status.actual,
+                    planCost: status.totalPlanCost,
+                    actualCost: status.totalActualCost,
+                  };
+                  results[timeKey] = cell;
+                  rolledUpResults[timeKey] = cell;
+                });
+              }
               return {
-                ...row,
-                type: row.type,
                 id: row.id,
                 task: row.assetName || '',
                 bomCode: row.assetId || '',
@@ -754,12 +769,15 @@ const App: React.FC = () => {
                 level: row.level,
                 assetId: row.assetId,
                 taskId: row.workOrderId,
-                ClassificationId: row.ClassificationId,
-                children: []
+                workOrderId: row.workOrderId,
+                children: [],
+                type: row.type,
+                aggregatedSchedule: row.aggregatedSchedule,
               };
             } else {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              return row as any;
+              // canonical な WorkOrderBasedRow.type は 'workOrder' | 'assetChild' のみ。
+              // ここに来るのは想定外だが将来の拡張に備えて safe-cast で素通し。
+              return row as unknown as HierarchicalData;
             }
           });
 
