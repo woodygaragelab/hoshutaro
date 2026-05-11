@@ -689,82 +689,41 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       }
     };
 
-    // Use React's unstable_batchedUpdates to prevent multiple re-renders
-    // This is critical for preventing layout shifts
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (typeof (React as any).unstable_batchedUpdates === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (React as any).unstable_batchedUpdates(() => {
-        performUpdate();
+    // React 18+ は automatic batching が標準で有効なので明示的な
+    // unstable_batchedUpdates ラッパは不要。
+    // (旧コードは React オブジェクト上の unstable_batchedUpdates を参照していたが、
+    //  この API は元々 react-dom 側にあり react 側には存在しないため
+    //  typeof チェックは常に false で必ず fallback 分岐が走る dead conditional だった。)
+    performUpdate();
 
-        // Close dialog in the same batch
-        setEditDialogState({
-          type: null,
-          open: false,
-          rowId: null,
-          columnId: null,
-          currentValue: null,
-          anchorEl: null,
-        });
+    // Close dialog
+    setEditDialogState({
+      type: null,
+      open: false,
+      rowId: null,
+      columnId: null,
+      currentValue: null,
+      anchorEl: null,
+    });
 
-        // Clear editing state but keep selected cell
-        onEditingCellChange(null, null);
-      });
-    } else {
-      // Fallback for newer React versions
-      performUpdate();
-
-      // Close dialog
-      setEditDialogState({
-        type: null,
-        open: false,
-        rowId: null,
-        columnId: null,
-        currentValue: null,
-        anchorEl: null,
-      });
-
-      // Clear editing state
-      onEditingCellChange(null, null);
-    }
-
-      }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange, onAssetEdit]);
+    // Clear editing state but keep selected cell
+    onEditingCellChange(null, null);
+  }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange, onAssetEdit]);
 
   // Handle dialog close with minimal layout impact
+  // React 18+ automatic batching により 2 つの setState は同一 batch でフラッシュされる。
   const handleDialogClose = useCallback(() => {
-    
-    // Use batched updates to prevent layout shifts
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (typeof (React as any).unstable_batchedUpdates === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (React as any).unstable_batchedUpdates(() => {
-        setEditDialogState({
-          type: null,
-          open: false,
-          rowId: null,
-          columnId: null,
-          currentValue: null,
-          anchorEl: null,
-        });
+    setEditDialogState({
+      type: null,
+      open: false,
+      rowId: null,
+      columnId: null,
+      currentValue: null,
+      anchorEl: null,
+    });
 
-        // Clear editing state
-        onEditingCellChange(null, null);
-      });
-    } else {
-      // Fallback for newer React versions
-      setEditDialogState({
-        type: null,
-        open: false,
-        rowId: null,
-        columnId: null,
-        currentValue: null,
-        anchorEl: null,
-      });
-
-      onEditingCellChange(null, null);
-    }
-
-      }, [onEditingCellChange]);
+    onEditingCellChange(null, null);
+  }, [onEditingCellChange]);
 
   // Enhanced column resize with improved performance
   const handleEnhancedColumnResize = useCallback((columnId: string, width: number) => {
@@ -1540,11 +1499,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
 // Wrapper component that provides CommonEditLogic context
 export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (props) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  const handleValidationError = useCallback((error: any) => {
-    console.error('Validation error:', error);
-    // TODO: Show user-friendly error message
-  }, []);
+  // handleValidationError は定義のみで一切呼ばれない死コードだったため削除
+  // (TODO コメントと unused-vars / no-explicit-any disable で隠蔽されていた)。
 
   // Convert the onSpecificationEdit to match the expected interface
   const _handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
