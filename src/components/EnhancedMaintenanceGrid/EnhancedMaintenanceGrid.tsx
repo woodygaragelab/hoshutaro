@@ -11,11 +11,15 @@ import {
   Asset,
   WorkOrderLine,
   HierarchyDefinition,
+  AssetClassificationDefinition,
+  WorkOrderClassification,
   WorkOrderLineUpdate,
   TimeScale,
   SpecificationChange,
 } from '../../types/maintenanceTask';
 import { HierarchicalData } from '../../types';
+import type { FilterTreeNode } from '../../utils/dataTransformer';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import './EnhancedMaintenanceGrid.css';
 import { writeToClipboard, readFromClipboard, generateTSV, parseTSV } from './utils/clipboardUtils';
 import { extractIdsFromRowId } from './utils/gridIdUtils';
@@ -53,8 +57,13 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onHierarchyEdit?: (hierarchy: HierarchyDefinition) => void;
   onOpenAssetReassignDialog?: () => void;
   onOpenTaskEditDialog?: (assetId: string, dateKey: string, taskId?: string) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onAssetEdit?: (assetId: string, updates: any) => void;
+  // App.tsx 側 handleAssetEdit と shape を揃える (UI 寄り field 名 assetName / bomCode を含む)
+  onAssetEdit?: (assetId: string, updates: {
+    assetName?: string;
+    bomCode?: string;
+    hierarchyPath?: Asset['hierarchyPath'];
+    specifications?: Asset['specifications'];
+  }) => void;
 
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
   canUndo?: boolean;
@@ -65,15 +74,14 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   // Additional props from usage
   displayMode?: 'both' | 'specifications' | 'maintenance';
   showBomCode?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onSpecificationEdit?: (rowId: string, specIndex: number, field: string, value: any) => void;
+  // value は spec field によって string / number 等に変わるため unknown を使用
+  onSpecificationEdit?: (rowId: string, specIndex: number, field: string, value: unknown) => void;
   onSpecificationBatchUpdate?: (changes: SpecificationChange[]) => void;
   onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
   onColumnResize?: (columnId: string, width: number) => void;
   onRowResize?: (rowId: string, height: number) => void;
   className?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  groupedData?: { [key: string]: any[] };
+  groupedData?: { [key: string]: HierarchicalData[] };
   searchTerm?: string;
   onSearchChange?: (value: string) => void;
   uniqueTasks?: string[];
@@ -85,14 +93,11 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   level1Filter?: string;
   level2Filter?: string;
   level3Filter?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel1FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel2FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel3FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hierarchyFilterTree?: any;
+  // EMG 内で SelectChangeEvent を unpack してから string で呼び出す
+  onLevel1FilterChange?: (value: string) => void;
+  onLevel2FilterChange?: (value: string) => void;
+  onLevel3FilterChange?: (value: string) => void;
+  hierarchyFilterTree?: FilterTreeNode | null;
   level2Options?: string[];
   level3Options?: string[];
   onShowBomCodeChange?: (checked: boolean) => void;
@@ -115,10 +120,8 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onResetData?: () => void;
 
   // Classification Filter props
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assetClassification?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  workOrderClassifications?: any[];
+  assetClassification?: AssetClassificationDefinition;
+  workOrderClassifications?: WorkOrderClassification[];
   classificationFilter?: { [levelKey: string]: string };
   onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
   woClassificationFilter?: string;
@@ -588,14 +591,16 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       });
       visibleRows.forEach(row => ids.push(row.id));
     } else {
-      const renderData = groupedData ? Object.entries(groupedData) : [['', data]];
+      const renderData: [string, HierarchicalData[]][] = groupedData
+        ? Object.entries(groupedData)
+        : [['', data]];
       renderData.forEach(([hierarchyPath, items]) => {
         if (hierarchyPath) {
           // Add group header if visual match
           // IDs of group headers aren't selectable via specifications usually, but necessary for accurate distance
-          ids.push(`hierarchy_${hierarchyPath}`); 
+          ids.push(`hierarchy_${hierarchyPath}`);
         }
-        items.forEach((item: HierarchicalData) => {
+        items.forEach(item => {
           ids.push(item.id);
         });
       });
@@ -1355,18 +1360,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
 
   // Stable callback handlers to prevent infinite re-renders
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleLevel1FilterChange = useCallback((e: any) => {
+  const handleLevel1FilterChange = useCallback((e: SelectChangeEvent<string>) => {
     onLevel1FilterChange?.(e.target.value);
   }, [onLevel1FilterChange]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleLevel2FilterChange = useCallback((e: any) => {
+  const handleLevel2FilterChange = useCallback((e: SelectChangeEvent<string>) => {
     onLevel2FilterChange?.(e.target.value);
   }, [onLevel2FilterChange]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleLevel3FilterChange = useCallback((e: any) => {
+  const handleLevel3FilterChange = useCallback((e: SelectChangeEvent<string>) => {
     onLevel3FilterChange?.(e.target.value);
   }, [onLevel3FilterChange]);
 
