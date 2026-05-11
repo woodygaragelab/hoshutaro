@@ -128,7 +128,7 @@ const AIAssistantIntegrationDemo: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
     switch (status) {
       case 'completed':
         return 'success';
@@ -283,8 +283,7 @@ const AIAssistantIntegrationDemo: React.FC = () => {
                               <Chip
                                 label={feature.status === 'completed' ? '完了' : '進行中'}
                                 size="small"
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                color={getStatusColor(feature.status) as any}
+                                color={getStatusColor(feature.status)}
                                 variant="outlined"
                               />
                             </Box>

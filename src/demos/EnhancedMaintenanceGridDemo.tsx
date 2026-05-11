@@ -70,13 +70,12 @@ const EnhancedMaintenanceGridDemo: React.FC = () => {
     }, {} as { [key: string]: HierarchicalData[] });
   }, [data]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-        
-    setData(prevData => 
+  const handleCellEdit = (rowId: string, columnId: string, value: unknown) => {
+
+    setData(prevData =>
       prevData.map(item => {
         if (item.id !== rowId) return item;
-        
+
         // Handle time column edits
         if (columnId.startsWith('time_')) {
           const timeHeader = columnId.replace('time_', '');
@@ -84,11 +83,11 @@ const EnhancedMaintenanceGridDemo: React.FC = () => {
             ...item,
             results: {
               ...item.results,
-              [timeHeader]: value
+              [timeHeader]: value as HierarchicalData['results'][string]
             }
           };
         }
-        
+
         return item;
       })
     );

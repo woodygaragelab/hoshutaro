@@ -15,8 +15,8 @@ export interface MuRule {
   regex_pattern: string | null
   instruction_text: string | null
   organization: string | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  examples: any[]
+  // examples は task_type ごとに shape が異なる arbitrary JSON ペイロード
+  examples: unknown[]
   confidence: number
   usage_count: number
   success_count: number
@@ -41,8 +41,8 @@ export interface MuLoraAdapter {
   base_model: string | null
   task_types: string[]
   training_examples_count: number
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metrics: Record<string, any>
+  // metrics は backend が返す可変キーの数値メトリクス
+  metrics: Record<string, unknown>
   organization: string | null
   active: boolean
   created_at?: string | null

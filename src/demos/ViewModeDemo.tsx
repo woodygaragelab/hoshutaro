@@ -86,8 +86,8 @@ const ViewModeDemo: React.FC = () => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
+  // 引数は受けるが body は空の no-op handler (デモ用)
+  const handleCellEdit = (_rowId: string, _columnId: string, _value: unknown) => {
       };
 
   const _handleSpecificationEdit = (_rowId: string, _specIndex: number, _key: string, _value: string) => {

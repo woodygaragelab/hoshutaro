@@ -34,8 +34,8 @@ const AdvancedFilterDemo: React.FC = () => {
 
   // Transform raw data
   const [maintenanceData] = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [flatData] = transformData(rawData as any, 'year');
+    // JSON import の型は不定だが transformData は `Record<string, unknown>` を受け付ける。
+    const [flatData] = transformData(rawData as Record<string, unknown>, 'year');
     return [flatData];
   }, []);
 

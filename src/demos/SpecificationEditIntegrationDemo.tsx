@@ -63,9 +63,8 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
     );
       };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-        
+  const handleCellEdit = (rowId: string, columnId: string, value: unknown) => {
+
     // Update the maintenance data
     const item = data.find(d => d.id === rowId);
     if (item) {
@@ -73,8 +72,8 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
       if (!updatedResults[columnId]) {
         updatedResults[columnId] = { planned: false, actual: false, planCost: 0, actualCost: 0 };
       }
-      updatedResults[columnId] = { ...updatedResults[columnId], ...value };
-      
+      updatedResults[columnId] = { ...updatedResults[columnId], ...(value as Partial<HierarchicalData['results'][string]>) };
+
       const updatedItem = { ...item, results: updatedResults };
       handleUpdateItem(updatedItem);
     }

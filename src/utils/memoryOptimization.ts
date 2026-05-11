@@ -16,10 +16,11 @@ export class MemoryMonitor {
     }
 
     this.checkInterval = window.setInterval(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const memory = (performance as any).memory;
+      // performance.memory は Chromium 拡張のみで TS の標準型に無い
+      const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+      if (!memory) return;
       const usage = memory.usedJSHeapSize;
-      
+
       if (usage > this.memoryThreshold) {
                 this.callbacks.forEach(callback => callback(usage));
       }
@@ -38,18 +39,15 @@ export class MemoryMonitor {
   }
 
   getCurrentUsage(): number {
-    if ('memory' in performance) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (performance as any).memory.usedJSHeapSize;
-    }
-    return 0;
+    const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+    return memory?.usedJSHeapSize ?? 0;
   }
 
   forceGarbageCollection() {
     // Force garbage collection if available (Chrome DevTools)
-    if ('gc' in window) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).gc();
+    const w = window as Window & { gc?: () => void };
+    if (typeof w.gc === 'function') {
+      w.gc();
     }
   }
 }

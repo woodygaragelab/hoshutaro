@@ -15,8 +15,7 @@ interface MaintenanceCellProps {
   viewMode: 'status' | 'cost';
   isSelected: boolean;
   isEditing: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onCellClick: () => void;
   onCellDoubleClick: (event: React.MouseEvent<HTMLElement>) => void;
   readOnly: boolean;

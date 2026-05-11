@@ -63,7 +63,7 @@ const equipmentTypes = {
 };
 
 // Plant hierarchy structure
-const plantHierarchy = {
+const plantHierarchy: Record<string, Record<string, string[]>> = {
   '第一製油所': {
     'Aエリア': ['原油蒸留ユニット', '接触改質ユニット', '水素化脱硫ユニット'],
     'Bエリア': ['流動接触分解ユニット', 'アルキル化ユニット', '重質油分解ユニット'],
@@ -116,10 +116,15 @@ const generateTimeHeaders = (scale: 'year' | 'month' | 'week' | 'day', count: nu
 };
 
 // Generate maintenance data
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const generateMaintenanceData = (timeHeaders: string[]): { [key: string]: any } => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const maintenances: { [key: string]: any } = {};
+interface MaintenanceEntry {
+  planned: boolean;
+  actual: boolean;
+  cost: number | null;
+  planCost: number | null;
+  actualCost: number | null;
+}
+const generateMaintenanceData = (timeHeaders: string[]): { [key: string]: MaintenanceEntry } => {
+  const maintenances: { [key: string]: MaintenanceEntry } = {};
   
   timeHeaders.forEach((header) => {
     // Generate realistic maintenance patterns
@@ -314,11 +319,9 @@ function generatePerformanceDemoData(): { [id: string]: RawEquipment } {
   while (equipmentCounter <= 1000) {
     const plantKeys = Object.keys(plantHierarchy);
     const plant = plantKeys[equipmentCounter % plantKeys.length];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const areaKeys = Object.keys((plantHierarchy as any)[plant]);
+    const areaKeys = Object.keys(plantHierarchy[plant]);
     const area = areaKeys[equipmentCounter % areaKeys.length];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const units = (plantHierarchy as any)[plant][area];
+    const units = plantHierarchy[plant][area];
     const unit = units[equipmentCounter % units.length];
     
     const typeKeys = Object.keys(equipmentTypes) as (keyof typeof equipmentTypes)[];

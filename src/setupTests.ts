@@ -2,13 +2,12 @@ import '@testing-library/jest-dom';
 import React from 'react';
 
 // Mock framer-motion to avoid animation issues in tests
+type FramerMotionProps = React.PropsWithChildren<Record<string, unknown>>;
 jest.mock('framer-motion', () => ({
   motion: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    div: ({ children, ...props }: any) => React.createElement('div', props, children),
+    div: ({ children, ...props }: FramerMotionProps) => React.createElement('div', props, children),
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AnimatePresence: ({ children }: any) => children,
+  AnimatePresence: ({ children }: FramerMotionProps) => children,
 }));
 
 // Mock ResizeObserver
