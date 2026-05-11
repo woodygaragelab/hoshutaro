@@ -193,8 +193,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         if (contextWorkOrderId && assoc.WorkOrderId !== contextWorkOrderId) return;
 
         // Helper to format date values to YYYY-MM-DD strings
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const formatDate = (dateValue: any) => {
+        const formatDate = (dateValue: Date | string | null | undefined) => {
           if (!dateValue) return '';
           const d = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
           if (isNaN(d.getTime())) return '';
@@ -211,8 +210,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         else if (dateKey.length === 7) inferredTimeScale = 'month';
 
         // Use getTimeKey for proper ISO week matching (prefix matching fails for "YYYY-Www" format)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const matchesByTimeKey = (dateValue: any) => {
+        const matchesByTimeKey = (dateValue: Date | string | null | undefined) => {
           if (!dateValue) return false;
           const d = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
           if (isNaN(d.getTime())) return false;

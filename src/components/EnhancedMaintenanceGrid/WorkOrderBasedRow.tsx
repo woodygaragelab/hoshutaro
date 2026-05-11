@@ -13,8 +13,8 @@ interface WorkOrderBasedRowProps {
   columns: GridColumn[];
   viewMode: 'status' | 'cost';
   gridState: GridState;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  // value は status / cost / string 等が混在 (consumer 側 narrow)
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onCellClick?: (rowId: string, columnId: string) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
@@ -84,14 +84,14 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
   const getRowId = useCallback(() => {
     // If the row already has an ID assigned by the ViewModeManager or App.tsx, USE IT EXACTLY.
     // Overwriting it causes complete lookup failures in copyPasteManager because it retains the original ID.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((row as any).id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (row as any).id;
+    // GridDerivedRow extends WorkOrderBasedRow which has `id: string` (required) → 直接参照可能。
+    if (row.id) {
+      return row.id;
     }
     return 'unknown';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps
-  }, [row.type, row.assetId, row.workOrderId, (row as any).id]);
+    // 旧コードは row.type / row.assetId / row.workOrderId も deps に含めていたが、
+    // 関数本体は row.id しか read しないため exhaustive-deps の正規 dep のみに整理。
+  }, [row.id]);
 
   const rowId = getRowId();
 
@@ -320,18 +320,20 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
         }
 
         // For other columns in task rows, use MaintenanceCell for schedule display
-        // Create a mock item for MaintenanceCell compatibility
+        // Create a mock item for MaintenanceCell compatibility.
+        // MaintenanceCell consumer は item.id しか read しないため results/rolledUpResults は
+        // 空オブジェクトで OK。旧コードは AggregatedStatus (totalPlanCost/totalActualCost/count) を
+        // HierarchicalData の entry shape (planCost/actualCost) に強制キャストしていたが、
+        // shape 不一致を隠していた死フィールド。
         const mockItem: HierarchicalData = {
           id: rowId,
           task: row.workOrderName || '',
           bomCode: row.assetId || '',
           specifications: [],
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          results: (row.aggregatedSchedule || {}) as any,
+          results: {},
           level: row.level,
           children: [],
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rolledUpResults: (row.aggregatedSchedule || {}) as any
+          rolledUpResults: {}
         };
 
         return (

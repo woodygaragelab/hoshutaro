@@ -1,11 +1,26 @@
 import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
 import { HierarchicalData } from '../../types';
-import { GridColumn, GridState } from './types';
+import { GridColumn, GridState, GridRowType } from './types';
+import type { AggregatedStatus } from '../../types/maintenanceTask';
 import MaintenanceTableRow from './MaintenanceTableRow';
 import GroupHeaderRow from './GroupHeaderRow';
 import { WorkOrderBasedRow } from './WorkOrderBasedRow';
 import { useHorizontalVirtualScrolling } from '../VirtualScrolling/useHorizontalVirtualScrolling';
+
+/**
+ * Task-based モードでは convertedData (EMG.tsx) 経由で HierarchicalData の
+ * required field に加え、WorkOrderBasedRow 由来の派生 field
+ * (assetName / workOrderName / ClassificationId / schedule) が流れてくる。
+ * 旧コードは緩いキャストで隠していたが、ここで明示的な local 型として
+ * 表現する。
+ */
+type TaskBasedBodyItem = HierarchicalData & {
+  assetName?: string;
+  workOrderName?: string;
+  ClassificationId?: string;
+  schedule?: { [timeKey: string]: AggregatedStatus };
+};
 
 interface MaintenanceTableBodyProps {
   data: HierarchicalData[];
@@ -13,8 +28,8 @@ interface MaintenanceTableBodyProps {
   gridState: GridState;
   viewMode: 'status' | 'cost';
   groupedData?: { [key: string]: HierarchicalData[] };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  // value は status / cost / string 等 (consumer 側 narrow)
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
@@ -106,11 +121,14 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
   const taskBasedRows = useMemo(() => {
     if (!isTaskBasedMode) return [];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return data.map((item: any) => {
+    return (data as TaskBasedBodyItem[]).map((item) => {
       // Use predefined type from ViewModeManager if available
-      const rowType = item.type || (item.isGroupHeader ? 'hierarchy' : (item.taskId ? 'workOrderLine' : 'asset'));
-      
+      const rowType: GridRowType = (item.type as GridRowType | undefined)
+        ?? (item.isGroupHeader ? 'hierarchy' : (item.taskId ? 'workOrderLine' : 'asset'));
+
+      // hierarchyPath は HierarchicalData では string (breadcrumb) / GridDerivedRow では
+      // HierarchyPath object と shape が異なるが、下流 (WorkOrderBasedRow) で参照されない
+      // dead field のため転送しない。
       return {
         id: item.id,
         type: rowType,
@@ -118,15 +136,20 @@ const MaintenanceTableBodyComponent: React.FC<MaintenanceTableBodyProps> = ({
         hierarchyValue: item.isGroupHeader ? item.task : undefined,
         assetId: item.assetId,
         assetName: item.assetName || (!item.isGroupHeader && !item.taskId ? item.task : undefined),
-        hierarchyPath: item.hierarchyPath,
         taskId: item.taskId || item.workOrderId,
         workOrderId: item.workOrderId || item.taskId,
         workOrderName: item.workOrderName || (item.taskId ? item.task : undefined),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ClassificationId: (item as any).ClassificationId,
+        ClassificationId: item.ClassificationId,
         schedule: item.schedule,
-        aggregatedSchedule: item.aggregatedSchedule || item.results,
-        results: item.results,
+        // WorkOrderBasedRow が読むのは aggregatedSchedule のみ。
+        // results / rolledUpResults は HierarchicalData と GridDerivedRow で shape が
+        // 異なる (前者 planCost/actualCost、後者 AggregatedStatus) ため、下流で
+        // 読まれないこれらの dead field は転送しない。
+        // 旧コードの `aggregatedSchedule || item.results` フォールバックも、
+        // results は HierarchicalData の StatusEntry 形状で AggregatedStatus とは
+        // 互換性が無く、フォールバックされても消費側 (totalPlanCost 等を読む) で
+        // undefined になる死路だった。
+        aggregatedSchedule: item.aggregatedSchedule,
         level: item.level || 0,
         bomCode: item.bomCode
       };

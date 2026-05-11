@@ -8,8 +8,8 @@ interface MaintenanceTableRowProps {
   columns: GridColumn[];
   viewMode: 'status' | 'cost';
   gridState: GridState;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  // value は status / cost / string 等 (consumer 側 narrow)
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
@@ -67,8 +67,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   }, [readOnly]);
 
   // Get cell value based on column accessor
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getCellValue = useCallback((column: any) => {
+  const getCellValue = useCallback((column: GridColumn) => {
     const { id } = column;
     
     if (id === 'task') return item.task;
