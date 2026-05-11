@@ -1,7 +1,15 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { Box } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { HierarchicalData } from '../../types';
-import { GridColumn, GridState, DisplayAreaConfig } from './types';
+import { GridColumn, GridState, DisplayAreaConfig, GridRange } from './types';
+import type {
+  Asset,
+  AssetClassificationDefinition,
+  HierarchyDefinition,
+  WorkOrderClassification,
+} from '../../types/maintenanceTask';
+import type { FilterTreeNode } from '../../utils/dataTransformer';
 import Resizer from './Resizer';
 // CommonEditLogic removed - not used as JSX component
 import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
@@ -18,22 +26,25 @@ interface MaintenanceGridLayoutProps {
   gridState: GridState;
   viewMode: 'status' | 'cost';
   groupedData?: { [key: string]: HierarchicalData[] };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  // value は spec / status / cost / string 等が混在 (呼び元 EMG.tsx で narrow)
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onCellDoubleClick?: (rowId: string, columnId: string, event?: React.MouseEvent<HTMLElement>) => void;
   onColumnResize: (columnId: string, width: number) => void;
   onRowResize: (rowId: string, height: number) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onSelectedRangeChange: (range: any) => void;
+  onSelectedRangeChange: (range: GridRange | null) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
   onSpecificationEdit?: (rowId: string, index: number, field: 'key' | 'value', value: string) => void;
   onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onAssetEdit?: (assetId: string, updates: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hierarchy?: any;
+  // App.tsx 側 handleAssetEdit の shape と一致させる (UI 寄り field 名)
+  onAssetEdit?: (assetId: string, updates: {
+    assetName?: string;
+    bomCode?: string;
+    hierarchyPath?: Asset['hierarchyPath'];
+    specifications?: Asset['specifications'];
+  }) => void;
+  hierarchy?: HierarchyDefinition;
   virtualScrolling: boolean;
   readOnly: boolean;
   onCopy?: () => Promise<void>;
@@ -44,22 +55,17 @@ interface MaintenanceGridLayoutProps {
   selectedAssets?: string[];
   onPaste?: () => void;
   enableHorizontalVirtualScrolling?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent<any>) => void;
+  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent<HTMLElement>) => void;
   // Filter props
   searchTerm?: string;
   onSearchChange?: (value: string) => void;
   level1Filter?: string;
   level2Filter?: string;
   level3Filter?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel1FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel2FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onLevel3FilterChange?: (event: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hierarchyFilterTree?: any;
+  onLevel1FilterChange?: (event: SelectChangeEvent<string>) => void;
+  onLevel2FilterChange?: (event: SelectChangeEvent<string>) => void;
+  onLevel3FilterChange?: (event: SelectChangeEvent<string>) => void;
+  hierarchyFilterTree?: FilterTreeNode | null;
   level2Options?: string[];
   level3Options?: string[];
   uniqueTasks?: string[];
@@ -70,16 +76,13 @@ interface MaintenanceGridLayoutProps {
   onSelectedBomCodesChange?: (bomCodes: string[]) => void;
   onScroll?: (dateKey: string) => void;
   // Classification Filter props
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assetClassification?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  workOrderClassifications?: any[];
+  assetClassification?: AssetClassificationDefinition;
+  workOrderClassifications?: WorkOrderClassification[];
   classificationFilter?: { [levelKey: string]: string };
   onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
   woClassificationFilter?: string;
   onWoClassificationFilterChange?: (classificationId: string) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assets?: any[];
+  assets?: Asset[];
   isDragging?: boolean;
   startDragSelection?: (rowId: string, columnId: string) => void;
   updateDragSelection?: (rowId: string, columnId: string) => void;
