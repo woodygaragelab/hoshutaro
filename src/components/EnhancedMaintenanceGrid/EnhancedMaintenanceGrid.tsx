@@ -16,6 +16,8 @@ import {
   WorkOrderLineUpdate,
   TimeScale,
   SpecificationChange,
+  WorkOrderBasedRow,
+  AggregatedStatus,
 } from '../../types/maintenanceTask';
 import { HierarchicalData } from '../../types';
 import type { FilterTreeNode } from '../../utils/dataTransformer';
@@ -182,9 +184,11 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   hierarchyFilterTree,
   level2Options = [],
   level3Options = [],
-  onViewModeChange,
+  // onViewModeChange / onTimeScaleChange は EMG 内で binding 先 UI 要素が無く
+  // 親から渡されても呼ばれない。dead prop だが API surface のため受理だけする。
+  onViewModeChange: _onViewModeChange,
   timeScale: _timeScale = 'year',
-  onTimeScaleChange,
+  onTimeScaleChange: _onTimeScaleChange,
   onShowBomCodeChange: _onShowBomCodeChange,
   onDisplayModeChange: _onDisplayModeChange,
   currentYear: _currentYear,
@@ -323,68 +327,34 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
     // Task-based mode conversion (only if no data from parent)
     if (isTaskBasedMode && taskBasedData.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return taskBasedData.map((row: any) => {
-        if (row.type === 'hierarchy') {
-          // Hierarchy header row (帯部分)
-          return {
-            id: `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`,
-            task: row.hierarchyValue!,
-            bomCode: '',
-            specifications: [],
-            results: {},
-            rolledUpResults: {},
-            isGroupHeader: true,
-            level: row.level,
-            // Add type information for WorkOrderBasedRow
-            type: 'hierarchy',
-            rowType: 'hierarchy'
-          };
-        } else if (row.type === 'asset') {
-          // Asset row (機器)
-          return {
-            id: `asset_${row.assetId}`,
-            task: row.assetName!,
-            bomCode: row.assetId!,
-            specifications: [],
-            results: {},
-            rolledUpResults: {},
-            isGroupHeader: false,
-            level: row.level,
-            assetId: row.assetId,
-            hierarchyPath: row.hierarchyPath,
-            // Add type information for WorkOrderBasedRow
-            type: 'asset',
-            rowType: 'asset'
-          };
-        } else {
-          // Task row under asset with schedule information (作業)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let results: any = {};
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let rolledUpResults: any = {};
+      // WorkOrderBasedRow.type は canonical な 'workOrder' | 'assetChild' のみ。
+      // PR #18 で type union がスリム化された結果、旧 'hierarchy' / 'asset' 分岐は
+      // dead code となり any によって隠蔽されていた → 削除し canonical 2 値で処理する。
+      return taskBasedData.map((row: WorkOrderBasedRow) => {
+        const scheduleSnapshot: { [timeKey: string]: AggregatedStatus } = row.aggregatedSchedule
+          ? { ...row.aggregatedSchedule }
+          : {};
+        // HierarchyPath は { [levelKey: string]: string } のオブジェクト。
+        // HierarchicalData.hierarchyPath は breadcrumb 表示用 string なので join する。
+        const hierarchyPathStr = row.hierarchyPath
+          ? Object.values(row.hierarchyPath).join(' > ')
+          : undefined;
 
-          if (row.aggregatedSchedule) {
-            results = { ...row.aggregatedSchedule };
-            rolledUpResults = { ...row.aggregatedSchedule };
-          }
-
-          return {
-            id: `task_${row.workOrderId}_asset_${row.assetId}`,
-            task: row.workOrderName || '',
-            bomCode: row.assetId!,
-            specifications: [],
-            results,
-            rolledUpResults,
-            hierarchyPath: row.hierarchyPath,
-            level: row.level,
-            assetId: row.assetId,
-            taskId: row.workOrderId,
-            schedule: row.aggregatedSchedule,
-            type: 'workOrderLine',
-            rowType: 'workOrderLine'
-          };
-        }
+        return {
+          id: `task_${row.workOrderId}_asset_${row.assetId}`,
+          task: row.workOrderName || '',
+          bomCode: row.assetId!,
+          specifications: [],
+          results: scheduleSnapshot,
+          rolledUpResults: scheduleSnapshot,
+          hierarchyPath: hierarchyPathStr,
+          level: row.level,
+          assetId: row.assetId,
+          taskId: row.workOrderId,
+          schedule: row.aggregatedSchedule,
+          type: 'workOrderLine',
+          rowType: 'workOrderLine'
+        };
       });
     }
 
@@ -408,6 +378,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
           };
         } else {
           // Asset row (帯) - No aggregated schedule natively
+          // HierarchyPath (object) を HierarchicalData.hierarchyPath (string) 形式に変換。
+          const hierarchyPathStr = row.hierarchyPath
+            ? Object.values(row.hierarchyPath).join(' > ')
+            : undefined;
           return {
             id: row.assetId!,
             task: row.assetName!,
@@ -415,14 +389,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             specifications: row.specifications || [],
             results: {},
             rolledUpResults: {},
-            hierarchyPath: row.hierarchyPath,
-            tasks: [],
-
+            hierarchyPath: hierarchyPathStr,
+            level: row.level ?? 0,
             // Add type information
             type: 'asset' as const,
-            rowType: 'asset' as const
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any;
+            rowType: 'asset' as const,
+          };
         }
       });
     }
@@ -1334,11 +1306,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     } else if (event.shiftKey && currentSelected.length > 0) {
       // Shift+Click: Range selection
       const lastSelected = currentSelected[currentSelected.length - 1];
-      const assetIds = convertedData
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((row: any) => !row.isGroupHeader)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((row: any) => row.id);
+      const assetIds = (convertedData as HierarchicalData[])
+        .filter(row => !row.isGroupHeader)
+        .map(row => row.id);
 
       const lastIndex = assetIds.indexOf(lastSelected);
       const currentIndex = assetIds.indexOf(assetId);
@@ -1373,15 +1343,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     onLevel3FilterChange?.(e.target.value);
   }, [onLevel3FilterChange]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  const handleViewModeChange = useCallback((e: any) => {
-    onViewModeChange?.(e.target.checked ? 'cost' : 'status');
-  }, [onViewModeChange]);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  const handleTimeScaleChange = useCallback((e: any) => {
-    onTimeScaleChange?.(e.target.value as TimeScale);
-  }, [onTimeScaleChange]);
+  // handleViewModeChange / handleTimeScaleChange は本コンポーネント内で binding 先が無く
+  // 死コードだったため削除。viewMode / timeScale の切替 UI は親側 (App.tsx) に存在する。
 
   // Stable empty function references with useMemo to prevent re-creation
   const stableOnSearchChange = useMemo(() => onSearchChange || (() => { }), [onSearchChange]);
