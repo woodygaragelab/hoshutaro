@@ -50,6 +50,7 @@ import type {
   WorkOrderLineUpdate,
   SpecificationChange,
   Asset,
+  WorkOrder,
   WorkOrderLine,
   HierarchyDefinition,
   HierarchyPath,
@@ -1803,8 +1804,7 @@ const App: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showSnackbar('データをエクスポートしました。', 'success');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error) {
       console.error('Export failed:', error);
 
       // Use ErrorHandler with proper error type detection
@@ -1837,9 +1837,8 @@ const App: React.FC = () => {
           if (dataStoreRef.current) {
             try {
               dataStoreRef.current.loadData(imported);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (validationError: any) {
-              throw new Error(`v3.0.0バリデーションエラー: ${validationError.message}`);
+            } catch (validationError) {
+              throw new Error(`v3.0.0バリデーションエラー: ${validationError instanceof Error ? validationError.message : String(validationError)}`);
             }
           }
 
@@ -1852,8 +1851,7 @@ const App: React.FC = () => {
         } else {
           throw new Error('サポートされていないファイル形式です。v3.0.0またはレガシー形式のJSONファイルを選択してください。');
         }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
+      } catch (error) {
         if (errorHandlerRef.current) {
           handleGenericError(error, 'dataImport', errorHandlerRef.current);
         }
@@ -1881,8 +1879,7 @@ const App: React.FC = () => {
         delete importData._format;
 
         // Reload assets
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const existingAssets = Object.values(importData.assets || {}) as any[];
+        const existingAssets = Object.values(importData.assets || {}) as Asset[];
         if (assetManagerRef.current) {
           assetManagerRef.current = new AssetManager(undoRedoManagerRef.current!);
           existingAssets.forEach(asset => {
@@ -1891,23 +1888,19 @@ const App: React.FC = () => {
         }
 
         // Reload workOrders
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const existingWorkOrders = Object.values(importData.workOrders || {}) as any[];
+        const existingWorkOrders = Object.values(importData.workOrders || {}) as WorkOrder[];
         if (workOrderManagerRef.current) {
           workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current!);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          existingWorkOrders.forEach((wo: any) => {
+          existingWorkOrders.forEach(wo => {
             workOrderManagerRef.current!.createWorkOrder(wo);
           });
         }
 
         // Reload workOrderLines
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const existingWorkOrderLines = Object.values(importData.workOrderLines || {}) as any[];
+        const existingWorkOrderLines = Object.values(importData.workOrderLines || {}) as WorkOrderLine[];
         if (workOrderLineManagerRef.current) {
           workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current!);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          existingWorkOrderLines.forEach((wol: any) => {
+          existingWorkOrderLines.forEach(wol => {
             workOrderLineManagerRef.current!.createWorkOrderLine(wol);
           });
         }
@@ -1965,8 +1958,7 @@ const App: React.FC = () => {
         years.add(currentYear);
         years.add(currentYear + 1);
         years.add(currentYear + 2);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        existingWorkOrderLines.forEach((wol: any) => {
+        existingWorkOrderLines.forEach(wol => {
           if (wol.schedule) {
             Object.keys(wol.schedule).forEach(dateKey => {
               const year = parseInt(dateKey.slice(0, 4), 10);
@@ -1990,8 +1982,7 @@ const App: React.FC = () => {
         }
         showSnackbar('レガシーデータをインポートしました。', 'success');
       }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error) {
       console.error('[App] Import failed:', error);
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
       showSnackbar(`インポートエラー: ${errorMessage}`, 'error');
