@@ -627,10 +627,11 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const autoVirtualScrolling = useMemo(() => true, []);
 
   // Performance optimization hooks - use appropriate data based on mode
-  const dataForProcessing = useMemo(() => {
-    // Use convertedData (which now includes data from parent)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return convertedData as any;
+  // convertedData は taskBased / equipmentBased / parent data から派生する派生行配列。
+  // 内部表現としては HierarchicalData[] のスーパーセット相当のフィールドを持つため
+  // 下流の処理 (clipboard / find / spec edit) では HierarchicalData[] として扱う。
+  const dataForProcessing = useMemo<HierarchicalData[]>(() => {
+    return convertedData as HierarchicalData[];
   }, [convertedData]);
 
   const processedData = dataForProcessing;
@@ -726,8 +727,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   }, [onTaskAssociationUpdate]);
 
   // Handle cell editing with support for both regular cells and specifications
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleCellEdit = useCallback((rowId: string, columnId: string, value: any) => {
+  // value は呼び出し元 (MaintenanceGridLayout) から spec 編集の string / time セル編集の
+  // string シンボル ('◎' 等) / 数値などが混在して流れてくるため unknown を起点に narrow する。
+  const handleCellEdit = useCallback((rowId: string, columnId: string, value: unknown) => {
     if (readOnly) return;
 
     // In equipment-based mode, time cells editing is handled by double-click dialog
@@ -740,6 +742,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     // Check if this is a specification edit
     if (columnId.startsWith('spec_')) {
       const specKey = columnId.replace('spec_', '');
+      // spec.value の正規型は string なので、unknown を防御的に string 化する
+      const specValue: string = typeof value === 'string' ? value : String(value ?? '');
 
       if (onSpecificationEdit) {
         debouncedUpdate(() => {
@@ -753,20 +757,20 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               // Update existing specification
               newSpecs[existingSpecIndex] = {
                 ...newSpecs[existingSpecIndex],
-                value: value
+                value: specValue
               };
             } else {
               // Add new specification
               newSpecs.push({
                 key: specKey,
-                value: value,
+                value: specValue,
                 order: newSpecs.length + 1
               });
             }
 
             // Call the specification edit handler with the spec index
             const specIndex = existingSpecIndex >= 0 ? existingSpecIndex : newSpecs.length - 1;
-            onSpecificationEdit(rowId, specIndex, 'value', value);
+            onSpecificationEdit(rowId, specIndex, 'value', specValue);
 
             // Update the item
             if (onUpdateItem) {
@@ -793,7 +797,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               const timeHeader = columnId.replace('time_', '');
 
               // Convert string status symbols to status object if needed
-              let statusValue = value;
+              type StatusEntry = { planned: boolean; actual: boolean; planCost: number; actualCost: number };
+              let statusValue: StatusEntry;
               if (typeof value === 'string') {
                 switch (value) {
                   case '◎':
@@ -809,6 +814,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
                   default:
                     statusValue = { planned: false, actual: false, planCost: 0, actualCost: 0 };
                 }
+              } else {
+                // 非 string 値はクリップボード由来等で既に status オブジェクト形状を仮定
+                statusValue = value as StatusEntry;
               }
 
               const updatedResults = {
@@ -883,19 +891,17 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
         for (let r = minRow; r <= maxRow; r++) {
           const targetRowId = visibleRowIds[r];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const rowData = processedData.find((d: any) => d.id === targetRowId);
+          const rowData = processedData.find(d => d.id === targetRowId);
           if (!rowData) continue; // Skip group header rows that don't have specifications
-          
+
           const rowValues: string[] = [];
           const currentInternalRow: { relativeColIdx: number; specKey: string; specName: string; value: string }[] = [];
-          
+
           for (let c = minCol; c <= maxCol; c++) {
             const colDef = processedColumns[c];
             if (colDef.id.startsWith('spec_')) {
               const specKey = colDef.id.replace('spec_', '');
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const spec = rowData.specifications?.find((s: any) => s.key === specKey);
+              const spec = rowData.specifications?.find(s => s.key === specKey);
               const val = spec?.value || '';
               rowValues.push(val);
               currentInternalRow.push({
@@ -930,8 +936,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     if (onCellCopy) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
+      onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode);
     }
   }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns, visibleRowIds]);
 
@@ -955,8 +960,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               if (targetRowIdx >= visibleRowIds.length) return;
               
               const targetRowId = visibleRowIds[targetRowIdx];
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const targetRow = processedData.find((d: any) => d.id === targetRowId);
+              const targetRow = processedData.find(d => d.id === targetRowId);
               if (!targetRow) return;
 
               // Parse asset ID robustly using common utility
@@ -977,7 +981,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
                   if (existingIndex >= 0) {
                     newSpecs[existingIndex] = { ...newSpecs[existingIndex], value: srcSpec.value };
                   } else {
-                    newSpecs.push({ key: specKey, name: targetCol.header, value: srcSpec.value, order: newSpecs.length + 1 });
+                    // canonical Specification 型は { key, value, order } のみ。
+                    // `name` は any によって紛れ込んでいた死フィールドで read 元なし。
+                    newSpecs.push({ key: specKey, value: srcSpec.value, order: newSpecs.length + 1 });
                   }
                   rowModified = true;
                 }
@@ -1003,16 +1009,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               const targetRowIdx = startRowIdx + rOffset;
               if (targetRowIdx >= visibleRowIds.length) return;
               const targetRowId = visibleRowIds[targetRowIdx];
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const targetRow = processedData.find((d: any) => d.id === targetRowId);
+              const targetRow = processedData.find(d => d.id === targetRowId);
               if (!targetRow) return;
-              
+
               // Parse asset ID robustly using common utility
               const { assetId: actualAssetId } = extractIdsFromRowId(targetRow.id, targetRow.assetId);
 
               let rowModified = false;
               const newSpecs = [...(targetRow.specifications || [])];
-              
+
               rowVals.forEach((val, cOffset) => {
                 const targetColIdx = startColIdx + cOffset;
                 if (targetColIdx >= processedColumns.length) return;
@@ -1032,7 +1037,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
                     if (existingIndex >= 0) {
                       newSpecs[existingIndex] = { ...newSpecs[existingIndex], value: val };
                     } else {
-                      newSpecs.push({ key: specKey, name: targetCol.header, value: val, order: newSpecs.length + 1 });
+                      newSpecs.push({ key: specKey, value: val, order: newSpecs.length + 1 });
                     }
                     rowModified = true;
                   }
@@ -1055,8 +1060,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             // Legacy fallback if App didn't pass the new prop
             console.warn('onSpecificationBatchUpdate is missing, falling back to sequential UI updates (Undo/Redo disabled)');
             batchChanges.forEach(change => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const legacyRow = processedData.find((d: any) => d.assetId === change.assetId); // approximate
+              const legacyRow = processedData.find(d => d.assetId === change.assetId); // approximate
               if (legacyRow) onUpdateItem({ ...legacyRow, specifications: change.specifications });
             });
           }
@@ -1068,8 +1072,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     if (onCellPaste) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onCellPaste(rowId, columnId, viewMode as any);
+      onCellPaste(rowId, columnId, viewMode);
       // Optional: notification will be triggered internally by App.tsx if successful
     }
   }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem, visibleRowIds]);
@@ -1101,8 +1104,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
         for (let r = minRow; r <= maxRow; r++) {
           const targetRowId = visibleRowIds[r];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const targetRow = processedData.find((d: any) => d.id === targetRowId);
+          const targetRow = processedData.find(d => d.id === targetRowId);
           if (!targetRow) continue; // Skip group headers
           
           // Parse asset ID robustly
@@ -1136,8 +1138,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
           onSpecificationBatchUpdate(batchChanges);
         } else if (batchChanges.length > 0 && onUpdateItem) {
           batchChanges.forEach(change => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const legacyRow = processedData.find((d: any) => d.id === rowId || d.assetId === change.assetId);
+            const legacyRow = processedData.find(d => d.id === rowId || d.assetId === change.assetId);
             if (legacyRow) onUpdateItem({ ...legacyRow, specifications: change.specifications });
           });
         }
