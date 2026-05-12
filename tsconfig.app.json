@@ -39,6 +39,7 @@
     "src/components/AssetReassignDialog/**/*.tsx",
     "src/components/DataMigrationDialog/**/*.tsx",
     "src/components/CommonEdit/**/*.tsx",
+    "src/components/Auth/**/*.tsx",
     "src/services/**/*.ts",
     "src/hooks/**/*.ts",
     "src/utils/**/*.ts",
