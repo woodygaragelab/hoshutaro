@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  IconButton, Typography, CircularProgress, Avatar, Button, Chip
+  IconButton, Typography, CircularProgress, Avatar, Button, Chip,
+  Dialog, DialogContent, DialogTitle
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -28,6 +29,8 @@ import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelI
 import { LLMSettingsDialog } from '../AIAssistant/components/LLMSettingsDialog';
 import DateJumpDialog from '../DateJumpDialog/DateJumpDialog';
 import { useAuth } from '../../hooks/useAuth';
+import { ProfileScreen } from '../Auth/ProfileScreen';
+import { MfaSetupScreen } from '../Auth/MfaSetupScreen';
 import './AgentBar.css';
 
 interface AgentBarProps {
@@ -113,6 +116,8 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [mfaSetupOpen, setMfaSetupOpen] = useState(false);
   const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).substr(2, 9));
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -319,6 +324,40 @@ export const AgentBar: React.FC<AgentBarProps> = ({
     <>
       <LLMSettingsDialog open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
+      <Dialog
+        open={profileOpen || mfaSetupOpen}
+        onClose={() => {
+          setProfileOpen(false);
+          setMfaSetupOpen(false);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          {mfaSetupOpen ? '多要素認証 (MFA) の設定' : 'プロフィール'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {mfaSetupOpen && user ? (
+            <MfaSetupScreen
+              noLayout
+              username={user.username}
+              onSetupSuccess={() => {
+                setMfaSetupOpen(false);
+                setProfileOpen(true);
+              }}
+            />
+          ) : (
+            <ProfileScreen
+              onMfaSetupRequested={() => {
+                setProfileOpen(false);
+                setMfaSetupOpen(true);
+              }}
+              onClose={() => setProfileOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Floating Agent Bar */}
       <div className="agent-bar-container">
         {/* Main Bar */}
@@ -465,6 +504,16 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                     <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
                     <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>MCP管理</div>
                     <div className="menu-item" onClick={() => { onKnowledgeBase?.(); setShowToolsMenu(false); }}>ナレッジベース</div>
+                    <div
+                      className="menu-item"
+                      onClick={() => {
+                        setProfileOpen(true);
+                        setShowToolsMenu(false);
+                      }}
+                      title={user?.email ?? 'プロフィール'}
+                    >
+                      プロフィール
+                    </div>
                     <div
                       className="menu-item"
                       onClick={() => {

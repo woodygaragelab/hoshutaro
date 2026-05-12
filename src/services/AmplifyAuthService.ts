@@ -12,6 +12,7 @@ import {
   setUpTOTP,
   verifyTOTPSetup,
   updatePassword,
+  updateUserAttributes,
 } from 'aws-amplify/auth';
 
 export type AuthenticatedUser = {
@@ -109,5 +110,14 @@ export const AmplifyAuthService = {
 
   async updateUserPassword(oldPassword: string, newPassword: string) {
     return updatePassword({ oldPassword, newPassword });
+  },
+
+  async updateProfile(attrs: { givenName?: string; familyName?: string }) {
+    return updateUserAttributes({
+      userAttributes: {
+        ...(attrs.givenName !== undefined ? { given_name: attrs.givenName } : {}),
+        ...(attrs.familyName !== undefined ? { family_name: attrs.familyName } : {}),
+      },
+    });
   },
 };

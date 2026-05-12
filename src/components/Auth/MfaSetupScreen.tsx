@@ -31,9 +31,14 @@ type Props = {
   username: string;
   onSetupSuccess: () => void;
   onSkip?: () => void;
+  /**
+   * Dialog の中など、すでに外側でタイトル/レイアウトを持っている場合は
+   * AuthLayout (中央寄せ Card + ロゴ) をスキップしてフォーム本体だけを返す。
+   */
+  noLayout?: boolean;
 };
 
-export function MfaSetupScreen({ username, onSetupSuccess, onSkip }: Props) {
+export function MfaSetupScreen({ username, onSetupSuccess, onSkip, noLayout }: Props) {
   const [setupUri, setSetupUri] = useState<string>('');
   const [secret, setSecret] = useState<string>('');
   const [code, setCode] = useState('');
@@ -78,12 +83,8 @@ export function MfaSetupScreen({ username, onSetupSuccess, onSkip }: Props) {
       .finally(() => setVerifying(false));
   }
 
-  return (
-    <AuthLayout
-      title="多要素認証 (MFA) の設定"
-      subtitle="認証アプリで QR コードをスキャンして 6 桁コードを入力してください"
-    >
-      <Box component="form" onSubmit={handleVerify} noValidate>
+  const body = (
+    <Box component="form" onSubmit={handleVerify} noValidate>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} role="alert" aria-live="polite">
             {error}
@@ -181,6 +182,18 @@ export function MfaSetupScreen({ username, onSetupSuccess, onSkip }: Props) {
           )}
         </Stack>
       </Box>
+  );
+
+  if (noLayout) {
+    return body;
+  }
+
+  return (
+    <AuthLayout
+      title="多要素認証 (MFA) の設定"
+      subtitle="認証アプリで QR コードをスキャンして 6 桁コードを入力してください"
+    >
+      {body}
     </AuthLayout>
   );
 }
