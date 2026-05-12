@@ -48,13 +48,16 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **CI / 品質** | `npm run lint` 0 errors / `npm run build` 0 errors / `npm run test` exit 0（PR #2 で main の pre-existing 45 件型エラー + 597 件 lint + test exit-1 を解消、CI green 化済） |
 | **検証** | 5 テスト（`backend/tests/test_mu_smoke.py`：memory CRUD / sql_context_resolver / scheduler 閾値 / lora_trainer graceful degradation / FastAPI dashboard）、TypeScript エラーなし |
 | **Z: 技術負債削減** | `eslint-disable` 562 → 2 件、Jest テスト 0 → **127 件**（7 suites）、`no-explicit-any` 全体 175件以上削減（App.tsx 68 → 0、EnhancedMaintenanceGrid.tsx 31 → 0、MaintenanceGridLayout.tsx 22 → 0）、`HierarchyDefinition` / `TreeDefinition` 二重型を統合、`WorkOrderBasedRow.type` を canonical `'workOrder' \| 'assetChild'` 2 値にスリム化、`children: any[]` → `HierarchicalData[]`、`aggregatedSchedule: any` → `{ [k]: AggregatedStatus }`、副次バグ修正 10+ 件（`HierarchyPath`/`string` 不整合 = `[object Object]` レンダリングバグ、`React.unstable_batchedUpdates` dead conditional [React 19 自動 batching]、`spec.name` 死フィールド、`handleValidationError` / `handleViewModeChange` 等の dead handlers、`performance.memory` 非Chromiumブラウザ crash） |
+| **Track D: Sprint 1 認証基盤** | **Slice A-E (PR #57-#63) 完了**。amplify Gen2 バックエンド (UserSettings/LLMSettings/SyncMetadata + post-confirmation Lambda + MFA OPTIONAL TOTP + passwordPolicy 12 文字)、AuthProvider + useAuth + AmplifyAuthService + Hub.listen 自動 refresh、認証画面 **7 枚完成** (Login/SignUp/ConfirmEmail/RequestPasswordReset/ResetPasswordWithCode/MfaSetup/Profile) + AuthLayout/authErrors/passwordValidation 共通基盤、AuthGuard + `main.tsx` 統合、AgentBar からのプロフィール/MFA Dialog + サインアウト。**Jest 127 → 211 件 (+84)**、全 PR squash-merge 済。`npx ampx sandbox` での実 AWS deploy 確認はユーザー環境で別途実施 (docs/8 §7 参照)。スコープ外: データエクスポート / アカウント削除 / MFA 無効化 UI → Sprint 4-5 |
 
 ### ❌ 未着手 / 重い依存待ち
 | 項目 | ブロッカー |
 |---|---|
 | **B-Verify**: Track A LoRA 学習の実機動作確認（Gemma 4 E2B 実 SFT・loss 推移・delta 計測） | PEFT + PyTorch + Intel Arc GPU 推奨。コードは実装済み（依存未インストール時 NotImplementedError） |
 | **B-Verify**: Track B 実モデル動作確認（Gemma 4 E2B 推論ベンチマーク・MTP accept rate 測定） | OpenVINO 依存 + モデルダウンロード + HuggingFace Token |
-| Track D: AWS Cloud + 認証 + 繋ぎ層（CDK + Lambda + Cognito + 認証画面 7枚） | AWS アカウント、~4-5週間 |
+| **Track D Sprint 1 残**: `npx ampx sandbox` での実 AWS deploy 検証 (Cognito User Pool 作成、DynamoDB テーブル作成、post-confirmation Lambda 経由のレコード自動作成、画面操作での E2E 確認) | AWS アカウント + IAM credentials が必要。コード実装は完了済 (PR #57-#63) |
+| **Track D Sprint 2**: データ基盤 (`useUserSettings` / `useLLMSettings` クラウド同期 hook、user-sync Lambda、LLMSettingsDialog 統合) | Sprint 1 sandbox 検証完了が前提、~1 週間 |
+| **Track D Sprint 3-5**: LLM 中継 / 連携・管理 / 本番化 (`llm-proxy` Lambda + Bedrock、`user-management` Lambda でアカウント削除・エクスポート、observability) | Sprint 2 完了後、合計 ~3 週間 |
 | Track E: Tauri Desktop（PyOxidizer + 自動更新 + CodeSigning） | Rust、各 OS 証明書、~3-4週間 |
 | Track C: モノレポ化（pnpm workspace） | 大規模リファクタ。**Track D/E が走り始めて 2 つ目以降の app/lambda/desktop が出てから** が合理的（早すぎる package 境界は手戻り発生）。~4-6週間 |
 
@@ -187,28 +190,30 @@ npm run build   # tsc -b && vite build
 - ✅ main の pre-existing 型 / lint / test 失敗を解消（PR #2, CI green 化）
 - ✅ **Plugin/MCP プラットフォーム全面導入**（mcp_hub.py / plugin_manager.py / skill_engine.py / OllamaAdapter / OpenVINOAdapter / 組込 Skill 3 種 / PluginManager UI / SkillRunner UI / UpdateNotification）
 - ✅ **技術負債削減完了**: 562 → 2 件、Jest 0 → 127 件、副次バグ修正 10+ 件、3 大ファイル（App.tsx / EMG / MGL）で `no-explicit-any` 完全 0 達成
+- ✅ **Track D Sprint 1 認証基盤完了** (PR #57-#63): amplify バックエンド + 認証画面 7 枚 + AuthGuard + main.tsx 統合 + AgentBar Profile/MFA + Jest 211/211
 
 次の候補:
 
-1. **🥇 Track B-Verify: 実機動作確認** — コードは完全に揃っているが、Gemma 4 E2B モデルでの実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。最も自然な次の一手。
+1. **🥇 Track D Sprint 1 sandbox 検証** — コードは完成しているが `npx ampx sandbox` での実 AWS deploy は未実施。ユーザー環境で AWS credential + `ampx sandbox` 起動 → ブラウザで実 Cognito 経由のサインアップ/ログイン/MFA/サインアウトを E2E 確認。Sprint 2 着手前のゲート。
+   - 作業: `aws configure` で IAM credentials 設定、`npx ampx sandbox`、`amplify_outputs.json` 生成確認、テストアカウントで全認証フロー手動確認
+   - ブロッカー: AWS アカウント (個人開発は無料枠内)
+
+2. **Track D Sprint 2: データ基盤** — ~1 週間。`useUserSettings` / `useLLMSettings` クラウド同期 hook、`user-sync` Lambda、既存 `LLMSettingsDialog` のクラウド統合。Sprint 1 sandbox 検証が pass してから着手。
+   - 詳細: [docs/8_TRACK_D_SPRINT_PLAN.md](docs/8_TRACK_D_SPRINT_PLAN.md) §2 Sprint 2
+
+3. **Track B-Verify: 実機動作確認** — コードは完全に揃っているが、Gemma 4 E2B モデルでの実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。
    - 作業: PEFT + PyTorch + transformers + datasets 依存インストール、Gemma 4 E2B-it / -it-assistant モデル DL + 量子化、OpenVINO 経由 MTP ベンチマーク、LoRA SFT 動作確認（100ペア × 1epoch）
    - ブロッカー: HuggingFace Token 取得、Intel Arc GPU 推奨（CPU だと遅い）
 
-2. **Track D: AWS Cloud + 認証 + 繋ぎ層** — ~4-5週間。Amplify Gen2 (= CDK + TypeScript) + Lambda + Cognito + AppSync + DynamoDB + 認証画面 7枚。
-   - **Sprint 0 (設計、完了済)**: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND_INTEGRATION.md) + [docs/7_AUTH_AND_USERS.md](docs/7_AUTH_AND_USERS.md) + `.claude/plans/track-d-aws-cloud.md` (worktree)
-   - **Sprint 1 (Week 1)**: 認証基盤 (amplify/auth 拡張 + post-confirmation Lambda + 認証画面 7枚 + App.tsx AuthGuard)
-   - **Sprint 2 (Week 2)**: データ基盤 (DynamoDB UserSettings/LLMSettings/SyncMetadata + user-sync Lambda)
-   - **Sprint 3 (Week 3)**: LLM 中継 (llm-proxy Lambda + AWS Bedrock + cloud_proxy.py 実装 + SSE streaming)
-   - **Sprint 4 (Week 4)**: 連携 + 管理 (maximo-proxy + user-management + E2E)
-   - **Sprint 5 (Week 5)**: 本番化 + 観測性 + ドキュメント整備
+4. **Track D Sprint 3-5**: LLM 中継 (Sprint 3) / 連携・管理 (Sprint 4) / 本番化 (Sprint 5)。合計 ~3 週間。
 
-3. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。
+5. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。
 
-4. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
+6. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
 
-5. **Track C: モノレポ化**（pnpm workspace）— **Track D/E 着手後** が合理的（package 境界の手戻り回避）
+7. **Track C: モノレポ化**（pnpm workspace）— **Track D/E 着手後** が合理的（package 境界の手戻り回避）
 
-6. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
+8. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
 
 ---
 
@@ -238,9 +243,10 @@ npm run build   # tsc -b && vite build
 - UI 9画面（KnowledgeBase）+ PluginManager + SkillRunner + UpdateNotification + AgentBar 統合完了
 - 技術負債削減完了（eslint-disable 562 → 2、Jest 127 件、no-explicit-any 175件削減、副次バグ修正 10+ 件）
 - Track D 設計フェーズ完了（docs/6 + docs/7 + docs/8、Sprint 0 ✅）
+- **Track D Sprint 1 認証基盤完了** (PR #57-#63、Jest 127 → 211)。実 AWS deploy 検証はユーザー環境で残あり
 - CI green（lint/build/test all pass）
 
-次の作業: <ここに今回の依頼内容を書く。例: "Track D Sprint 1 を進めて" "Track B-Verify を進めて" >
+次の作業: <ここに今回の依頼内容を書く。例: "Track D Sprint 1 sandbox 検証を進めて" "Track D Sprint 2 を進めて" "Track B-Verify を進めて" >
 
 制約:
 - 既存の MUI 7 + React Query 5 を使う（baseline-ui スキルの制約遵守）
@@ -344,6 +350,38 @@ npm run build   # tsc -b && vite build
 | #35 | #52 | utils/demos/services + Cell partial (18件) |
 
 PR #37（batch merge 試行）: sandbox policy で denied、CLOSED。
+
+### Phase 7: Track D Sprint 1 認証基盤（PR #57〜#63、本セッション）
+
+mushitaro/hoshutaro-mu に作業を移管し、Sprint 0 設計の docs (#54-#56) を経て Sprint 1 を 6 スライスに分割して順次 merge:
+
+| PR | Slice | 内容 | 規模 | テスト |
+|---:|---|---|---:|---:|
+| #57 | A: バックエンド基盤 | `amplify/data` (UserSettings/LLMSettings/SyncMetadata) + `amplify/auth` 拡張 + `amplify/backend.ts` CDK overrides (passwordPolicy 12 文字 + MFA OPTIONAL TOTP) + `post-confirmation-trigger` Lambda | +1,512 LoC | — |
+| #58 | B: 認証 hook 基盤 | `AmplifyAuthService` (v6 auth API thin wrapper) + `amplifyConfig` (`import.meta.glob` 安全 load) + `AuthContext` + `AuthProvider` (`Hub.listen` 自動 refresh) + `useAuth` hook | +335 LoC | 4 件 (131) |
+| #59 | C: 認証画面 5 枚 + 共通 | `AuthLayout` + `authErrors.ts` (Cognito Exception 9 種日本語化) + `passwordValidation.ts` (12 文字+大小英数記号) + Login/SignUp/ConfirmEmail/RequestPasswordReset/ResetPasswordWithCode | +1,424 LoC | 53 件 (184) |
+| #60 | D-1: AuthGuard + 統合 | `AuthGuard.tsx` (5 画面 state machine + `pendingEmail` 受け渡し) + `main.tsx` に `<AuthProvider>` + `<AuthGuard>` 挿入 + `AgentBar` にサインアウト menu-item | +333 LoC | 8 件 (192) |
+| #61 | D-2: MFA 設定画面 | `MfaSetupScreen.tsx` (`setUpTOTP` → QRCodeSVG + secret 表示 → `verifyTOTPSetup`) + `qrcode.react` v4 依存追加 | +267 LoC | 8 件 (200) |
+| #62 | D-3: プロフィール画面 | `ProfileScreen.tsx` (表示名変更 / パスワード変更 / MFA リクエスト / サインアウト) + `MfaSetupScreen` に `noLayout` prop 追加 + `AgentBar` に「プロフィール」menu + `Dialog` で ProfileScreen ↔ MfaSetupScreen 切替 + `AmplifyAuthService.updateProfile` 追加 | +535 LoC | 11 件 (211) |
+| #63 | E: ドキュメント締め | HANDOFF.md / docs/8_TRACK_D_SPRINT_PLAN.md を Sprint 1 完了状態に更新、次セッションの onboarding 情報を反映 | docs のみ | — |
+
+合計: **6 実装スライス + 1 docs スライス = 7 PR**、**+4,406 LoC**、**Jest 127 → 211 件 (+84)**、全 PR squash-merge 済。bundle 影響: aws-amplify v6 SDK 取り込みで index gzip +40 KB、AgentBar 経由の qrcode.react で App gzip +8 KB (許容範囲)。
+
+**Sprint 1 完了で得られた機能**:
+- ログイン / 新規登録 / メール確認 / パスワードリセット (要求+コード入力) の認証フロー
+- TOTP MFA セットアップ (QR + 手動入力 secret 併記)
+- プロフィール画面で表示名変更 / パスワード変更 / MFA リクエスト / サインアウト
+- 全画面で Cognito Exception 9 種の日本語エラー表示、`UserNotConfirmedException` で自動的に ConfirmEmail 遷移、`UserNotFoundException` を**セキュリティ上隠蔽**
+- `Hub.listen('auth', ...)` 経由でサインイン/サインアウト後の AuthProvider state 自動 refresh
+- **AgentBar から MUI Dialog で ProfileScreen / MfaSetupScreen を切替表示**
+
+**Sprint 1 スコープ外** (Sprint 4-5 に移管):
+- データエクスポート / アカウント削除 (`user-management` Lambda 待ち)
+- MFA 無効化 UI (`setPreferredMFA('NOMFA')` + 確認ダイアログ)
+- アカウント作成日表示 (Cognito からの取得方法限定的)
+- 新規登録時の MFA 必須化フロー (現状 MfaSetupScreen に `onSkip` prop 用意済、未配線)
+
+**残作業**: ユーザー環境で `aws configure` + `npx ampx sandbox` を起動し、実 Cognito + DynamoDB に対する E2E 動作確認 (docs/8 §7 の手順) を実施。これが pass すれば Sprint 2 (データ基盤) 着手。
 
 ### squash-merge SHA 不一致の教訓（次セッション向け）
 
