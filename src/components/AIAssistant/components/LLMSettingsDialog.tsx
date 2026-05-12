@@ -21,6 +21,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
+import { CloudLLMSettingsSection } from './CloudLLMSettingsSection';
 import {
   LLMSettings,
   TestConnectionResult,
@@ -364,6 +365,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, minHeight: '380px', pb: 3 }}>
+        <CloudLLMSettingsSection />
         <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
           <FormControl fullWidth size="small">
             <InputLabel>プロバイダー (Adapter)</InputLabel>
