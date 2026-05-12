@@ -1,17 +1,50 @@
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 
-/*== STEP 1 ===============================================================
-The section below creates a Todo database table with a "content" field. Try
-adding a new "isDone" field as a boolean. The authorization rule below
-specifies that any unauthenticated user can "create", "read", "update", 
-and "delete" any "Todo" records.
-=========================================================================*/
+/**
+ * HOSHUTARO Track D - User domain models (Sprint 1)
+ *
+ * Business data (equipment master, work orders, etc.) remains in local SQLite
+ * (offline-first design). Only user-scoped settings and sync metadata live in
+ * the cloud, and every model uses `allow.owner()` so users can only access
+ * their own records.
+ *
+ * See: docs/6_FRONTEND_BACKEND_INTEGRATION.md, docs/7_AUTH_AND_USERS.md
+ */
 const schema = a.schema({
-  Todo: a
+  UserSettings: a
     .model({
-      content: a.string(),
+      userId: a.id().required(),
+      email: a.email().required(),
+      theme: a.enum(['light', 'dark']),
+      language: a.enum(['ja', 'en']),
+      mfaEnabled: a.boolean().default(false),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
     })
-    .authorization((allow) => [allow.guest()]),
+    .identifier(['userId'])
+    .authorization((allow) => [allow.owner()]),
+
+  LLMSettings: a
+    .model({
+      userId: a.id().required(),
+      preferredModel: a.string(),
+      fallbackModels: a.string().array(),
+      mtpEnabled: a.boolean().default(false),
+      customApiKeys: a.string(),
+    })
+    .identifier(['userId'])
+    .authorization((allow) => [allow.owner()]),
+
+  SyncMetadata: a
+    .model({
+      userId: a.id().required(),
+      deviceId: a.string().required(),
+      deviceName: a.string(),
+      lastSyncedAt: a.datetime(),
+      syncVersion: a.integer().default(0),
+    })
+    .identifier(['userId', 'deviceId'])
+    .authorization((allow) => [allow.owner()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -19,35 +52,6 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: 'iam',
+    defaultAuthorizationMode: 'userPool',
   },
 });
-
-/*== STEP 2 ===============================================================
-Go to your frontend source code. From your client-side code, generate a
-Data client to make CRUDL requests to your table. (THIS SNIPPET WILL ONLY
-WORK IN THE FRONTEND CODE FILE.)
-
-Using JavaScript or Next.js React Server Components, Middleware, Server 
-Actions or Pages Router? Review how to generate Data clients for those use
-cases: https://docs.amplify.aws/gen2/build-a-backend/data/connect-to-API/
-=========================================================================*/
-
-/*
-"use client"
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
-
-const client = generateClient<Schema>() // use this Data client for CRUDL requests
-*/
-
-/*== STEP 3 ===============================================================
-Fetch records from the database and use them in your frontend component.
-(THIS SNIPPET WILL ONLY WORK IN THE FRONTEND CODE FILE.)
-=========================================================================*/
-
-/* For example, in a React component, you can use this snippet in your
-  function's RETURN statement */
-// const { data: todos } = await client.models.Todo.list()
-
-// return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>
