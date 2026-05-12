@@ -4,6 +4,8 @@ import './index.css';
 import './styles/globals.css';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ThemeProvider from './providers/ThemeProvider';
+import AuthProvider from './providers/AuthProvider';
+import { AuthGuard } from './components/Auth/AuthGuard';
 import { LazyWrapper, SkeletonLoaders } from './utils/loadingOptimization';
 import { performanceMonitor } from './utils/performanceMonitor';
 import { accessibilityManager } from './utils/accessibility';
@@ -157,11 +159,15 @@ root.render(
   <StrictMode>
     <ErrorBoundary>
       <ThemeProvider>
-        <Suspense fallback={<SkeletonLoaders.Header />}>
-          <div id="main-content" role="main">
-            <RouterProvider router={router} />
-          </div>
-        </Suspense>
+        <AuthProvider>
+          <Suspense fallback={<SkeletonLoaders.Header />}>
+            <div id="main-content" role="main">
+              <AuthGuard>
+                <RouterProvider router={router} />
+              </AuthGuard>
+            </div>
+          </Suspense>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>

@@ -27,6 +27,7 @@ import { startChatStream, SSEEvent } from '../../services/sseClient';
 import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelImport } from '../../services/ExcelProcessingService';
 import { LLMSettingsDialog } from '../AIAssistant/components/LLMSettingsDialog';
 import DateJumpDialog from '../DateJumpDialog/DateJumpDialog';
+import { useAuth } from '../../hooks/useAuth';
 import './AgentBar.css';
 
 interface AgentBarProps {
@@ -111,6 +112,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { user, signOut } = useAuth();
   const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).substr(2, 9));
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -463,6 +465,16 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                     <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
                     <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>MCP管理</div>
                     <div className="menu-item" onClick={() => { onKnowledgeBase?.(); setShowToolsMenu(false); }}>ナレッジベース</div>
+                    <div
+                      className="menu-item"
+                      onClick={() => {
+                        void signOut();
+                        setShowToolsMenu(false);
+                      }}
+                      title={user?.email ? `サインアウト (${user.email})` : 'サインアウト'}
+                    >
+                      サインアウト
+                    </div>
                   </div>
                 )}
               </div>
