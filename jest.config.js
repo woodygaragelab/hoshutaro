@@ -13,7 +13,9 @@ export default {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.(ts|tsx|js)',
-    '<rootDir>/src/**/?(*.)(spec|test).(ts|tsx|js)'
+    '<rootDir>/src/**/?(*.)(spec|test).(ts|tsx|js)',
+    '<rootDir>/amplify/**/__tests__/**/*.test.(ts|tsx|js)',
+    '<rootDir>/amplify/**/?(*.)(spec|test).(ts|tsx|js)'
   ],
   collectCoverageFrom: [
     'src/**/*.(ts|tsx)',
