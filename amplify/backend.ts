@@ -9,12 +9,14 @@ import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { postConfirmationTrigger } from './functions/post-confirmation-trigger/resource';
 import { llmProxy } from './functions/llm-proxy/resource';
+import { userManagement } from './functions/user-management/resource';
 
 const backend = defineBackend({
   auth,
   data,
   postConfirmationTrigger,
   llmProxy,
+  userManagement,
 });
 
 const { cfnUserPool, cfnUserPoolClient } = backend.auth.resources.cfnResources;
@@ -76,5 +78,52 @@ const llmProxyUrl = llmProxyLambda.addFunctionUrl({
 backend.addOutput({
   custom: {
     llmProxyUrl: llmProxyUrl.url,
+  },
+});
+
+// ============================================================================
+// Track D Sprint 4 - user-management Lambda (Slice 4-A)
+// ============================================================================
+
+const userManagementLambda = backend.userManagement.resources.lambda as LambdaFunction;
+
+// 環境変数: Cognito 検証 + DynamoDB テーブル名
+userManagementLambda.addEnvironment('USER_POOL_ID', cfnUserPool.ref);
+userManagementLambda.addEnvironment('USER_POOL_CLIENT_ID', cfnUserPoolClient.ref);
+userManagementLambda.addEnvironment('USER_SETTINGS_TABLE', userSettingsTable.tableName);
+
+const llmSettingsTable = backend.data.resources.tables['LLMSettings'];
+const syncMetadataTable = backend.data.resources.tables['SyncMetadata'];
+
+userManagementLambda.addEnvironment('LLM_SETTINGS_TABLE', llmSettingsTable.tableName);
+userManagementLambda.addEnvironment('SYNC_METADATA_TABLE', syncMetadataTable.tableName);
+
+// Cognito AdminDeleteUser 権限
+userManagementLambda.addToRolePolicy(
+  new PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: ['cognito-idp:AdminDeleteUser'],
+    resources: [cfnUserPool.attrArn],
+  }),
+);
+
+// DynamoDB 3 テーブルへの読書削除権限
+userSettingsTable.grantReadWriteData(userManagementLambda);
+llmSettingsTable.grantReadWriteData(userManagementLambda);
+syncMetadataTable.grantReadWriteData(userManagementLambda);
+
+// Function URL: 認証は Lambda 内 JWT 検証で扱うため NONE。Streaming 不要なので buffered。
+const userManagementUrl = userManagementLambda.addFunctionUrl({
+  authType: FunctionUrlAuthType.NONE,
+  cors: {
+    allowedOrigins: ['*'], // 本番では特定ドメインに絞る (Sprint 5)
+    allowedMethods: ['POST' as never, 'OPTIONS' as never],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+  },
+});
+
+backend.addOutput({
+  custom: {
+    userManagementUrl: userManagementUrl.url,
   },
 });
