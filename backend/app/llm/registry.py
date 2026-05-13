@@ -102,6 +102,24 @@ LLM_MODELS: dict[str, dict[str, Any]] = {
         "available_in": ["local", "cloud"],
         "use_case": "計画立案（日本語特化）",
     },
+    # ─── Bedrock 経由 Claude（Track D Sprint 3 で実装した llm-proxy Lambda 用） ───
+    # provider="bedrock" は llm-proxy Lambda 側で AWS Bedrock Runtime API → Claude を呼び出す。
+    # model_id は Lambda 側の BEDROCK_MODEL_MAP のキーと一致させる必要がある。
+    # Bedrock 障害時は Lambda 内で Anthropic Direct API に自動 fallback。
+    "cloud_claude_3_5_sonnet": {
+        "adapter": "cloud_proxy",
+        "provider": "bedrock",
+        "model_id": "cloud_claude_3_5_sonnet",
+        "available_in": ["local", "cloud"],
+        "use_case": "高品質な計画立案・対話・構造化出力。Bedrock 経由 Anthropic Claude 3.5 Sonnet",
+    },
+    "cloud_claude_3_haiku": {
+        "adapter": "cloud_proxy",
+        "provider": "bedrock",
+        "model_id": "cloud_claude_3_haiku",
+        "available_in": ["local", "cloud"],
+        "use_case": "軽量・高速タスク。Bedrock 経由 Anthropic Claude 3 Haiku",
+    },
     # ─── SageMaker（自前ホスト時のみ） ───
     "sagemaker_qwen35_a3b": {
         "adapter": "sagemaker",
@@ -271,7 +289,18 @@ def get_adapter(model_id: Optional[str] = None, **kwargs: Any) -> LLMAdapter:
     if adapter_kind == "cloud_proxy":
         from app.llm.adapters.cloud_proxy import CloudProxyAdapter
 
-        return CloudProxyAdapter(spec=spec)
+        # endpoint_url と jwt_token は env (LLM_PROXY_URL / LLM_PROXY_JWT_TOKEN)
+        # から補完する。amplify_outputs.json から CDK 出力された Function URL を
+        # フロント側で env に注入する設計を想定。spec で明示指定されていれば
+        # そちらを優先 (テスト・local mock 用)。
+        enriched_spec = {
+            **spec,
+            "endpoint_url": spec.get("endpoint_url")
+                or os.environ.get("LLM_PROXY_URL"),
+            "jwt_token": spec.get("jwt_token")
+                or os.environ.get("LLM_PROXY_JWT_TOKEN"),
+        }
+        return CloudProxyAdapter(spec=enriched_spec)
 
     if adapter_kind == "sagemaker":
         from app.llm.adapters.sagemaker import SageMakerAdapter

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -10,6 +11,16 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+
+/**
+ * Sprint 3 で registry.py の LLM_MODELS に追加した cloud_proxy 経由モデル一覧。
+ * Slice 3-D で `/api/llm/models` 等のエンドポイントから動的取得に切替予定。
+ * 暫定で hard-code、freeSolo で他モデル ID も自由入力できる。
+ */
+const KNOWN_CLOUD_MODELS = [
+  'cloud_claude_3_5_sonnet',
+  'cloud_claude_3_haiku',
+] as const;
 import { useAuth } from '../../../hooks/useAuth';
 import { useLLMSettings, type LLMSettingsData } from '../../../hooks/useLLMSettings';
 
@@ -110,15 +121,26 @@ export function CloudLLMSettingsSection() {
         </Alert>
       )}
       <Stack spacing={2}>
-        <TextField
-          label="優先 LLM モデル"
-          size="small"
+        <Autocomplete
+          freeSolo
+          options={KNOWN_CLOUD_MODELS as unknown as string[]}
           value={preferredModel}
-          onChange={(e) => setPreferredModel(e.target.value)}
-          placeholder="例: cloud_claude_3_5_sonnet"
-          helperText="ログイン中のアカウントで既定として使う LLM モデル ID。空欄なら未設定。"
+          onChange={(_, newValue) => setPreferredModel(newValue ?? '')}
+          onInputChange={(_, newInputValue) => setPreferredModel(newInputValue)}
+          size="small"
           fullWidth
-          inputProps={{ 'data-testid': 'cloud-llm-preferred-model' }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="優先 LLM モデル"
+              placeholder="例: cloud_claude_3_5_sonnet"
+              helperText="ログイン中のアカウントで既定として使う LLM モデル ID。空欄なら未設定。"
+              inputProps={{
+                ...params.inputProps,
+                'data-testid': 'cloud-llm-preferred-model',
+              }}
+            />
+          )}
         />
         <FormControlLabel
           control={
