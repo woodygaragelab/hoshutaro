@@ -276,3 +276,161 @@ export function __resetLlmProxyClientsForTest(): void {
   cachedBedrock = null;
   cachedAnthropic = null;
 }
+
+// ============================================================================
+// Slice 3-D: 真の SSE streaming handler
+// ============================================================================
+
+// awslambda global は @types/aws-lambda が定義済み。
+// `awslambda.streamifyResponse` で wrap した関数は Function URL の
+// invokeMode=RESPONSE_STREAM で呼び出される。
+//
+// 参照: https://docs.aws.amazon.com/lambda/latest/dg/configuration-response-streaming.html
+
+/**
+ * Function URL Response Streaming で使う最小限の writable interface。
+ */
+export interface ResponseStream {
+  write(chunk: string): void;
+  end(): void;
+  setContentType?(contentType: string): void;
+}
+
+/**
+ * Bedrock の chunk stream を `{ type:'chunk', text:string }` 単位で yield する
+ * async generator。stop_reason 検出時は最後に `{ type:'done', stopReason }` を yield。
+ */
+async function* iterateBedrockChunks(
+  body: RequestBody,
+): AsyncGenerator<{ type: 'chunk' | 'done'; text?: string; stopReason?: string }, void, unknown> {
+  const bedrockModelId = BEDROCK_MODEL_MAP[body.model];
+  if (!bedrockModelId) {
+    throw new Error(`Unknown bedrock model: ${body.model}`);
+  }
+
+  const claudeBody = JSON.stringify({
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: body.maxTokens ?? 1024,
+    temperature: body.temperature ?? 0.1,
+    messages: body.messages.filter((m) => m.role !== 'system').map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+    system:
+      body.messages
+        .filter((m) => m.role === 'system')
+        .map((m) => m.content)
+        .join('\n\n') || undefined,
+  });
+
+  const client = getBedrockClient();
+  const command = new InvokeModelWithResponseStreamCommand({
+    modelId: bedrockModelId,
+    contentType: 'application/json',
+    accept: 'application/json',
+    body: claudeBody,
+  });
+
+  const response = await client.send(command);
+  if (!response.body) return;
+
+  let stopReason: string | undefined;
+  for await (const event of response.body) {
+    if (!event.chunk?.bytes) continue;
+    const decoded = JSON.parse(new TextDecoder().decode(event.chunk.bytes));
+    if (decoded.type === 'content_block_delta' && decoded.delta?.text) {
+      yield { type: 'chunk', text: decoded.delta.text };
+    }
+    if (decoded.type === 'message_delta' && decoded.delta?.stop_reason) {
+      stopReason = decoded.delta.stop_reason;
+    }
+  }
+  yield { type: 'done', stopReason };
+}
+
+function sseLine(eventType: 'message' | 'done' | 'error', data: unknown): string {
+  if (eventType === 'message') {
+    return `data: ${JSON.stringify(data)}\n\n`;
+  }
+  return `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+/**
+ * 真の SSE streaming handler の本体 (Function URL の awslambda.streamifyResponse
+ * から呼ばれる)。Jest テスト用に export しておく。
+ */
+export async function streamingHandlerImpl(
+  event: APIGatewayProxyEventV2,
+  responseStream: ResponseStream,
+): Promise<void> {
+  responseStream.setContentType?.('text/event-stream');
+
+  const auth = await verifyJwt(event);
+  if (!auth) {
+    responseStream.write(
+      sseLine('error', { code: 'UNAUTHORIZED', message: '認証トークンが無効です。' }),
+    );
+    responseStream.end();
+    return;
+  }
+
+  let body: RequestBody;
+  try {
+    body = JSON.parse(event.body ?? '{}') as RequestBody;
+  } catch {
+    responseStream.write(
+      sseLine('error', { code: 'BAD_REQUEST', message: 'リクエスト body が JSON ではありません。' }),
+    );
+    responseStream.end();
+    return;
+  }
+  if (!body.model || !Array.isArray(body.messages) || body.messages.length === 0) {
+    responseStream.write(
+      sseLine('error', { code: 'BAD_REQUEST', message: 'model と messages は必須です。' }),
+    );
+    responseStream.end();
+    return;
+  }
+
+  try {
+    for await (const ev of iterateBedrockChunks(body)) {
+      if (ev.type === 'chunk' && ev.text) {
+        responseStream.write(sseLine('message', { type: 'chunk', text: ev.text }));
+      } else if (ev.type === 'done') {
+        responseStream.write(
+          sseLine('done', {
+            ok: true,
+            model: body.model,
+            provider: 'bedrock',
+            stopReason: ev.stopReason,
+          }),
+        );
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    responseStream.write(
+      sseLine('error', {
+        code: 'BEDROCK_STREAM_FAILED',
+        message: msg,
+      }),
+    );
+  } finally {
+    responseStream.end();
+  }
+}
+
+/**
+ * 公開 export。Lambda runtime では awslambda.streamifyResponse で wrap、
+ * それ以外 (ローカル / テスト) では impl をそのまま使えるようにする。
+ *
+ * deploy 時は backend.ts で
+ *   `functionUrl: { invokeMode: RESPONSE_STREAM }` を設定済 (Slice 3-A)。
+ * Lambda handler entry を `handler` → `streamingHandler` に切り替えるのは
+ * Sprint 5 で sandbox 検証時に行う。
+ */
+export const streamingHandler =
+  typeof (globalThis as { awslambda?: unknown }).awslambda !== 'undefined'
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).awslambda.streamifyResponse(streamingHandlerImpl)
+    : streamingHandlerImpl;

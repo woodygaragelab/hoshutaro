@@ -113,13 +113,89 @@ class CloudProxyAdapter(LLMAdapter):
         system_prompt: str,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
-        # Slice 3-A の handler は buffered response。真の SSE は Slice 3-D で切替。
+        """
+        SSE streaming response を受信して chunk 単位で yield する。
+
+        spec["streaming"] = True なら Lambda streaming endpoint (Slice 3-D) に POST
+        し、`data: {"type":"chunk","text":"..."}\\n\\n` の SSE format を parse。
+        spec["streaming"] が False / 未指定なら buffered chat にフォールバックして
+        1 chunk で yield (Slice 3-A の buffered handler 互換)。
+
+        終端イベント:
+          - `event: done\\ndata: {"ok":true,...}` — 正常終了 (chunk 列挙終了)
+          - `event: error\\ndata: {...}` — エラー、RuntimeError を raise
+        """
         combined: list[dict] = []
         if system_prompt:
             combined.append({"role": "system", "content": system_prompt})
         combined.extend(messages)
-        text = await self.chat(combined, **kwargs)
-        yield text
+
+        if not self.spec.get("streaming"):
+            # buffered fallback
+            text = await self.chat(combined, **kwargs)
+            yield text
+            return
+
+        if not self.endpoint_url:
+            raise RuntimeError("CloudProxyAdapter: endpoint_url not configured")
+
+        body = {
+            "model": self.model_id,
+            "messages": combined,
+            "temperature": kwargs.get("temperature", 0.1),
+            "maxTokens": kwargs.get("max_tokens", 1024),
+        }
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with client.stream(
+                "POST", self.endpoint_url, json=body, headers=headers
+            ) as response:
+                if response.status_code != 200:
+                    raw = await response.aread()
+                    raise RuntimeError(
+                        f"CloudProxyAdapter (stream): HTTP {response.status_code}: "
+                        f"{raw.decode('utf-8', errors='replace')[:512]}"
+                    )
+
+                current_event = "message"
+                async for raw_line in response.aiter_lines():
+                    line = raw_line.rstrip("\r")
+                    if line == "":
+                        current_event = "message"
+                        continue
+                    if line.startswith("event:"):
+                        current_event = line[len("event:"):].strip()
+                        continue
+                    if not line.startswith("data:"):
+                        continue
+                    data_str = line[len("data:"):].strip()
+                    if not data_str:
+                        continue
+                    try:
+                        payload = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        logger.warning(
+                            "CloudProxyAdapter stream: skipping non-JSON data line: %r",
+                            data_str,
+                        )
+                        continue
+
+                    if current_event == "error":
+                        code = payload.get("code", "UNKNOWN")
+                        msg = payload.get("message", "stream error")
+                        raise RuntimeError(
+                            f"CloudProxyAdapter (stream) error [{code}]: {msg}"
+                        )
+                    if current_event == "done":
+                        return
+                    # current_event == "message" (default)
+                    if payload.get("type") == "chunk" and payload.get("text"):
+                        yield str(payload["text"])
 
     async def classify_intent(
         self,

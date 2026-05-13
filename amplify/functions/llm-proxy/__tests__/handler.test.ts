@@ -225,3 +225,123 @@ describe('llm-proxy handler', () => {
     expect(body.message).toMatch(/Unknown anthropic model/);
   });
 });
+
+// ============================================================================
+// Slice 3-D: streamingHandlerImpl テスト
+// ============================================================================
+
+import { streamingHandlerImpl, type ResponseStream } from '../handler';
+
+function makeFakeStream() {
+  const chunks: string[] = [];
+  let contentType: string | undefined;
+  let ended = false;
+  const stream: ResponseStream = {
+    write: (c) => {
+      chunks.push(c);
+    },
+    end: () => {
+      ended = true;
+    },
+    setContentType: (ct) => {
+      contentType = ct;
+    },
+  };
+  return { stream, chunks, getContentType: () => contentType, isEnded: () => ended };
+}
+
+function parseSseChunks(chunks: string[]) {
+  // Each chunk is either `data: {...}\n\n` or `event: X\ndata: {...}\n\n`.
+  return chunks.map((c) => {
+    const eventMatch = /^event:\s*(.+?)\n/.exec(c);
+    const dataMatch = /data:\s*(.+?)\n\n/s.exec(c);
+    return {
+      event: eventMatch ? eventMatch[1].trim() : 'message',
+      data: dataMatch ? JSON.parse(dataMatch[1]) : null,
+    };
+  });
+}
+
+describe('llm-proxy streamingHandlerImpl', () => {
+  it('emits an error SSE event and ends when authorization fails', async () => {
+    const { stream, chunks, isEnded, getContentType } = makeFakeStream();
+    await streamingHandlerImpl(makeEvent({ headers: {} }), stream);
+    expect(getContentType()).toBe('text/event-stream');
+    expect(isEnded()).toBe(true);
+    const parsed = parseSseChunks(chunks);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].event).toBe('error');
+    expect(parsed[0].data).toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(verifyMock).not.toHaveBeenCalled();
+  });
+
+  it('emits BAD_REQUEST error when body is invalid JSON', async () => {
+    verifyMock.mockResolvedValueOnce({ sub: 'u-1' });
+    const { stream, chunks, isEnded } = makeFakeStream();
+    await streamingHandlerImpl(makeEvent({ body: '{nope' }), stream);
+    expect(isEnded()).toBe(true);
+    const parsed = parseSseChunks(chunks);
+    expect(parsed[0].event).toBe('error');
+    expect(parsed[0].data.code).toBe('BAD_REQUEST');
+  });
+
+  it('streams Bedrock chunks then a done event with stopReason', async () => {
+    verifyMock.mockResolvedValueOnce({ sub: 'u-1' });
+    const enc = new TextEncoder();
+    bedrockSendMock.mockResolvedValueOnce({
+      body: (async function* () {
+        yield {
+          chunk: {
+            bytes: enc.encode(
+              JSON.stringify({ type: 'content_block_delta', delta: { text: 'Hel' } }),
+            ),
+          },
+        };
+        yield {
+          chunk: {
+            bytes: enc.encode(
+              JSON.stringify({ type: 'content_block_delta', delta: { text: 'lo' } }),
+            ),
+          },
+        };
+        yield {
+          chunk: {
+            bytes: enc.encode(
+              JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }),
+            ),
+          },
+        };
+      })(),
+    });
+
+    const { stream, chunks, isEnded } = makeFakeStream();
+    await streamingHandlerImpl(makeEvent(), stream);
+    expect(isEnded()).toBe(true);
+
+    const parsed = parseSseChunks(chunks);
+    expect(parsed[0]).toEqual({ event: 'message', data: { type: 'chunk', text: 'Hel' } });
+    expect(parsed[1]).toEqual({ event: 'message', data: { type: 'chunk', text: 'lo' } });
+    expect(parsed[2].event).toBe('done');
+    expect(parsed[2].data).toMatchObject({
+      ok: true,
+      model: 'cloud_claude_3_5_sonnet',
+      provider: 'bedrock',
+      stopReason: 'end_turn',
+    });
+  });
+
+  it('emits BEDROCK_STREAM_FAILED error event when Bedrock throws mid-stream', async () => {
+    verifyMock.mockResolvedValueOnce({ sub: 'u-1' });
+    bedrockSendMock.mockRejectedValueOnce(new Error('AccessDeniedException'));
+
+    const { stream, chunks, isEnded } = makeFakeStream();
+    await streamingHandlerImpl(makeEvent(), stream);
+    expect(isEnded()).toBe(true);
+
+    const parsed = parseSseChunks(chunks);
+    const errors = parsed.filter((p) => p.event === 'error');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].data.code).toBe('BEDROCK_STREAM_FAILED');
+    expect(errors[0].data.message).toMatch(/AccessDeniedException/);
+  });
+});

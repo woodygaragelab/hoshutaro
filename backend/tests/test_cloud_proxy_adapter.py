@@ -269,6 +269,143 @@ def test_generate_structured_retries_on_failure():
     assert client_instance.post.await_count == 2
 
 
+# ---------------------------------------------------- conversational_stream (true SSE)
+
+
+def _make_streaming_response_mock(status_code: int, sse_lines: list[str]):
+    """
+    httpx.AsyncClient.stream(...) を mimicする async context manager mock。
+    """
+    response = MagicMock()
+    response.status_code = status_code
+    response.aread = AsyncMock(return_value=b"")
+
+    async def aiter_lines():
+        for line in sse_lines:
+            yield line
+
+    response.aiter_lines = aiter_lines
+
+    stream_cm = MagicMock()
+    stream_cm.__aenter__ = AsyncMock(return_value=response)
+    stream_cm.__aexit__ = AsyncMock(return_value=None)
+
+    client_instance = AsyncMock()
+    client_instance.stream = MagicMock(return_value=stream_cm)
+
+    client_cls_cm = MagicMock()
+    client_cls_cm.__aenter__ = AsyncMock(return_value=client_instance)
+    client_cls_cm.__aexit__ = AsyncMock(return_value=None)
+
+    client_cls = MagicMock(return_value=client_cls_cm)
+    return client_cls, client_instance
+
+
+def test_conversational_stream_yields_each_chunk_when_streaming_enabled():
+    adapter = _make_adapter(streaming=True)
+    sse = [
+        'data: {"type":"chunk","text":"Hel"}',
+        "",
+        'data: {"type":"chunk","text":"lo"}',
+        "",
+        "event: done",
+        'data: {"ok":true,"model":"cloud_claude_3_5_sonnet"}',
+        "",
+    ]
+    client_cls, _ = _make_streaming_response_mock(200, sse)
+
+    async def collect() -> list[str]:
+        chunks: list[str] = []
+        async for c in adapter.conversational_stream(
+            [{"role": "user", "content": "hi"}],
+            system_prompt="sys",
+        ):
+            chunks.append(c)
+        return chunks
+
+    with patch("app.llm.adapters.cloud_proxy.httpx.AsyncClient", client_cls):
+        result = asyncio.run(collect())
+    assert result == ["Hel", "lo"]
+
+
+def test_conversational_stream_raises_on_error_event():
+    adapter = _make_adapter(streaming=True)
+    sse = [
+        "event: error",
+        'data: {"code":"BEDROCK_STREAM_FAILED","message":"Throttled by Bedrock"}',
+        "",
+    ]
+    client_cls, _ = _make_streaming_response_mock(200, sse)
+
+    async def collect() -> list[str]:
+        chunks: list[str] = []
+        async for c in adapter.conversational_stream(
+            [{"role": "user", "content": "hi"}],
+            system_prompt="",
+        ):
+            chunks.append(c)
+        return chunks
+
+    with patch("app.llm.adapters.cloud_proxy.httpx.AsyncClient", client_cls):
+        try:
+            asyncio.run(collect())
+        except RuntimeError as e:
+            assert "BEDROCK_STREAM_FAILED" in str(e)
+            assert "Throttled by Bedrock" in str(e)
+        else:
+            raise AssertionError("expected RuntimeError")
+
+
+def test_conversational_stream_raises_on_http_error_when_streaming():
+    adapter = _make_adapter(streaming=True)
+    client_cls, _ = _make_streaming_response_mock(401, [])
+
+    async def collect() -> list[str]:
+        chunks: list[str] = []
+        async for c in adapter.conversational_stream(
+            [{"role": "user", "content": "hi"}],
+            system_prompt="",
+        ):
+            chunks.append(c)
+        return chunks
+
+    with patch("app.llm.adapters.cloud_proxy.httpx.AsyncClient", client_cls):
+        try:
+            asyncio.run(collect())
+        except RuntimeError as e:
+            assert "HTTP 401" in str(e)
+        else:
+            raise AssertionError("expected RuntimeError")
+
+
+def test_conversational_stream_skips_non_chunk_messages():
+    """`type` が 'chunk' でない data line は無視される (将来の拡張に備えて defensive)。"""
+    adapter = _make_adapter(streaming=True)
+    sse = [
+        'data: {"type":"meta","info":"warmup"}',
+        "",
+        'data: {"type":"chunk","text":"actual"}',
+        "",
+        "event: done",
+        'data: {"ok":true}',
+        "",
+    ]
+    client_cls, _ = _make_streaming_response_mock(200, sse)
+
+    async def collect() -> list[str]:
+        chunks: list[str] = []
+        async for c in adapter.conversational_stream(
+            [{"role": "user", "content": "hi"}],
+            system_prompt="",
+        ):
+            chunks.append(c)
+        return chunks
+
+    with patch("app.llm.adapters.cloud_proxy.httpx.AsyncClient", client_cls):
+        result = asyncio.run(collect())
+    assert result == ["actual"]
+
+
 # ------------------------------------------------------------------- ping
 
 
@@ -296,6 +433,10 @@ if __name__ == "__main__":
     test_chat_raises_on_http_error_status()
     test_chat_raises_when_response_ok_false()
     test_conversational_stream_yields_single_chunk()
+    test_conversational_stream_yields_each_chunk_when_streaming_enabled()
+    test_conversational_stream_raises_on_error_event()
+    test_conversational_stream_raises_on_http_error_when_streaming()
+    test_conversational_stream_skips_non_chunk_messages()
     test_classify_intent_returns_parsed_json()
     test_classify_intent_raises_on_invalid_json()
     test_generate_structured_includes_schema_hint()
