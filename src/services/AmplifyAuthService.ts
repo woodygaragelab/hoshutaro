@@ -2,6 +2,7 @@ import {
   signIn,
   signUp,
   confirmSignUp,
+  confirmSignIn,
   resendSignUpCode,
   resetPassword,
   confirmResetPassword,
@@ -37,6 +38,15 @@ export type AuthenticatedUser = {
 export const AmplifyAuthService = {
   async signIn(email: string, password: string) {
     return signIn({ username: email, password });
+  },
+
+  /**
+   * MFA 設定済ユーザの signIn 完了処理。signIn() が
+   * nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE' を返した場合、
+   * TOTP 6 桁コードを渡してこの関数を呼ぶ。
+   */
+  async confirmMfaSignIn(code: string) {
+    return confirmSignIn({ challengeResponse: code });
   },
 
   async signUp(
