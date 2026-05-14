@@ -14,6 +14,7 @@ import {
   updatePassword,
   updateUserAttributes,
 } from 'aws-amplify/auth';
+import { getUserManagementUrl } from './amplifyConfig';
 
 export type AuthenticatedUser = {
   userId: string;
@@ -119,5 +120,64 @@ export const AmplifyAuthService = {
         ...(attrs.familyName !== undefined ? { family_name: attrs.familyName } : {}),
       },
     });
+  },
+
+  /**
+   * user-management Lambda (Function URL) を呼ぶ薄いラッパ。
+   * - exportData: { ok: true, action, exportedAt, data: { ... } }
+   * - deleteAccount: { ok: true, action }
+   *
+   * 失敗時 (HTTP !=2xx / fetch エラー / endpoint 未設定) は Error を throw。
+   * 呼び出し側で `mapAuthError` などで日本語化して表示する。
+   */
+  async callUserManagement(
+    action: 'deleteAccount' | 'exportData',
+  ): Promise<{
+    ok: true;
+    action: 'deleteAccount' | 'exportData';
+    exportedAt?: string;
+    data?: unknown;
+  }> {
+    const url = getUserManagementUrl();
+    if (!url) {
+      throw new Error(
+        'user-management エンドポイントが未設定です (amplify_outputs.json 不在)。',
+      );
+    }
+
+    const session = await fetchAuthSession();
+    const token = session.tokens?.accessToken?.toString();
+    if (!token) {
+      throw new Error('アクセストークンを取得できません。再ログインしてください。');
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action }),
+    });
+
+    if (!response.ok) {
+      let detail: { code?: string; message?: string } = {};
+      try {
+        detail = (await response.json()) as { code?: string; message?: string };
+      } catch {
+        // ignore JSON parse error
+      }
+      const suffix = detail.message ? ` — ${detail.message}` : '';
+      throw new Error(
+        `user-management ${action} HTTP ${response.status}${suffix}`,
+      );
+    }
+
+    return (await response.json()) as {
+      ok: true;
+      action: 'deleteAccount' | 'exportData';
+      exportedAt?: string;
+      data?: unknown;
+    };
   },
 };

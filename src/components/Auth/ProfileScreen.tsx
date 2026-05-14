@@ -4,6 +4,11 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   Stack,
   TextField,
@@ -61,6 +66,18 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
     string | null
   >(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  // Data export
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+
+  // Account deletion (2-step confirmation)
+  const [deleteStage, setDeleteStage] = useState<'idle' | 'confirm1' | 'confirm2'>(
+    'idle',
+  );
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (!user) {
     return (
@@ -121,6 +138,52 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
         setPasswordError(mapAuthError(err));
       })
       .finally(() => setPasswordSaving(false));
+  }
+
+  function handleExport() {
+    setExportError(null);
+    setExportSuccess(null);
+    setExporting(true);
+    void AmplifyAuthService.callUserManagement('exportData')
+      .then((result) => {
+        // Trigger a browser download of the JSON payload.
+        const filename = `hoshutaro-user-data-${new Date()
+          .toISOString()
+          .replace(/[:.]/g, '-')}.json`;
+        const blob = new Blob([JSON.stringify(result, null, 2)], {
+          type: 'application/json',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setExportSuccess(`データを ${filename} としてダウンロードしました。`);
+      })
+      .catch((err: unknown) => {
+        setExportError(mapAuthError(err));
+      })
+      .finally(() => setExporting(false));
+  }
+
+  function handleDelete() {
+    setDeleteError(null);
+    setDeleting(true);
+    void AmplifyAuthService.callUserManagement('deleteAccount')
+      .then(() => {
+        // Cognito user は削除済。サインアウトでローカル session を破棄し、
+        // AuthGuard が LoginScreen に切替える。
+        setDeleteStage('idle');
+        void signOut();
+        onClose();
+      })
+      .catch((err: unknown) => {
+        setDeleteError(mapAuthError(err));
+      })
+      .finally(() => setDeleting(false));
   }
 
   return (
@@ -260,6 +323,60 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
 
       <Divider />
 
+      <Box>
+        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          データ管理
+        </Typography>
+        {exportError && (
+          <Alert severity="error" sx={{ mb: 2 }} role="alert" aria-live="polite">
+            {exportError}
+          </Alert>
+        )}
+        {exportSuccess && (
+          <Alert severity="success" sx={{ mb: 2 }} role="status" aria-live="polite">
+            {exportSuccess}
+          </Alert>
+        )}
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          UserSettings / LLMSettings / SyncMetadata のクラウド保存内容を JSON で
+          ダウンロードします。
+        </Typography>
+        <Button
+          variant="outlined"
+          onClick={handleExport}
+          disabled={exporting}
+          startIcon={
+            exporting ? <CircularProgress size={14} color="inherit" /> : null
+          }
+        >
+          {exporting ? 'エクスポート中…' : 'データをエクスポート'}
+        </Button>
+      </Box>
+
+      <Divider />
+
+      <Box>
+        <Typography variant="subtitle1" sx={{ mb: 1 }} color="error">
+          アカウント削除
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Cognito アカウントと、クラウドに保存されている全データを完全に削除します。
+          この操作は取り消せません。
+        </Typography>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={() => {
+            setDeleteError(null);
+            setDeleteStage('confirm1');
+          }}
+        >
+          アカウントを削除…
+        </Button>
+      </Box>
+
+      <Divider />
+
       <Stack
         direction="row"
         justifyContent="space-between"
@@ -280,6 +397,68 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
           閉じる
         </Button>
       </Stack>
+
+      <Dialog
+        open={deleteStage !== 'idle'}
+        onClose={() => {
+          if (!deleting) setDeleteStage('idle');
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        {deleteStage === 'confirm1' && (
+          <>
+            <DialogTitle>アカウント削除の確認 (1/2)</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                {user.email} のアカウントを削除しようとしています。クラウド上の
+                UserSettings / LLMSettings / SyncMetadata は <strong>すべて完全に削除</strong>
+                され、復元できません。本当に続行しますか?
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDeleteStage('idle')}>キャンセル</Button>
+              <Button
+                color="error"
+                onClick={() => setDeleteStage('confirm2')}
+              >
+                次へ
+              </Button>
+            </DialogActions>
+          </>
+        )}
+        {deleteStage === 'confirm2' && (
+          <>
+            <DialogTitle>アカウント削除の最終確認 (2/2)</DialogTitle>
+            <DialogContent>
+              <DialogContentText sx={{ mb: 2 }}>
+                これが最終確認です。「アカウントを削除する」を押すと即座に削除処理が
+                実行されます。
+              </DialogContentText>
+              {deleteError && (
+                <Alert severity="error" sx={{ mb: 2 }} role="alert" aria-live="polite">
+                  {deleteError}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDeleteStage('idle')} disabled={deleting}>
+                キャンセル
+              </Button>
+              <Button
+                color="error"
+                onClick={handleDelete}
+                disabled={deleting}
+                startIcon={
+                  deleting ? <CircularProgress size={14} color="inherit" /> : null
+                }
+              >
+                {deleting ? '削除中…' : 'アカウントを削除する'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Stack>
   );
 }

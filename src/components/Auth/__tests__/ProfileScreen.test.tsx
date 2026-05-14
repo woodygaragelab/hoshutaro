@@ -8,11 +8,14 @@ jest.mock('../../../hooks/useAuth', () => ({
 
 const updateProfileMock = jest.fn();
 const updateUserPasswordMock = jest.fn();
+const callUserManagementMock = jest.fn();
 jest.mock('../../../services/AmplifyAuthService', () => ({
   AmplifyAuthService: {
     updateProfile: (attrs: { givenName?: string }) => updateProfileMock(attrs),
     updateUserPassword: (oldPassword: string, newPassword: string) =>
       updateUserPasswordMock(oldPassword, newPassword),
+    callUserManagement: (action: 'deleteAccount' | 'exportData') =>
+      callUserManagementMock(action),
   },
 }));
 
@@ -172,5 +175,113 @@ describe('ProfileScreen', () => {
     const { onClose } = setup();
     await user.click(screen.getByRole('button', { name: '閉じる' }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------- data export
+
+  it('exports data as a JSON download and shows the resulting filename', async () => {
+    const exportResult = {
+      ok: true,
+      action: 'exportData',
+      exportedAt: '2026-05-13T00:00:00Z',
+      data: { userSettings: { theme: 'dark' }, llmSettings: null, syncMetadata: [] },
+    };
+    callUserManagementMock.mockResolvedValueOnce(exportResult);
+
+    // Stub the URL + anchor APIs touched by handleExport
+    const createObjectURL = jest.fn(() => 'blob:fake');
+    const revokeObjectURL = jest.fn();
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    const clickSpy = jest
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole('button', { name: 'データをエクスポート' }));
+
+    await waitFor(() =>
+      expect(callUserManagementMock).toHaveBeenCalledWith('exportData'),
+    );
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:fake');
+    expect(
+      await screen.findByText(/hoshutaro-user-data-.*\.json.*ダウンロード/),
+    ).toBeInTheDocument();
+
+    clickSpy.mockRestore();
+  });
+
+  it('surfaces export errors via the alert', async () => {
+    callUserManagementMock.mockRejectedValueOnce({ name: 'LimitExceededException' });
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole('button', { name: 'データをエクスポート' }));
+    expect(await screen.findByText(/試行が多すぎます/)).toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------- account deletion
+
+  it('walks through the 2-step delete confirmation and calls user-management', async () => {
+    callUserManagementMock.mockResolvedValueOnce({ ok: true, action: 'deleteAccount' });
+    const user = userEvent.setup();
+    const { signOut, onClose } = setup();
+
+    // Step 0 → step 1
+    await user.click(screen.getByRole('button', { name: 'アカウントを削除…' }));
+    expect(
+      await screen.findByText(/アカウント削除の確認 \(1\/2\)/),
+    ).toBeInTheDocument();
+
+    // Step 1 → step 2
+    await user.click(screen.getByRole('button', { name: '次へ' }));
+    expect(
+      await screen.findByText(/アカウント削除の最終確認 \(2\/2\)/),
+    ).toBeInTheDocument();
+
+    // Step 2 → confirm
+    await user.click(screen.getByRole('button', { name: 'アカウントを削除する' }));
+
+    await waitFor(() =>
+      expect(callUserManagementMock).toHaveBeenCalledWith('deleteAccount'),
+    );
+    expect(signOut).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows an error and stays on step 2 if delete fails', async () => {
+    callUserManagementMock.mockRejectedValueOnce(
+      new Error('user-management deleteAccount HTTP 502'),
+    );
+    const user = userEvent.setup();
+    const { signOut, onClose } = setup();
+
+    await user.click(screen.getByRole('button', { name: 'アカウントを削除…' }));
+    await user.click(screen.getByRole('button', { name: '次へ' }));
+    await user.click(screen.getByRole('button', { name: 'アカウントを削除する' }));
+
+    expect(
+      await screen.findByText(/user-management deleteAccount HTTP 502/),
+    ).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('allows the user to cancel from the 2-step delete dialog', async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(screen.getByRole('button', { name: 'アカウントを削除…' }));
+    const cancelButtons = screen.getAllByRole('button', { name: 'キャンセル' });
+    await user.click(cancelButtons[0]);
+    expect(callUserManagementMock).not.toHaveBeenCalled();
   });
 });
