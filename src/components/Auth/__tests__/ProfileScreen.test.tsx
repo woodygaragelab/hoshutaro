@@ -9,6 +9,8 @@ jest.mock('../../../hooks/useAuth', () => ({
 const updateProfileMock = jest.fn();
 const updateUserPasswordMock = jest.fn();
 const callUserManagementMock = jest.fn();
+const fetchMfaStatusMock = jest.fn();
+const disableMfaMock = jest.fn();
 jest.mock('../../../services/AmplifyAuthService', () => ({
   AmplifyAuthService: {
     updateProfile: (attrs: { givenName?: string }) => updateProfileMock(attrs),
@@ -16,6 +18,8 @@ jest.mock('../../../services/AmplifyAuthService', () => ({
       updateUserPasswordMock(oldPassword, newPassword),
     callUserManagement: (action: 'deleteAccount' | 'exportData') =>
       callUserManagementMock(action),
+    fetchMfaStatus: () => fetchMfaStatusMock(),
+    disableMfa: () => disableMfaMock(),
   },
 }));
 
@@ -51,6 +55,8 @@ function setup(authOverrides: Partial<ReturnType<typeof useAuthMock>> = {}) {
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: MFA disabled (most existing tests are for non-MFA flows)
+    fetchMfaStatusMock.mockResolvedValue({ enabled: false, preferred: null });
   });
 
   it('renders the user email and pre-fills given name', () => {
@@ -158,7 +164,10 @@ describe('ProfileScreen', () => {
   it('fires onMfaSetupRequested when the MFA button is clicked', async () => {
     const user = userEvent.setup();
     const { onMfaSetupRequested } = setup();
-    await user.click(screen.getByRole('button', { name: 'MFA を設定' }));
+    // MFA 状態 fetch 完了 (= 「MFA を設定」ボタン出現) を待ってからクリック
+    await user.click(
+      await screen.findByRole('button', { name: 'MFA を設定' }),
+    );
     expect(onMfaSetupRequested).toHaveBeenCalled();
   });
 
@@ -283,5 +292,84 @@ describe('ProfileScreen', () => {
     const cancelButtons = screen.getAllByRole('button', { name: 'キャンセル' });
     await user.click(cancelButtons[0]);
     expect(callUserManagementMock).not.toHaveBeenCalled();
+  });
+
+  // ----------------------------------------------------- MFA status (Slice 5-C)
+
+  it('shows "MFA を設定" button when MFA is disabled', async () => {
+    fetchMfaStatusMock.mockResolvedValueOnce({ enabled: false, preferred: null });
+    setup();
+    expect(
+      await screen.findByRole('button', { name: 'MFA を設定' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('profile-disable-mfa')).not.toBeInTheDocument();
+  });
+
+  it('shows "MFA を無効化…" button when MFA is enabled', async () => {
+    fetchMfaStatusMock.mockResolvedValueOnce({ enabled: true, preferred: 'TOTP' });
+    setup();
+    expect(await screen.findByTestId('profile-disable-mfa')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'MFA を設定' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/ログイン時に TOTP コードが必要/),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a warning when fetchMfaStatus fails, falling back to disabled state', async () => {
+    fetchMfaStatusMock.mockRejectedValueOnce({ name: 'LimitExceededException' });
+    setup();
+    expect(
+      await screen.findByText(/MFA 状態の取得に失敗しました/),
+    ).toBeInTheDocument();
+    // フォールバックで「MFA を設定」ボタンを表示 (再有効化を試せるように)
+    expect(screen.getByRole('button', { name: 'MFA を設定' })).toBeInTheDocument();
+  });
+
+  it('walks through the 2-step MFA disable confirmation and calls disableMfa', async () => {
+    fetchMfaStatusMock.mockResolvedValueOnce({ enabled: true, preferred: 'TOTP' });
+    disableMfaMock.mockResolvedValueOnce(undefined);
+    // 無効化後の再 fetch で disabled に切り替わる
+    fetchMfaStatusMock.mockResolvedValueOnce({ enabled: false, preferred: null });
+
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(await screen.findByTestId('profile-disable-mfa'));
+    expect(
+      await screen.findByText(/MFA 無効化の確認 \(1\/2\)/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '次へ' }));
+    expect(
+      await screen.findByText(/MFA 無効化の最終確認 \(2\/2\)/),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('profile-disable-mfa-confirm'));
+
+    await waitFor(() => expect(disableMfaMock).toHaveBeenCalled());
+    expect(
+      await screen.findByText(/MFA を無効化しました/),
+    ).toBeInTheDocument();
+    // UI が disabled 状態に切替: 「MFA を設定」ボタンが現れる
+    expect(
+      await screen.findByRole('button', { name: 'MFA を設定' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error and stays on step 2 when disableMfa fails', async () => {
+    fetchMfaStatusMock.mockResolvedValueOnce({ enabled: true, preferred: 'TOTP' });
+    disableMfaMock.mockRejectedValueOnce({ name: 'NotAuthorizedException' });
+
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(await screen.findByTestId('profile-disable-mfa'));
+    await user.click(await screen.findByRole('button', { name: '次へ' }));
+    await user.click(screen.getByTestId('profile-disable-mfa-confirm'));
+
+    expect(
+      await screen.findByText(/メールまたはパスワードが正しくありません/),
+    ).toBeInTheDocument();
+    // ボタンはまだ disable できる状態 (= 2/2 タイトルが残っている)
+    expect(screen.getByText(/MFA 無効化の最終確認 \(2\/2\)/)).toBeInTheDocument();
   });
 });

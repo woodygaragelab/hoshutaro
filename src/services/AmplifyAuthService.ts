@@ -14,6 +14,8 @@ import {
   verifyTOTPSetup,
   updatePassword,
   updateUserAttributes,
+  fetchMFAPreference,
+  updateMFAPreference,
 } from 'aws-amplify/auth';
 import { getUserManagementUrl } from './amplifyConfig';
 
@@ -117,6 +119,29 @@ export const AmplifyAuthService = {
 
   async verifyMfaSetup(code: string) {
     return verifyTOTPSetup({ code });
+  },
+
+  /**
+   * 現在のユーザーの MFA 設定状況を取得する。
+   * aws-amplify v6 の `fetchMFAPreference` を `{ enabled: boolean, preferred?: string }`
+   * の簡易形に正規化して返す。
+   */
+  async fetchMfaStatus(): Promise<{ enabled: boolean; preferred: string | null }> {
+    const pref = await fetchMFAPreference();
+    // 例: { enabled: ['TOTP'], preferred: 'TOTP' } / { enabled: [], preferred: undefined }
+    const enabledList = Array.isArray(pref.enabled) ? pref.enabled : [];
+    return {
+      enabled: enabledList.length > 0,
+      preferred: pref.preferred ?? (enabledList[0] ?? null),
+    };
+  },
+
+  /**
+   * TOTP MFA を無効化する。aws-amplify v6 の `updateMFAPreference({ totp: 'DISABLED' })`
+   * を呼ぶ。本実装では preferredMFA も 'NOMFA' 相当 (= 何も preferred にしない) に。
+   */
+  async disableMfa() {
+    return updateMFAPreference({ totp: 'DISABLED' });
   },
 
   async updateUserPassword(oldPassword: string, newPassword: string) {

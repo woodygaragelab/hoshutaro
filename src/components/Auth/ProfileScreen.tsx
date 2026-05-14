@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   Alert,
   Box,
@@ -78,6 +78,33 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
   );
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // MFA status (Slice 5-C)
+  const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null);
+  const [mfaStatusError, setMfaStatusError] = useState<string | null>(null);
+  const [mfaDisableStage, setMfaDisableStage] = useState<
+    'idle' | 'confirm1' | 'confirm2'
+  >('idle');
+  const [mfaDisabling, setMfaDisabling] = useState(false);
+  const [mfaDisableError, setMfaDisableError] = useState<string | null>(null);
+  const [mfaDisableSuccess, setMfaDisableSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void AmplifyAuthService.fetchMfaStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setMfaEnabled(status.enabled);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setMfaStatusError(mapAuthError(err));
+        setMfaEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!user) {
     return (
@@ -184,6 +211,23 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
         setDeleteError(mapAuthError(err));
       })
       .finally(() => setDeleting(false));
+  }
+
+  function handleDisableMfa() {
+    setMfaDisableError(null);
+    setMfaDisableSuccess(null);
+    setMfaDisabling(true);
+    void AmplifyAuthService.disableMfa()
+      .then(() => AmplifyAuthService.fetchMfaStatus())
+      .then((status) => {
+        setMfaEnabled(status.enabled);
+        setMfaDisableStage('idle');
+        setMfaDisableSuccess('MFA を無効化しました。次回ログイン時から TOTP コードは不要です。');
+      })
+      .catch((err: unknown) => {
+        setMfaDisableError(mapAuthError(err));
+      })
+      .finally(() => setMfaDisabling(false));
   }
 
   return (
@@ -312,13 +356,52 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
         <Typography variant="subtitle1" sx={{ mb: 1 }}>
           多要素認証 (MFA)
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          TOTP 対応の認証アプリ (Google Authenticator など) を使ったログイン時の
-          追加認証を有効化できます。
-        </Typography>
-        <Button variant="outlined" onClick={onMfaSetupRequested}>
-          MFA を設定
-        </Button>
+        {mfaStatusError && (
+          <Alert severity="warning" sx={{ mb: 2 }} role="alert" aria-live="polite">
+            MFA 状態の取得に失敗しました: {mfaStatusError}
+          </Alert>
+        )}
+        {mfaDisableSuccess && (
+          <Alert severity="success" sx={{ mb: 2 }} role="status" aria-live="polite">
+            {mfaDisableSuccess}
+          </Alert>
+        )}
+        {mfaEnabled === null ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              MFA 状態を確認中…
+            </Typography>
+          </Box>
+        ) : mfaEnabled ? (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              現在の状態: <strong>有効</strong>。ログイン時に TOTP コードが必要です。
+            </Typography>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={() => {
+                setMfaDisableError(null);
+                setMfaDisableSuccess(null);
+                setMfaDisableStage('confirm1');
+              }}
+              data-testid="profile-disable-mfa"
+            >
+              MFA を無効化…
+            </Button>
+          </>
+        ) : (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              現在の状態: <strong>無効</strong>。TOTP 対応の認証アプリ
+              (Google Authenticator など) を使ったログイン時の追加認証を有効化できます。
+            </Typography>
+            <Button variant="outlined" onClick={onMfaSetupRequested}>
+              MFA を設定
+            </Button>
+          </>
+        )}
       </Box>
 
       <Divider />
@@ -454,6 +537,72 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
                 }
               >
                 {deleting ? '削除中…' : 'アカウントを削除する'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={mfaDisableStage !== 'idle'}
+        onClose={() => {
+          if (!mfaDisabling) setMfaDisableStage('idle');
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        {mfaDisableStage === 'confirm1' && (
+          <>
+            <DialogTitle>MFA 無効化の確認 (1/2)</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                MFA を無効化すると、次回ログインから TOTP コードの入力なしでサイン
+                インできるようになります。アカウントのセキュリティが**低下**します。
+                続行しますか?
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setMfaDisableStage('idle')}>キャンセル</Button>
+              <Button
+                color="warning"
+                onClick={() => setMfaDisableStage('confirm2')}
+              >
+                次へ
+              </Button>
+            </DialogActions>
+          </>
+        )}
+        {mfaDisableStage === 'confirm2' && (
+          <>
+            <DialogTitle>MFA 無効化の最終確認 (2/2)</DialogTitle>
+            <DialogContent>
+              <DialogContentText sx={{ mb: 2 }}>
+                これが最終確認です。「MFA を無効化する」を押すと TOTP 設定が削除
+                されます。あとから再度有効化することもできます。
+              </DialogContentText>
+              {mfaDisableError && (
+                <Alert severity="error" sx={{ mb: 2 }} role="alert" aria-live="polite">
+                  {mfaDisableError}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => setMfaDisableStage('idle')}
+                disabled={mfaDisabling}
+              >
+                キャンセル
+              </Button>
+              <Button
+                color="warning"
+                onClick={handleDisableMfa}
+                disabled={mfaDisabling}
+                startIcon={
+                  mfaDisabling ? <CircularProgress size={14} color="inherit" /> : null
+                }
+                data-testid="profile-disable-mfa-confirm"
+              >
+                {mfaDisabling ? '無効化中…' : 'MFA を無効化する'}
               </Button>
             </DialogActions>
           </>
