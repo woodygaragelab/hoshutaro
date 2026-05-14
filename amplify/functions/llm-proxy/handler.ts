@@ -199,7 +199,13 @@ async function invokeAnthropic(
   return { provider: 'anthropic', content, stopReason: message.stop_reason ?? undefined };
 }
 
-export const handler = async (
+/**
+ * Buffered (legacy) handler — Slice 3-A で初版実装したパス。各 Bedrock chunk を
+ * すべて待ってから 1 つの JSON で返す。本 Sprint (5) で **Lambda entry のデフォルト
+ * は streaming に切替**したが、テスト互換 / クライアントが SSE 未対応な場合の
+ * fallback のために残しておく。
+ */
+export const bufferedHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   // CORS preflight
@@ -426,11 +432,18 @@ export async function streamingHandlerImpl(
  *
  * deploy 時は backend.ts で
  *   `functionUrl: { invokeMode: RESPONSE_STREAM }` を設定済 (Slice 3-A)。
- * Lambda handler entry を `handler` → `streamingHandler` に切り替えるのは
- * Sprint 5 で sandbox 検証時に行う。
+ * Sprint 5 (Slice 5-A) で **Lambda の default `handler` export を streaming 版に
+ * 切替**。Streaming で問題が出た場合は `bufferedHandler` を一時的に entry に
+ * 戻すことで安全にロールバックできる。
  */
 export const streamingHandler =
   typeof (globalThis as { awslambda?: unknown }).awslambda !== 'undefined'
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (globalThis as any).awslambda.streamifyResponse(streamingHandlerImpl)
     : streamingHandlerImpl;
+
+/**
+ * Lambda runtime のデフォルト entry。Amplify Gen2 の `defineFunction` は
+ * `handler` 名の export を呼ぶため、これを streaming 版に解決する。
+ */
+export const handler = streamingHandler;

@@ -41,7 +41,7 @@ jest.mock('@anthropic-ai/sdk', () => {
 });
 
 import {
-  handler,
+  bufferedHandler,
   __resetLlmProxyClientsForTest,
 } from '../handler';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
@@ -120,10 +120,10 @@ afterAll(() => {
   process.env = ORIGINAL_ENV;
 });
 
-describe('llm-proxy handler', () => {
+describe('llm-proxy bufferedHandler (legacy)', () => {
   it('returns 401 when Authorization header is missing', async () => {
     const event = makeEvent({ headers: {} });
-    const result = await handler(event);
+    const result = await bufferedHandler(event);
     expect(result).toMatchObject({ statusCode: 401 });
     const body = JSON.parse((result as { body: string }).body);
     expect(body).toEqual({
@@ -136,20 +136,20 @@ describe('llm-proxy handler', () => {
 
   it('returns 401 when JWT verification fails', async () => {
     verifyMock.mockRejectedValueOnce(new Error('invalid signature'));
-    const result = await handler(makeEvent());
+    const result = await bufferedHandler(makeEvent());
     expect(result).toMatchObject({ statusCode: 401 });
   });
 
   it('returns 400 when body is not valid JSON', async () => {
     verifyMock.mockResolvedValueOnce({ sub: 'u-1' });
-    const result = await handler(makeEvent({ body: '{not json' }));
+    const result = await bufferedHandler(makeEvent({ body: '{not json' }));
     expect(result).toMatchObject({ statusCode: 400 });
     expect(JSON.parse((result as { body: string }).body).code).toBe('BAD_REQUEST');
   });
 
   it('returns 400 when model or messages are missing', async () => {
     verifyMock.mockResolvedValueOnce({ sub: 'u-1' });
-    const result = await handler(
+    const result = await bufferedHandler(
       makeEvent({ body: JSON.stringify({ messages: [] }) }),
     );
     expect(result).toMatchObject({ statusCode: 400 });
@@ -161,7 +161,7 @@ describe('llm-proxy handler', () => {
       body: makeBedrockChunks('Hello, world!', 'end_turn'),
     });
 
-    const result = await handler(makeEvent());
+    const result = await bufferedHandler(makeEvent());
 
     expect(result).toMatchObject({ statusCode: 200 });
     const body = JSON.parse((result as { body: string }).body);
@@ -183,7 +183,7 @@ describe('llm-proxy handler', () => {
       stop_reason: 'end_turn',
     });
 
-    const result = await handler(makeEvent());
+    const result = await bufferedHandler(makeEvent());
     expect(result).toMatchObject({ statusCode: 200 });
     const body = JSON.parse((result as { body: string }).body);
     expect(body).toEqual({
@@ -200,7 +200,7 @@ describe('llm-proxy handler', () => {
     bedrockSendMock.mockRejectedValueOnce(new Error('Throttled'));
     anthropicCreateMock.mockRejectedValueOnce(new Error('Rate limit'));
 
-    const result = await handler(makeEvent());
+    const result = await bufferedHandler(makeEvent());
     expect(result).toMatchObject({ statusCode: 502 });
     const body = JSON.parse((result as { body: string }).body);
     expect(body.code).toBe('BEDROCK_AND_FALLBACK_FAILED');
@@ -211,7 +211,7 @@ describe('llm-proxy handler', () => {
   it('rejects unknown model IDs before calling either provider when both fail to resolve', async () => {
     verifyMock.mockResolvedValueOnce({ sub: 'u-1' });
     // Both providers will throw "Unknown model" since the map doesn't contain it.
-    const result = await handler(
+    const result = await bufferedHandler(
       makeEvent({
         body: JSON.stringify({
           model: 'not_a_model',
@@ -343,5 +343,45 @@ describe('llm-proxy streamingHandlerImpl', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0].data.code).toBe('BEDROCK_STREAM_FAILED');
     expect(errors[0].data.message).toMatch(/AccessDeniedException/);
+  });
+});
+
+// Slice 5-A: Lambda の default `handler` export が streaming 版に解決されることを確認
+import { handler, streamingHandler } from '../handler';
+
+describe('llm-proxy default handler export (Slice 5-A)', () => {
+  it('handler resolves to streamingHandler (default entry switched to streaming)', () => {
+    expect(handler).toBe(streamingHandler);
+  });
+
+  it('default handler is callable with a ResponseStream (delegates to streamingHandlerImpl in tests)', async () => {
+    verifyMock.mockResolvedValueOnce({ sub: 'u-1' });
+    bedrockSendMock.mockResolvedValueOnce({
+      body: (async function* () {
+        yield {
+          chunk: {
+            bytes: new TextEncoder().encode(
+              JSON.stringify({ type: 'content_block_delta', delta: { text: 'ok' } }),
+            ),
+          },
+        };
+        yield {
+          chunk: {
+            bytes: new TextEncoder().encode(
+              JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }),
+            ),
+          },
+        };
+      })(),
+    });
+
+    const { stream, chunks, isEnded } = makeFakeStream();
+    // awslambda が undefined のローカル/Jest 環境では handler === streamingHandlerImpl
+    // (= 通常の async function) を呼べる
+    await (handler as unknown as typeof streamingHandlerImpl)(makeEvent(), stream);
+
+    expect(isEnded()).toBe(true);
+    const parsed = parseSseChunks(chunks);
+    expect(parsed[0].data).toEqual({ type: 'chunk', text: 'ok' });
   });
 });
