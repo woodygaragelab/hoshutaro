@@ -186,7 +186,7 @@ describe('LoginScreen', () => {
     await user.type(screen.getByLabelText(/パスワード/), 'AnyPass1!aaaa');
     await user.click(screen.getByRole('button', { name: 'ログイン' }));
     expect(
-      await screen.findByText(/未対応の認証チャレンジ.*CONFIRM_SIGN_IN_WITH_SMS_CODE/),
+      await screen.findByText(/未対応の認証方式が必要です/),
     ).toBeInTheDocument();
   });
 });

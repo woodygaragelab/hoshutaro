@@ -88,11 +88,7 @@ export function LoginScreen({
           return;
         }
         // 未対応 challenge (SMS / password reset 強制 / MFA 種類選択 等)
-        setError(
-          step
-            ? `未対応の認証チャレンジ (${step}) が必要です。Sprint 5 以降で対応予定です。`
-            : '未対応の認証チャレンジが必要です。',
-        );
+        setError('未対応の認証方式が必要です。サポートに連絡してください。');
       })
       .catch((err: unknown) => {
         if (isUserNotConfirmedError(err)) {

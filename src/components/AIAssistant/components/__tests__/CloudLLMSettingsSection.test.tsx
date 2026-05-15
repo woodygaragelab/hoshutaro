@@ -79,7 +79,7 @@ describe('CloudLLMSettingsSection', () => {
         'cloud_claude_3_5_sonnet',
       ),
     );
-    expect(screen.getByLabelText(/MTP.*有効化/)).toBeChecked();
+    expect(screen.getByLabelText(/LLM 高速化/)).toBeChecked();
   });
 
   it('falls back to DEFAULTS when the cloud record does not exist yet', async () => {
@@ -88,7 +88,7 @@ describe('CloudLLMSettingsSection', () => {
     await waitFor(() =>
       expect(screen.getByTestId('cloud-llm-preferred-model')).toHaveValue(''),
     );
-    expect(screen.getByLabelText(/MTP.*有効化/)).not.toBeChecked();
+    expect(screen.getByLabelText(/LLM 高速化/)).not.toBeChecked();
   });
 
   it('calls updateAsync with selected preferredModel and mtpEnabled on save', async () => {
@@ -107,7 +107,7 @@ describe('CloudLLMSettingsSection', () => {
     await user.click(
       await screen.findByRole('option', { name: 'Claude 3 Haiku (クラウド)' }),
     );
-    await user.click(screen.getByLabelText(/MTP.*有効化/));
+    await user.click(screen.getByLabelText(/LLM 高速化/));
     await user.click(screen.getByRole('button', { name: 'クラウド設定を保存' }));
 
     await waitFor(() =>

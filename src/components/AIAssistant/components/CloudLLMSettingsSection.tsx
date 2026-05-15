@@ -158,10 +158,19 @@ export function CloudLLMSettingsSection() {
             <Switch
               checked={mtpEnabled}
               onChange={(e) => setMtpEnabled(e.target.checked)}
+              inputProps={{ 'aria-describedby': 'cloud-llm-mtp-caption' }}
             />
           }
-          label="MTP (Speculative Decoding) を有効化"
+          label="LLM 高速化 (推奨)"
         />
+        <Typography
+          id="cloud-llm-mtp-caption"
+          variant="caption"
+          color="text.secondary"
+          sx={{ mt: -1, ml: 4.5 }}
+        >
+          対応モデルで応答が最大 3 倍速くなります。
+        </Typography>
         <Button
           type="submit"
           variant="outlined"

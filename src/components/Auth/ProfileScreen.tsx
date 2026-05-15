@@ -420,8 +420,7 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
           </Alert>
         )}
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          UserSettings / LLMSettings / SyncMetadata のクラウド保存内容を JSON で
-          ダウンロードします。
+          アカウント設定とクラウド同期データを JSON でダウンロードします。
         </Typography>
         <Button
           variant="outlined"
@@ -442,7 +441,7 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
           アカウント削除
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Cognito アカウントと、クラウドに保存されている全データを完全に削除します。
+          アカウントと、クラウドに保存されている全データを完全に削除します。
           この操作は取り消せません。
         </Typography>
         <Button
@@ -494,7 +493,7 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
             <DialogContent>
               <DialogContentText>
                 {user.email} のアカウントを削除しようとしています。クラウド上の
-                UserSettings / LLMSettings / SyncMetadata は <strong>すべて完全に削除</strong>
+                アカウント設定とクラウド同期データは <strong>すべて完全に削除</strong>
                 され、復元できません。本当に続行しますか?
               </DialogContentText>
             </DialogContent>

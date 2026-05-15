@@ -501,7 +501,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                   <div className="hover-menu-vertical plugin-menu-override">
                     <div className="menu-item" onClick={() => { setIsSettingsOpen(true); setShowToolsMenu(false); }}>LLM設定</div>
                     <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
-                    <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>MCP管理</div>
+                    <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>プラグイン管理</div>
                     <div className="menu-item" onClick={() => { onKnowledgeBase?.(); setShowToolsMenu(false); }}>ナレッジベース</div>
                     <div className="menu-separator" />
                     <div
