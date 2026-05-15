@@ -197,24 +197,29 @@ npm run build   # tsc -b && vite build
 
 次の候補:
 
-1. **🥇 Track D 実 AWS deploy 検証** — コードは Sprint 1-5 で完全実装済だが、`npx ampx sandbox` での実 AWS deploy は未実施。ユーザー環境で AWS credential + `ampx sandbox` 起動 → Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし、ブラウザでサインアップ→確認→ログイン→MFA→クラウド LLM 呼出→エクスポート→削除の一連を E2E 確認。
+1. **🥇 Sprint 6: UI デザイン設計書整備 + 一貫性監査 + Polish** — Track E (Tauri) 着手前の UI 品質保証。Track D の認証画面で内部用語 (`"Sprint 5..."` / `"MTP"` / DynamoDB テーブル名) や dead UI (LoginScreen の `rememberMe`、AgentBar の「外部連携」placeholder)、`useUserSettings` hook の UI 未配線 など 12+ 件の問題が顕在化済。
+   - 構成: Phase 0 (docs 同期) → Phase 1A (`docs/10_UI_DESIGN_SYSTEM.md`) → Phase 1B (`docs/9_UI_AUDIT.md`) → **🔵 ユーザーレビュー** → Phase 2-4 (修正 PR) → Phase 5 (docs 更新)
+   - 詳細: [docs/8_TRACK_D_SPRINT_PLAN.md §Sprint 6](docs/8_TRACK_D_SPRINT_PLAN.md)、`.claude/plans/hoshutaro-project-curious-flute.md` (worktree)
+   - ブロッカー: なし (実 AWS deploy 不要、ローカル `npm run dev` で完結)
+
+2. **Track D 実 AWS deploy 検証** — コードは Sprint 1-5 で完全実装済だが、`npx ampx sandbox` での実 AWS deploy は未実施。ユーザー環境で AWS credential + `ampx sandbox` 起動 → Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし、ブラウザでサインアップ→確認→ログイン→MFA→クラウド LLM 呼出→エクスポート→削除の一連を E2E 確認。
    - 作業: `aws configure` で IAM credentials 設定、`npx ampx sandbox`、`amplify_outputs.json` 生成、テストアカウントで全機能手動確認
    - ブロッカー: AWS アカウント (個人開発は無料枠内、Bedrock のみ region 制約あり)
 
-2. **Track B-Verify: 実機動作確認** — コードは完全に揃っているが、Gemma 4 E2B モデルでの実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。
+3. **Track B-Verify: 実機動作確認** — コードは完全に揃っているが、Gemma 4 E2B モデルでの実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。
    - 作業: PEFT + PyTorch + transformers + datasets 依存インストール、Gemma 4 E2B-it / -it-assistant モデル DL + 量子化、OpenVINO 経由 MTP ベンチマーク、LoRA SFT 動作確認（100ペア × 1epoch）
    - ブロッカー: HuggingFace Token 取得、Intel Arc GPU 推奨（CPU だと遅い）
 
-3. **Track D 本番化** (Sprint 5 残作業): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch Logs + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、Maximo 実 API 接続 (VPC Lambda + Secrets Manager 経由 basic auth)、段階リリース計画 (社内ベータ → 制限付き一般 → 公開)。
+4. **Track D 本番化** (Sprint 5 残作業): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch Logs + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、Maximo 実 API 接続 (VPC Lambda + Secrets Manager 経由 basic auth)、段階リリース計画 (社内ベータ → 制限付き一般 → 公開)。
    - すべて実 AWS 環境必須。コード基盤は CDK overrides + IAM ポリシー stub で揃っている。
 
-4. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。
+5. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。**Sprint 6 で UI 設計書を整備してから着手することで Tauri パッケージ化後の手戻りを回避**。
 
-5. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
+6. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
 
-6. **Track C: モノレポ化**（pnpm workspace）— **Track D/E 着手後** が合理的（package 境界の手戻り回避）
+7. **Track C: モノレポ化**（pnpm workspace）— **Track D/E 着手後** が合理的（package 境界の手戻り回避）
 
-7. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
+8. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
 
 ---
 

@@ -212,6 +212,50 @@ bundle 影響: App-*.js が gzip 136 → 173 KB (+37 KB)。`amplify/data/resourc
 
 ---
 
+### Sprint 6: UI デザイン設計書整備 + 一貫性監査 + Polish 🟡 計画策定済 (2026-05-14)
+
+**位置づけ**: Track E (Tauri Desktop) 着手前に、Track D で追加した UI + 既存 UI 全体の品質を点検する一時 Sprint。実 AWS deploy 不要、ローカル `npm run dev` + `amplify_outputs.json` 不在環境で完結。
+
+**動機**:
+- Track D Sprint 1-5 で 7 認証画面 + ProfileScreen + CloudLLMSettingsSection を追加したが、内部用語の漏出 (`"Sprint 5..."` / `"MTP (Speculative Decoding)"` / DynamoDB テーブル名) や dead UI (LoginScreen の `rememberMe`、AgentBar の「外部連携」placeholder) が混入している
+- `useUserSettings` (theme/language/mfaEnabled) hook は実装済だが UI 配線がゼロ
+- 既存 UI (Plugin Manager / Skill Runner / KnowledgeBase 9 画面) も同種の問題を抱える可能性
+- **デザイン設計書 (Single Source of Truth) が存在せず**、新 UI 追加のたびに暗黙ルールが揺らぐリスク
+
+**Phase 構成** (PR は 1 Slice = 1 PR、squash-merge、stack は短く):
+| Phase | PR | 内容 | コード変更 |
+|---:|---:|---|---|
+| 0 | S6-0 | 本ファイルに Sprint 6 を追記 (本 PR) | docs only |
+| 1A | S6-1A | `docs/10_UI_DESIGN_SYSTEM.md` 新規作成 — デザイン原則 / トーン / 用語マッピング表 / コンポーネントパターン / アクセシビリティ / 新 UI 追加 checklist を明文化 | docs only |
+| 1B | S6-1B | `docs/9_UI_AUDIT.md` 新規作成 — 設計書を判定基準に Track D + 既存 UI を点検、P0/P1/P2 分類 | docs only |
+| **🔵 Review** | — | **ユーザーレビューゲート** (設計書・監査結果・用語マッピングを確認、修正方針承認) | — |
+| 2A-D | S6-2A〜D | Track D 致命修正 P0 (内部用語言い換え / dead UI 除去 / LLM モデル選択 UX / 過剰文言) | コード |
+| 3A | S6-3A | `useUserSettings.theme` を ProfileScreen に配線 (Light/Dark RadioGroup + ThemeProvider 結線) | コード |
+| 4A-D | S6-4A〜D | 既存 UI 修正 (PluginManager / SkillRunner / KnowledgeBase / AgentBar・LLMSettingsDialog の構造改善) | コード |
+| 5 | S6-5 | HANDOFF / docs/8 / docs/9 / docs/10 を Sprint 6 完了状態に更新 | docs only |
+
+**修正対象** (Phase 2-4 で確定):
+- `src/components/Auth/LoginScreen.tsx` — Sprint 5 言及・rememberMe 除去・subtitle 整理
+- `src/components/Auth/ProfileScreen.tsx` — 内部用語・MFA 説明・Theme セクション追加
+- `src/components/Auth/MfaSetupScreen.tsx` — subtitle 整理
+- `src/components/AIAssistant/components/CloudLLMSettingsSection.tsx` — MTP 言い換え・Select 化
+- `src/components/AgentBar/AgentBar.tsx` — 「外部連携」placeholder 削除
+- 既存 UI: `PluginManager.tsx` / `SkillRunner.tsx` / `KnowledgeBase/*.tsx` / `LLMSettingsDialog.tsx`
+
+**範囲外** (= Track E 以降):
+- デスクトップ専用 UX (タイトルバー、ウィンドウサイズ記憶、自動更新通知 UI)
+- 実 AWS deploy 検証 / Gemma 4 E2B 実機ベンチ / i18n 本実装
+
+**完了条件**:
+- `docs/10_UI_DESIGN_SYSTEM.md` がユーザー承認済
+- `docs/9_UI_AUDIT.md` の P0 問題が全て解消
+- `useUserSettings.theme` UI 配線完了
+- CI green (lint / test / build) 維持
+
+**詳細プラン**: `.claude/plans/hoshutaro-project-curious-flute.md` (worktree 経由のみ、本リポにはコピー無し)
+
+---
+
 ## 3. Sprint 1 詳細タスク分解 (実装着手用)
 
 ### Task 1.1: `amplify/auth/resource.ts` 拡張
