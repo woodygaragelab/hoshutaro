@@ -101,7 +101,7 @@ export function RuleEditor({ organization }: Props) {
     <Box>
       <SectionHeader
         title="ルール編集"
-        description="フェーズ1 で蒸留されたルールの手動補正、新規追加、有効/無効切替。"
+        description="パイプラインで抽出されたルールの手動補正、新規追加、有効/無効切替。"
         action={
           <Button
             variant="contained"
@@ -118,7 +118,7 @@ export function RuleEditor({ organization }: Props) {
         <TextField
           select
           size="small"
-          label="task_type フィルタ"
+          label="タスク種別フィルタ"
           value={taskFilter}
           onChange={(e) => setTaskFilter(e.target.value as TaskTypeFilter)}
           sx={{ minWidth: 240 }}
@@ -315,7 +315,7 @@ function CreateRuleDialog({
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <TextField
             select
-            label="task_type"
+            label="タスク種別"
             value={taskType}
             onChange={(e) => setTaskType(e.target.value)}
             fullWidth
@@ -328,7 +328,7 @@ function CreateRuleDialog({
             ))}
           </TextField>
           <TextField
-            label="instruction_text（必須）"
+            label="指示文（必須）"
             placeholder="LLM 向け自然言語指示"
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
@@ -339,7 +339,7 @@ function CreateRuleDialog({
             required
           />
           <TextField
-            label="regex_pattern（任意）"
+            label="正規表現パターン（任意）"
             placeholder="例: ^EQ\\d+$"
             value={regex}
             onChange={(e) => setRegex(e.target.value)}
@@ -348,7 +348,7 @@ function CreateRuleDialog({
             slotProps={{ input: { sx: { fontFamily: 'monospace' } } }}
           />
           <TextField
-            label="confidence"
+            label="信頼度"
             type="number"
             value={confidence}
             onChange={(e) => setConfidence(Math.max(0, Math.min(1, Number(e.target.value) || 0)))}

@@ -50,13 +50,13 @@ export function Dashboard({ organization }: DashboardProps) {
         description={
           organization
             ? `組織 "${organization}" のナレッジ蓄積状況`
-            : 'Project Mu 全層の統計サマリ。30秒ごとに自動更新します。'
+            : 'ナレッジベースの統計サマリ。30秒ごとに自動更新します。'
         }
       />
 
       {!loading && health && !health.ok && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Mu サブシステムの一部が利用できません。詳細はヘルスチェックを確認してください。
+          一部の機能が利用できません。詳細はヘルスチェックを確認してください。
         </Alert>
       )}
 
