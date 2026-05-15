@@ -6,6 +6,32 @@ jest.mock('../../../hooks/useAuth', () => ({
   useAuth: () => useAuthMock(),
 }));
 
+// Theme + UserSettings (Sprint 6 Phase 3A)
+const setThemeMock = jest.fn();
+let useThemeReturn: { mode: 'light' | 'dark'; setTheme: typeof setThemeMock } = {
+  mode: 'dark',
+  setTheme: setThemeMock,
+};
+jest.mock('../../../providers/ThemeProvider', () => ({
+  useTheme: () => useThemeReturn,
+}));
+
+const updateUserSettingsMock = jest.fn().mockResolvedValue(undefined);
+let useUserSettingsReturn: {
+  settings: { theme: 'light' | 'dark'; language: string; mfaEnabled: boolean } | null | undefined;
+  updateAsync: typeof updateUserSettingsMock;
+  isUpdating: boolean;
+  updateError: Error | null;
+} = {
+  settings: null,
+  updateAsync: updateUserSettingsMock,
+  isUpdating: false,
+  updateError: null,
+};
+jest.mock('../../../hooks/useUserSettings', () => ({
+  useUserSettings: () => useUserSettingsReturn,
+}));
+
 const updateProfileMock = jest.fn();
 const updateUserPasswordMock = jest.fn();
 const callUserManagementMock = jest.fn();
@@ -57,6 +83,15 @@ describe('ProfileScreen', () => {
     jest.clearAllMocks();
     // Default: MFA disabled (most existing tests are for non-MFA flows)
     fetchMfaStatusMock.mockResolvedValue({ enabled: false, preferred: null });
+    // Default theme/userSettings stubs (reset shared state)
+    useThemeReturn = { mode: 'dark', setTheme: setThemeMock };
+    useUserSettingsReturn = {
+      settings: null,
+      updateAsync: updateUserSettingsMock,
+      isUpdating: false,
+      updateError: null,
+    };
+    updateUserSettingsMock.mockResolvedValue(undefined);
   });
 
   it('renders the user email and pre-fills given name', () => {
@@ -371,5 +406,71 @@ describe('ProfileScreen', () => {
     ).toBeInTheDocument();
     // ボタンはまだ disable できる状態 (= 2/2 タイトルが残っている)
     expect(screen.getByText(/MFA 無効化の最終確認 \(2\/2\)/)).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------- theme (3A)
+
+  it('renders Theme section with light/dark radio buttons (current mode preselected)', () => {
+    useThemeReturn = { mode: 'light', setTheme: setThemeMock };
+    setup();
+    expect(screen.getByText('外観 (Theme)')).toBeInTheDocument();
+    const lightRadio = screen.getByTestId('profile-theme-light').querySelector('input');
+    const darkRadio = screen.getByTestId('profile-theme-dark').querySelector('input');
+    expect(lightRadio).toBeChecked();
+    expect(darkRadio).not.toBeChecked();
+  });
+
+  it('calls setTheme + updateUserSettings when switching theme', async () => {
+    useThemeReturn = { mode: 'dark', setTheme: setThemeMock };
+    const user = userEvent.setup();
+    setup();
+    const lightRadio = screen
+      .getByTestId('profile-theme-light')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(lightRadio);
+    expect(setThemeMock).toHaveBeenCalledWith('light');
+    await waitFor(() =>
+      expect(updateUserSettingsMock).toHaveBeenCalledWith({ theme: 'light' }),
+    );
+  });
+
+  it('does nothing when clicking the already-selected theme radio', async () => {
+    useThemeReturn = { mode: 'dark', setTheme: setThemeMock };
+    const user = userEvent.setup();
+    setup();
+    const darkRadio = screen
+      .getByTestId('profile-theme-dark')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(darkRadio); // already 'dark'
+    expect(setThemeMock).not.toHaveBeenCalled();
+    expect(updateUserSettingsMock).not.toHaveBeenCalled();
+  });
+
+  it('auto-syncs theme from cloud on initial fetch if it differs from local', async () => {
+    // localStorage 経由で local mode = 'light' だが、cloud に 'dark' が保存されている想定
+    useThemeReturn = { mode: 'light', setTheme: setThemeMock };
+    useUserSettingsReturn = {
+      settings: { theme: 'dark', language: 'ja', mfaEnabled: false },
+      updateAsync: updateUserSettingsMock,
+      isUpdating: false,
+      updateError: null,
+    };
+    setup();
+    await waitFor(() => expect(setThemeMock).toHaveBeenCalledWith('dark'));
+    // updateAsync は呼ばれない (cloud → local の sync は read-only)
+    expect(updateUserSettingsMock).not.toHaveBeenCalled();
+  });
+
+  it('surfaces themeUpdateError as a warning Alert', () => {
+    useUserSettingsReturn = {
+      settings: null,
+      updateAsync: updateUserSettingsMock,
+      isUpdating: false,
+      updateError: new Error('Network down'),
+    };
+    setup();
+    expect(
+      screen.getByText(/クラウドへの保存に失敗しました: Network down/),
+    ).toBeInTheDocument();
   });
 });

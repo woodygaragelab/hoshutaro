@@ -10,12 +10,18 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
+  FormControl,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import { AmplifyAuthService } from '../../services/AmplifyAuthService';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../providers/ThemeProvider';
+import { useUserSettings } from '../../hooks/useUserSettings';
 import { mapAuthError } from './authErrors';
 import {
   formatPasswordRequirements,
@@ -88,6 +94,29 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
   const [mfaDisabling, setMfaDisabling] = useState(false);
   const [mfaDisableError, setMfaDisableError] = useState<string | null>(null);
   const [mfaDisableSuccess, setMfaDisableSuccess] = useState<string | null>(null);
+
+  // Theme (Sprint 6 Phase 3A): ローカル ThemeProvider と DynamoDB UserSettings を結線。
+  // 認証済みの ProfileScreen からのみ操作可能、未認証時の localStorage 切替は
+  // ThemeProvider 単独で処理される。
+  const { mode, setTheme } = useTheme();
+  const {
+    settings: userSettings,
+    updateAsync: updateUserSettings,
+    isUpdating: isThemeSaving,
+    updateError: themeUpdateError,
+  } = useUserSettings();
+  const [themeSyncedFromCloud, setThemeSyncedFromCloud] = useState(false);
+
+  // 初回 fetch: クラウド側 theme が現在の mode と異なる場合、クラウド側を採用
+  // (cross-device 同期)。一度だけ実行、以後はユーザー操作のみで更新する。
+  useEffect(() => {
+    if (themeSyncedFromCloud) return;
+    if (userSettings === undefined) return; // fetch 中
+    if (userSettings && userSettings.theme !== mode) {
+      setTheme(userSettings.theme);
+    }
+    setThemeSyncedFromCloud(true);
+  }, [userSettings, mode, setTheme, themeSyncedFromCloud]);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,6 +257,17 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
         setMfaDisableError(mapAuthError(err));
       })
       .finally(() => setMfaDisabling(false));
+  }
+
+  // テーマ切替: ローカル ThemeProvider (即時視覚反映 + localStorage) と
+  // DynamoDB UserSettings (cross-device 同期) の両方を更新する。
+  // クラウド側書込みは失敗しても視覚切替は維持する (再ログイン時に再 sync 可能)。
+  function handleThemeChange(next: 'light' | 'dark') {
+    if (next === mode) return;
+    setTheme(next);
+    void updateUserSettings({ theme: next }).catch(() => {
+      // updateError は useUserSettings.updateError として Alert 表示済
+    });
   }
 
   return (
@@ -401,6 +441,47 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
             </Button>
           </>
         )}
+      </Box>
+
+      <Divider />
+
+      <Box>
+        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          外観 (Theme)
+        </Typography>
+        {themeUpdateError && (
+          <Alert severity="warning" sx={{ mb: 2 }} role="alert" aria-live="polite">
+            クラウドへの保存に失敗しました: {themeUpdateError.message}
+          </Alert>
+        )}
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          表示テーマを切り替えます。ログイン中はアカウント全体に同期されます。
+        </Typography>
+        <FormControl>
+          <RadioGroup
+            row
+            aria-label="表示テーマ"
+            value={mode}
+            onChange={(e) =>
+              handleThemeChange(e.target.value === 'dark' ? 'dark' : 'light')
+            }
+          >
+            <FormControlLabel
+              value="light"
+              control={<Radio size="small" />}
+              label="ライト"
+              disabled={isThemeSaving}
+              data-testid="profile-theme-light"
+            />
+            <FormControlLabel
+              value="dark"
+              control={<Radio size="small" />}
+              label="ダーク"
+              disabled={isThemeSaving}
+              data-testid="profile-theme-dark"
+            />
+          </RadioGroup>
+        </FormControl>
       </Box>
 
       <Divider />
