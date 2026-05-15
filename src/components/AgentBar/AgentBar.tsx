@@ -500,10 +500,10 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 {showToolsMenu && (
                   <div className="hover-menu-vertical plugin-menu-override">
                     <div className="menu-item" onClick={() => { setIsSettingsOpen(true); setShowToolsMenu(false); }}>LLM設定</div>
-                    <div className="menu-item" onClick={() => { alert('Maximo等の外部API連携設定画面（準備中）'); setShowToolsMenu(false); }}>外部連携</div>
                     <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
                     <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>MCP管理</div>
                     <div className="menu-item" onClick={() => { onKnowledgeBase?.(); setShowToolsMenu(false); }}>ナレッジベース</div>
+                    <div className="menu-separator" />
                     <div
                       className="menu-item"
                       onClick={() => {

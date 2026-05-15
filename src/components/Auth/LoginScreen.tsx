@@ -3,9 +3,7 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   CircularProgress,
-  FormControlLabel,
   Link,
   Stack,
   TextField,
@@ -46,7 +44,6 @@ export function LoginScreen({
   // ----- credentials stage -----
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -228,15 +225,6 @@ export function LoginScreen({
             autoComplete="current-password"
             required
             fullWidth
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-            }
-            label="ログインを保持する"
           />
           <Button
             type="submit"
