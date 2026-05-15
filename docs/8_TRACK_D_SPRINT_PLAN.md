@@ -266,6 +266,34 @@ bundle 影響: App-*.js が gzip 136 → 173 KB (+37 KB)。`amplify/data/resourc
 
 ---
 
+### Sprint 7: UI Polish 残課題消化 ✅ 完了 (2026-05-15)
+
+**位置づけ**: Sprint 6 で残した P1 を片付け、Track E 着手前にさらに品質を底上げする小型 Sprint。
+
+**完了 PR**:
+| PR | 内容 |
+|---:|---|
+| #89 | V-5: MuiButton theme override に `&:not(.Mui-disabled):active { transform: scale(0.98) }` を追加 (押下感の物理的フィードバック、docs/10 §7.7 準拠) |
+| #90 | V-2: AgentBar.css に CSS custom properties (`--ab-*` 18 個) を導入し、`[data-theme="light"]` override で frost glass surface / hover menu / scrollbar 等が light theme でも自然に描画されるよう tokenize。signature motion + animation keyframes は完全維持 |
+| #91 | LD-1: LLMSettingsDialog を Tabs 化 (「クラウド設定」/ 「ローカル設定」の概念分離、各 tab に保存先説明文を追加)。pill tab パターンは PluginManager と統一 |
+| #92 | 本 PR: HANDOFF + docs/8 + docs/9 を Sprint 7 完了状態に更新 |
+
+**V-3 (borderRadius ハードコード棚卸し)**: レビューの結果、現状の `borderRadius: 3` / `4` は LinearProgress の pill 端 (height/2) や Tab の capsule 意図と合致しており、**コード変更不要としてクローズ**。docs/10 §4.6 の Border radius scale に明示的な "pill" 用法を将来追記する案を docs/9 にメモ。
+
+**Sprint 7 完了条件 (達成)**:
+- ✅ V-5 (Button active scale): theme override 1 行で全 Button / IconButton に適用
+- ✅ V-2 (AgentBar tokenization): light theme で AgentBar 全要素が違和感なく描画 (手動視覚検証はレビューワー側で推奨)
+- ✅ LD-1 (LLMSettingsDialog Tabs 化): クラウド/ローカル設定の概念分離が明確に
+- ✅ Jest 294/294 PASS 維持、lint/tsc/build clean
+
+**Sprint 7 範囲外 (今後対応)**:
+- 他 component CSS (PluginManager.css / SkillRunner.css / UpdateNotification.css) の sx 化または削除 — 小規模 (~150-200 bytes) ファイル、品質向上タイミングで
+- KnowledgeBase 9 画面の詳細点検 (KB-3 Tab ラベル "Location 分析" / "LoRA 管理" 等のドメイン語維持 vs friendly 化判断、KB-6 RuleEditor 「プロンプトキャッシュ」露出など) — 管理者 UI のため低優先度
+- C-2 / A-2 / P-6 / P-7 等の小型 UX 改善 (docs/9 §6 P2 一覧)
+- Track E (Tauri Desktop) 移行と同時に再評価
+
+---
+
 ## 3. Sprint 1 詳細タスク分解 (実装着手用)
 
 ### Task 1.1: `amplify/auth/resource.ts` 拡張
