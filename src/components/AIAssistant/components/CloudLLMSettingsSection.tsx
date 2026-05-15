@@ -1,25 +1,34 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
+  FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   Switch,
-  TextField,
   Typography,
+  type SelectChangeEvent,
 } from '@mui/material';
 
 /**
- * Sprint 3 で registry.py の LLM_MODELS に追加した cloud_proxy 経由モデル一覧。
- * Slice 3-D で `/api/llm/models` 等のエンドポイントから動的取得に切替予定。
- * 暫定で hard-code、freeSolo で他モデル ID も自由入力できる。
+ * クラウド LLM モデルのフレンドリー表示。
+ *
+ * - id: registry.py の LLM_MODELS キーと完全一致 (バックエンド側の解決用)
+ * - label: ユーザー向け表示名 (docs/10 §2 用語マッピング表に従い、内部 ID は隠す)
+ *
+ * 将来 `/api/llm/models` エンドポイントから動的取得に切替予定 (Slice 3-D 残)、
+ * 現状は hard-code。新モデル追加時は backend/app/llm/registry.py と本配列の両方を
+ * 更新する。
  */
-const KNOWN_CLOUD_MODELS = [
-  'cloud_claude_3_5_sonnet',
-  'cloud_claude_3_haiku',
+type CloudModelOption = { id: string; label: string };
+const CLOUD_MODEL_OPTIONS: readonly CloudModelOption[] = [
+  { id: 'cloud_claude_3_5_sonnet', label: 'Claude 3.5 Sonnet (クラウド)' },
+  { id: 'cloud_claude_3_haiku', label: 'Claude 3 Haiku (クラウド)' },
 ] as const;
 import { useAuth } from '../../../hooks/useAuth';
 import { useLLMSettings, type LLMSettingsData } from '../../../hooks/useLLMSettings';
@@ -121,27 +130,29 @@ export function CloudLLMSettingsSection() {
         </Alert>
       )}
       <Stack spacing={2}>
-        <Autocomplete
-          freeSolo
-          options={KNOWN_CLOUD_MODELS as unknown as string[]}
-          value={preferredModel}
-          onChange={(_, newValue) => setPreferredModel(newValue ?? '')}
-          onInputChange={(_, newInputValue) => setPreferredModel(newInputValue)}
-          size="small"
-          fullWidth
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="優先 LLM モデル"
-              placeholder="例: cloud_claude_3_5_sonnet"
-              helperText="ログイン中のアカウントで既定として使う LLM モデル ID。空欄なら未設定。"
-              inputProps={{
-                ...params.inputProps,
-                'data-testid': 'cloud-llm-preferred-model',
-              }}
-            />
-          )}
-        />
+        <FormControl size="small" fullWidth>
+          <InputLabel id="cloud-llm-preferred-model-label" shrink>
+            優先モデル
+          </InputLabel>
+          <Select
+            labelId="cloud-llm-preferred-model-label"
+            id="cloud-llm-preferred-model"
+            value={preferredModel}
+            label="優先モデル"
+            displayEmpty
+            onChange={(e: SelectChangeEvent) => setPreferredModel(e.target.value)}
+            inputProps={{ 'data-testid': 'cloud-llm-preferred-model' }}
+          >
+            <MenuItem value="">
+              <em>未設定</em>
+            </MenuItem>
+            {CLOUD_MODEL_OPTIONS.map((opt) => (
+              <MenuItem key={opt.id} value={opt.id}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <FormControlLabel
           control={
             <Switch

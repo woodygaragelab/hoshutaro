@@ -91,7 +91,7 @@ describe('CloudLLMSettingsSection', () => {
     expect(screen.getByLabelText(/MTP.*有効化/)).not.toBeChecked();
   });
 
-  it('calls updateAsync with trimmed preferredModel and mtpEnabled on save', async () => {
+  it('calls updateAsync with selected preferredModel and mtpEnabled on save', async () => {
     const updateAsync = jest.fn().mockResolvedValue(undefined);
     useLLMSettingsMock.mockReturnValue(
       defaultHookReturn({ settings: null, updateAsync }),
@@ -102,9 +102,10 @@ describe('CloudLLMSettingsSection', () => {
     await waitFor(() =>
       expect(screen.getByTestId('cloud-llm-preferred-model')).toBeInTheDocument(),
     );
-    await user.type(
-      screen.getByTestId('cloud-llm-preferred-model'),
-      '  cloud_claude_3_haiku  ',
+    // Open the Select dropdown and pick Claude 3 Haiku
+    await user.click(screen.getByRole('combobox', { name: /優先モデル/ }));
+    await user.click(
+      await screen.findByRole('option', { name: 'Claude 3 Haiku (クラウド)' }),
     );
     await user.click(screen.getByLabelText(/MTP.*有効化/));
     await user.click(screen.getByRole('button', { name: 'クラウド設定を保存' }));
