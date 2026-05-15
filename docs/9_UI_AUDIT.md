@@ -352,3 +352,4 @@ JSDoc 内の "Sprint X" / "Slice X-Y" 言及、Project Mu/Mu コードネーム�
 |---|---|
 | 2026-05-14 | 初版 (Sprint 6 Phase 1B、Track D + 既存 UI 全体監査、P0 11 件 + P1 17 件 + P2 多数を特定) |
 | 2026-05-15 | §4-bis 視覚スタイル横断課題を追加 (V-1 ~ V-5、index.css の !important / 独自 CSS / borderRadius ハードコード / active state 未実装)。P0 12 件 + P1 20 件に更新 |
+| 2026-05-15 (Sprint 6 完了) | **P0 全 12 件 + P1 主要 13 件を解消**。PR #80 (用語) / #81 (Dead UI) / #82 (Select 化) / #83 (過剰文言) / #84 (Theme + V-1) / #85 (PluginManager) / #86 (SkillRunner) / #87 (KnowledgeBase) で対応。残 P1: LD-1 (Tabs 化、構造変更大きく別 Sprint) / V-2 (CSS sx 化、Tauri と同時) / V-3 (borderRadius 棚卸し) / V-5 (Button active state、theme override 1 行)。Jest 289 → 294 件 (+5) |

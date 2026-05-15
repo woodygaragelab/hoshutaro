@@ -53,6 +53,7 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **Track D: Sprint 3 LLM 中継** | **Slice A-D (PR #67-#70) 完了**。`llm-proxy` Lambda (Bedrock Runtime + Anthropic Direct fallback + Cognito JWT)、`CloudProxyAdapter` 本実装 (httpx + SSE parser + retries)、registry.py に `cloud_claude_3_5_sonnet` / `cloud_claude_3_haiku` 追加、**真の SSE streaming** (Lambda streamifyResponse + adapter aiter_lines)。**Jest +24 件 (240 → 252)、Python +21 件** |
 | **Track D: Sprint 4 連携 + 管理** | **Slice A-C (PR #71-#73) 完了**。`user-management` Lambda (アカウント削除 + データエクスポート、Cognito AdminDeleteUser + DynamoDB batch delete)、ProfileScreen に「データをエクスポート」(Blob download) + 「アカウントを削除…」(2 段階 Dialog) を配線、`maximo-proxy` Lambda (mock 実装、実 API 接続は Sprint 5 NOT_IMPLEMENTED で残)。**Jest +24 件 (252 → 276)** |
 | **Track D: Sprint 5 本番化 + 残課題** | **Slice A-E (PR #74-#78) 完了**。Lambda llm-proxy default handler を streaming 版に切替 (buffered は bufferedHandler として ロールバック用に保持)、LoginScreen に MFA TOTP challenge flow (confirmSignIn 連携、2 stage inline)、ProfileScreen に MFA 無効化 UI (2 段階確認、`updateMFAPreference({ totp: 'DISABLED' })`)、bundle 最適化 (`auth-vendor` chunk 分離、index -38 KB / App -12 KB gzip)、HANDOFF / docs/8 ドキュメント更新 (本 PR #78)。**Jest +13 件 (276 → 289)**。**Track D 全 5 Sprint コード実装完了** |
+| **Sprint 6: UI Polish + 一貫性監査** | **Phase 0-5 (PR #79-#88) 完了**。**docs/10_UI_DESIGN_SYSTEM.md** (デザイン設計書 SoT、1,034 行) と **docs/9_UI_AUDIT.md** (UI 監査レポート、354 行) を新規作成 (#79)。docs/10 §2 用語マッピング表に従い内部用語 (Sprint X / MTP / DynamoDB テーブル名 / Cognito / MCP) を一掃 (#80)、Dead UI (rememberMe / 外部連携 placeholder) を除去 (#81)、LLM モデル選択を Autocomplete freeSolo → Select with friendly label に変更 (#82)、冗長 subtitle / TOTP 用語を整理 (#83)、**V-1 (index.css の `!important` global override で light theme が実質無効化されていた問題)** を解決し ProfileScreen に Theme UI 配線 (useUserSettings/ThemeProvider 結線、#84)、PluginManager の window.confirm → MUI Dialog 化 (#85)、SkillRunner のハードコード色を theme.palette 経由に (#86)、KnowledgeBase の Project Mu / DB カラム名 を friendly 日本語に置換 (#87)。**Jest +5 件 (289 → 294)**。P0 12 件 + P1 17 件のうち P0 全件 + P1 多数を解消 |
 
 ### ❌ 未着手 / 重い依存待ち
 | 項目 | ブロッカー |
@@ -194,17 +195,16 @@ npm run build   # tsc -b && vite build
 - ✅ **Plugin/MCP プラットフォーム全面導入**（mcp_hub.py / plugin_manager.py / skill_engine.py / OllamaAdapter / OpenVINOAdapter / 組込 Skill 3 種 / PluginManager UI / SkillRunner UI / UpdateNotification）
 - ✅ **技術負債削減完了**: 562 → 2 件、Jest 0 → 127 件、副次バグ修正 10+ 件、3 大ファイル（App.tsx / EMG / MGL）で `no-explicit-any` 完全 0 達成
 - ✅ **Track D 全 5 Sprint コード実装完了** (PR #57-#78): 認証 (Sprint 1) → データ (Sprint 2) → LLM 中継 (Sprint 3) → 連携・管理 (Sprint 4) → 本番化・残課題 (Sprint 5)。**Jest 127 → 289 件 (+162)**
+- ✅ **Sprint 6: UI デザイン設計書 + 一貫性監査 + Polish 完了** (PR #79-#88): docs/10_UI_DESIGN_SYSTEM.md (1,034 行) と docs/9_UI_AUDIT.md (354 行) を新規作成し、Track D + 既存 UI 全体の P0 12 件 + P1 多数を解消。V-1 (index.css の `!important` global override で light theme が実質無効化されていた問題) も解決。**Jest 289 → 294 件 (+5)**
 
 次の候補:
 
-1. **🥇 Sprint 6: UI デザイン設計書整備 + 一貫性監査 + Polish** — Track E (Tauri) 着手前の UI 品質保証。Track D の認証画面で内部用語 (`"Sprint 5..."` / `"MTP"` / DynamoDB テーブル名) や dead UI (LoginScreen の `rememberMe`、AgentBar の「外部連携」placeholder)、`useUserSettings` hook の UI 未配線 など 12+ 件の問題が顕在化済。
-   - 構成: Phase 0 (docs 同期) → Phase 1A (`docs/10_UI_DESIGN_SYSTEM.md`) → Phase 1B (`docs/9_UI_AUDIT.md`) → **🔵 ユーザーレビュー** → Phase 2-4 (修正 PR) → Phase 5 (docs 更新)
-   - 詳細: [docs/8_TRACK_D_SPRINT_PLAN.md §Sprint 6](docs/8_TRACK_D_SPRINT_PLAN.md)、`.claude/plans/hoshutaro-project-curious-flute.md` (worktree)
-   - ブロッカー: なし (実 AWS deploy 不要、ローカル `npm run dev` で完結)
-
-2. **Track D 実 AWS deploy 検証** — コードは Sprint 1-5 で完全実装済だが、`npx ampx sandbox` での実 AWS deploy は未実施。ユーザー環境で AWS credential + `ampx sandbox` 起動 → Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし、ブラウザでサインアップ→確認→ログイン→MFA→クラウド LLM 呼出→エクスポート→削除の一連を E2E 確認。
+1. **🥇 Track D 実 AWS deploy 検証** — コードは Sprint 1-5 で完全実装済だが、`npx ampx sandbox` での実 AWS deploy は未実施。ユーザー環境で AWS credential + `ampx sandbox` 起動 → Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし、ブラウザでサインアップ→確認→ログイン→MFA→クラウド LLM 呼出→エクスポート→削除の一連を E2E 確認。
    - 作業: `aws configure` で IAM credentials 設定、`npx ampx sandbox`、`amplify_outputs.json` 生成、テストアカウントで全機能手動確認
    - ブロッカー: AWS アカウント (個人開発は無料枠内、Bedrock のみ region 制約あり)
+
+2. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。Sprint 6 で docs/10 デザイン設計書が SoT として整ったため、Tauri 専用 UI 追加時の一貫性ブレを抑えられる。
+   - 注意: V-1 の修正で light theme が機能するようになったが、既存 UI コンポーネント (AgentBar.css の frost glass など) の一部は dark UI 前提のハードコード色が残る (docs/9 V-2)。Tauri 移行と同時に手動視覚検証を実施推奨
 
 3. **Track B-Verify: 実機動作確認** — コードは完全に揃っているが、Gemma 4 E2B モデルでの実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。
    - 作業: PEFT + PyTorch + transformers + datasets 依存インストール、Gemma 4 E2B-it / -it-assistant モデル DL + 量子化、OpenVINO 経由 MTP ベンチマーク、LoRA SFT 動作確認（100ペア × 1epoch）
@@ -215,11 +215,11 @@ npm run build   # tsc -b && vite build
 
 5. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。**Sprint 6 で UI 設計書を整備してから着手することで Tauri パッケージ化後の手戻りを回避**。
 
-6. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
+5. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
 
-7. **Track C: モノレポ化**（pnpm workspace）— **Track D/E 着手後** が合理的（package 境界の手戻り回避）
+6. **Track C: モノレポ化**（pnpm workspace）— **Track D/E 着手後** が合理的（package 境界の手戻り回避）
 
-8. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
+7. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
 
 ---
 
