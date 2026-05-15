@@ -143,7 +143,7 @@ export function LoginScreen({
     return (
       <AuthLayout
         title="多要素認証 (MFA)"
-        subtitle={`認証アプリで生成した 6 桁コードを入力してください (${email})`}
+        subtitle={`認証アプリの 6 桁コードを入力 (${email})`}
       >
         <Box component="form" onSubmit={handleMfaSubmit} noValidate>
           {mfaError && (
@@ -196,7 +196,7 @@ export function LoginScreen({
   }
 
   return (
-    <AuthLayout title="ログイン" subtitle="メールアドレスとパスワードでログイン">
+    <AuthLayout title="ログイン">
       <Box component="form" onSubmit={handleSubmit} noValidate>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} role="alert" aria-live="polite">

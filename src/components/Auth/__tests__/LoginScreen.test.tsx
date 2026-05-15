@@ -114,7 +114,7 @@ describe('LoginScreen', () => {
     setup();
     await signInTillMfaStage(user);
     expect(
-      await screen.findByText(/認証アプリで生成した 6 桁コード/),
+      await screen.findByText(/認証アプリの 6 桁コードを入力/),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/TOTP コード/)).toBeInTheDocument();
     // 元の credentials フォームは消える

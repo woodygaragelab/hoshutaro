@@ -311,7 +311,7 @@ describe('ProfileScreen', () => {
     expect(await screen.findByTestId('profile-disable-mfa')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'MFA を設定' })).not.toBeInTheDocument();
     expect(
-      screen.getByText(/ログイン時に TOTP コードが必要/),
+      screen.getByText(/ログイン時に認証アプリの 6 桁コードが必要/),
     ).toBeInTheDocument();
   });
 

@@ -84,7 +84,7 @@ export function SignUpScreen({ onGotoLogin, onSignUpSuccess }: Props) {
   }
 
   return (
-    <AuthLayout title="新規登録" subtitle="HOSHUTARO アカウントを作成します">
+    <AuthLayout title="新規登録">
       <Box component="form" onSubmit={handleSubmit} noValidate>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} role="alert" aria-live="polite">

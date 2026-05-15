@@ -376,7 +376,7 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
         ) : mfaEnabled ? (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              現在の状態: <strong>有効</strong>。ログイン時に TOTP コードが必要です。
+              現在の状態: <strong>有効</strong>。ログイン時に認証アプリの 6 桁コードが必要です。
             </Typography>
             <Button
               variant="outlined"
@@ -394,8 +394,7 @@ export function ProfileScreen({ onMfaSetupRequested, onClose }: Props) {
         ) : (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              現在の状態: <strong>無効</strong>。TOTP 対応の認証アプリ
-              (Google Authenticator など) を使ったログイン時の追加認証を有効化できます。
+              現在の状態: <strong>無効</strong>。ログイン時の追加認証を有効化できます。
             </Typography>
             <Button variant="outlined" onClick={onMfaSetupRequested}>
               MFA を設定

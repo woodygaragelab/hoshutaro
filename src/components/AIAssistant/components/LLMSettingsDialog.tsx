@@ -400,12 +400,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
 
         {settings.llm_adapter === 'gemini' && (
           <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
-            <Typography variant="body2" color="text.primary">
-              HOSHUTAROエージェント（Gemini）の設定です。
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              ※ 内部で最適化されたパラメータを使用するため、詳細設定は必要ありません。<br/>
-              ※ サブスクリプション化を見据え、APIキーの表示・編集は行えません。
+            <Typography variant="body2" color="text.secondary">
+              HOSHUTAROエージェントは追加設定不要で利用できます。
             </Typography>
           </Box>
         )}

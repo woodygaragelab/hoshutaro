@@ -92,8 +92,7 @@ export function MfaSetupScreen({ username, onSetupSuccess, onSkip, noLayout }: P
         )}
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            Google Authenticator、Microsoft Authenticator、1Password、Authy などの
-            TOTP 対応アプリを使用してください。
+            認証アプリ (Google Authenticator / Authy など) で 6 桁コードを生成します。
           </Typography>
 
           {loading ? (
@@ -189,10 +188,7 @@ export function MfaSetupScreen({ username, onSetupSuccess, onSkip, noLayout }: P
   }
 
   return (
-    <AuthLayout
-      title="多要素認証 (MFA) の設定"
-      subtitle="認証アプリで QR コードをスキャンして 6 桁コードを入力してください"
-    >
+    <AuthLayout title="多要素認証 (MFA) の設定" subtitle="認証アプリで QR をスキャン">
       {body}
     </AuthLayout>
   );
