@@ -55,6 +55,7 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **Track D: Sprint 5 本番化 + 残課題** | **Slice A-E (PR #74-#78) 完了**。Lambda llm-proxy default handler を streaming 版に切替 (buffered は bufferedHandler として ロールバック用に保持)、LoginScreen に MFA TOTP challenge flow (confirmSignIn 連携、2 stage inline)、ProfileScreen に MFA 無効化 UI (2 段階確認、`updateMFAPreference({ totp: 'DISABLED' })`)、bundle 最適化 (`auth-vendor` chunk 分離、index -38 KB / App -12 KB gzip)、HANDOFF / docs/8 ドキュメント更新 (本 PR #78)。**Jest +13 件 (276 → 289)**。**Track D 全 5 Sprint コード実装完了** |
 | **Sprint 6: UI Polish + 一貫性監査** | **Phase 0-5 (PR #79-#88) 完了**。**docs/10_UI_DESIGN_SYSTEM.md** (デザイン設計書 SoT、1,034 行) と **docs/9_UI_AUDIT.md** (UI 監査レポート、354 行) を新規作成 (#79)。docs/10 §2 用語マッピング表に従い内部用語 (Sprint X / MTP / DynamoDB テーブル名 / Cognito / MCP) を一掃 (#80)、Dead UI (rememberMe / 外部連携 placeholder) を除去 (#81)、LLM モデル選択を Autocomplete freeSolo → Select with friendly label に変更 (#82)、冗長 subtitle / TOTP 用語を整理 (#83)、**V-1 (index.css の `!important` global override で light theme が実質無効化されていた問題)** を解決し ProfileScreen に Theme UI 配線 (useUserSettings/ThemeProvider 結線、#84)、PluginManager の window.confirm → MUI Dialog 化 (#85)、SkillRunner のハードコード色を theme.palette 経由に (#86)、KnowledgeBase の Project Mu / DB カラム名 を friendly 日本語に置換 (#87)。**Jest +5 件 (289 → 294)**。P0 12 件 + P1 17 件のうち P0 全件 + P1 多数を解消 |
 | **Sprint 7: UI Polish 残課題消化** | **PR #89-#92 完了**。残 P1 を片付けて Track E 着手前の品質をさらに底上げ: V-5 (#89) MuiButton theme override に `&:not(.Mui-disabled):active { transform: scale(0.98) }` 追加で押下感を統一、V-2 (#90) AgentBar.css に CSS custom properties (`--ab-*` 18 個) を導入し `[data-theme="light"]` override で frost glass surface / hover menu / scrollbar 等が light theme でも自然に描画されるよう tokenize、LD-1 (#91) LLMSettingsDialog を Tabs 化 (クラウド設定 / ローカル設定の概念分離 + 各タブに保存先説明追加)、V-3 はレビューの結果 borderRadius のハードコードはすべて pill capsule の意図と合致しているため**コード変更不要としてクローズ**。**Jest 294/294 維持** |
+| **Track E: Sprint 0 設計フェーズ** | **完了 (2026-05-16)**。Track E (~3-4 週間) を **「モノレポ化 + マルチターゲット配布」** として再計画し Sprint 計画ドキュメント **docs/11_TRACK_E_SPRINT_PLAN.md** を作成。コンセプトは「アプリ本体を 1 リポジトリから AWS にもデスクトップにも柔軟にビルド・配布でき、更新もワンクリック」。**旧 Track C (モノレポ化) を Track E に統合・廃止**。設計判断: `apps/` (Web/desktop シェル) + `packages/app` (共有 UI) + `core/` (旧 backend、Python エンジン) + `amplify/` (据え置き) の **npm workspaces 構成** / Tauri 2.x / `core` は sidecar (desktop) + コンテナ (AWS) / ML 重依存は非同梱で初回 DL / Tauri Updater + minisign / 3 OS 署名。Sprint 1-4 ロードマップ + Sprint 1 (モノレポ移行) 詳細タスク分解 (Slice 1-A〜1-F) + リスク表を整備。`npm run dev` 等の開発フロー保全を Sprint 1 検収条件に明記 |
 
 ### ❌ 未着手 / 重い依存待ち
 | 項目 | ブロッカー |
@@ -63,8 +64,7 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **B-Verify**: Track B 実モデル動作確認（Gemma 4 E2B 推論ベンチマーク・MTP accept rate 測定） | OpenVINO 依存 + モデルダウンロード + HuggingFace Token |
 | **Track D 実 AWS deploy 検証**: `npx ampx sandbox` で Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし E2E 確認 | AWS アカウント + IAM credentials。コードは Sprint 1-5 で完全実装済 (PR #57-#78) |
 | **Track D 本番化** (Sprint 5 残): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、Maximo 実 API 接続 (VPC Lambda + Secrets Manager)、段階リリース計画 | 実 AWS 環境 + Maximo 社内ネットワーク。コード基盤は揃っている (CDK overrides + IAM ポリシー stub 配置済) |
-| Track E: Tauri Desktop（PyOxidizer + 自動更新 + CodeSigning） | Rust、各 OS 証明書、~3-4週間 |
-| Track C: モノレポ化（pnpm workspace） | 大規模リファクタ。**Track D/E が走り始めて 2 つ目以降の app/lambda/desktop が出てから** が合理的（早すぎる package 境界は手戻り発生）。~4-6週間 |
+| Track E: モノレポ化 + マルチターゲット配布（Tauri desktop + AWS / 自動更新 / CodeSigning） | Rust、各 OS 証明書、~3-4週間。**Sprint 0 設計完了** ([docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md))、次は Sprint 1 (モノレポ骨格への移行)。**旧 Track C を統合済** |
 
 ### ⚠️ 残技術負債（小規模、優先度低）
 本セッションで 562 → **2 件**まで削減完了。残りは意図的保留:
@@ -205,7 +205,7 @@ npm run build   # tsc -b && vite build
    - 作業: `aws configure` で IAM credentials 設定、`npx ampx sandbox`、`amplify_outputs.json` 生成、テストアカウントで全機能手動確認
    - ブロッカー: AWS アカウント (個人開発は無料枠内、Bedrock のみ region 制約あり)
 
-2. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。Sprint 6 で docs/10 デザイン設計書が SoT として整ったため、Tauri 専用 UI 追加時の一貫性ブレを抑えられる。
+2. **Track E: モノレポ化 + マルチターゲット配布** — ~3-4週間。**Sprint 0 設計フェーズ完了** ([docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md))。コンセプトは「アプリ本体を 1 リポジトリから AWS にもデスクトップにも柔軟にビルド・配布、更新もワンクリック」。**旧 Track C (モノレポ化) を統合済**。**次は Sprint 1 (モノレポ骨格への移行)** — `apps/` (web/desktop シェル) + `packages/app` (共有 UI、旧 `src/`) + `core/` (旧 `backend/`) の npm workspaces 構成へ再編。Web ビルド・テスト・`npm run dev` を壊さず移行。Sprint 2 = Tauri desktop シェル + core sidecar 化、Sprint 3 = マルチターゲット配布 + 自動更新、Sprint 4 = コード署名 + リリース CI + レガシー除去。
    - 注意: V-1 の修正で light theme が機能するようになったが、既存 UI コンポーネント (AgentBar.css の frost glass など) の一部は dark UI 前提のハードコード色が残る (docs/9 V-2)。Tauri 移行と同時に手動視覚検証を実施推奨
 
 3. **Track B-Verify: 実機動作確認** — コードは完全に揃っているが、Gemma 4 E2B モデルでの実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。
@@ -215,11 +215,11 @@ npm run build   # tsc -b && vite build
 4. **Track D 本番化** (Sprint 5 残作業): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch Logs + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、Maximo 実 API 接続 (VPC Lambda + Secrets Manager 経由 basic auth)、段階リリース計画 (社内ベータ → 制限付き一般 → 公開)。
    - すべて実 AWS 環境必須。コード基盤は CDK overrides + IAM ポリシー stub で揃っている。
 
-5. **Track E: Tauri Desktop** — ~3-4週間。PyOxidizer + 自動更新 + CodeSigning。配布形態として一本化必須。**Sprint 6 で UI 設計書を整備してから着手することで Tauri パッケージ化後の手戻りを回避**。
+5. **Track E: モノレポ化 + マルチターゲット配布** — 上記 #2 参照 (Sprint 0 完了、計画は docs/11)。
 
 5. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
 
-6. **Track C: モノレポ化**（pnpm workspace）— **Track D/E 着手後** が合理的（package 境界の手戻り回避）
+6. ~~**Track C: モノレポ化**~~ — **Track E に統合・廃止** (docs/11)。デスクトップという 2 つ目のターゲットが出る Track E が再編のトリガであるため、独立 Track にせず Track E Sprint 1 で実施
 
 7. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
 
