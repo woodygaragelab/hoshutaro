@@ -8,7 +8,11 @@
 ## 1. プロジェクト要約（30秒で把握）
 
 **HOSHUTARO 次世代版**（コードネーム **Project Mu** / 別名 **KASE**）：
-非構造化な機器台帳（Excel/CSV）を **Gemma 4 E2B-it + MTP drafter（Speculative Decoding）+ SQLite 長期メモリ + LoRA 自律進化** で高精度・高速に JSON 化するオフライン・エッジエンジン。
+Excel で管理されてきた機器仕様・保全履歴（非構造化データ＝暗黙知）と Maximo の構造化データをマージし、**Excel に埋もれた暗黙知の価値を未来へつなぐ**保全管理アプリ。
+
+**主な機能**: ① Maximo API 経由のデータ DL/UL、② Excel データの構造化（JSON 化）、③ 統合データに基づく将来保全計画の高精度推論、④ 星取表 UI による保全現場垂涎の UX。
+
+**処理規模の前提**: 5 万件超の機器仕様の構造化、5 万件の保全履歴からの将来計画推論。大量処理は LLM を闇雲に呼ばず、決定的処理優先の 3 フェーズパイプラインで対応する（技術基盤: Gemma 4 E2B-it + MTP drafter + SQLite 長期メモリ + LoRA 自律進化）。
 
 ### 核となる4つのコア価値
 1. **インテリジェントマージ** (Maximo × Excel) — AI 支援判定 + 自己進化する長期メモリ
@@ -17,15 +21,34 @@
 4. **メンテナンス性 → 迅速なアップデート提供** — 責務分離、用語統一、プラグイン拡張、自動更新
 
 ### 主要設計判断（合意済、変更時はこの章を更新）
-- 配布: **Tauri Desktop 一本化**（Web 版は廃止予定）
+- **配布: 1 つの Tauri Desktop アプリに一本化**（Web 版は廃止予定）
+- **動作は 2 モード**: ローカルモード（未ログイン・無料）/ クラウドモード（ログイン・課金）。詳細は直下「ローカル/クラウド 2モードアーキテクチャ」
 - バックエンド: **クラウド最小（サーバレス）** — Cognito + Lambda + DynamoDB + S3 のみ
-- データ: **ローカル SQLite が主**、クラウドは認証 + ユーザー設定同期 + LLM 中継のみ
-- LLM: **`google/gemma-4-E2B-it`（target）+ `google/gemma-4-E2B-it-assistant`（MTP drafter）**
+- データ: **ローカル SQLite が主**。価値の源泉である保全データ（Excel 暗黙知 + 星取表）は両モードとも端末内に留まる。クラウドが保持するのは認証 + ユーザー設定 + 利用量のみ
+- ローカル LLM: **`google/gemma-4-E2B-it`（target）+ `google/gemma-4-E2B-it-assistant`（MTP drafter）**
   - MTP デフォルト ON、最大 3x 高速化、出力品質劣化なし
   - 配布: **初回起動時ダウンロード**（Tauri 本体 ~50MB、モデル ~1.8GB）
-  - クラウド大規模 LLM は計画立案など限定用途のみ（Lambda 経由従量課金）
+- クラウド LLM: **AWS Bedrock 専用**（Claude 主軸）を `llm-proxy` Lambda 経由で提供。Bedrock 採用理由 = IAM 認証で LLM API キーをどこにも保存しない・請求を AWS に一本化・Batch Inference / プロンプトキャッシュが利用可能。外部 API（Gemini / OpenAI）の直叩きはしない
+- Maximo 連携: **`core` エンジンが Maximo REST API に直接接続**（両モード共通、ページング取得）。Maximo 認証情報は端末ローカルに暗号化保存
 - LoRA: training_cache に user_confirmed=1 が 100件超で自動学習、PEFT + Intel Arc GPU
 - 用語: ユーザー対外は **Plugin / Skill の 2 概念のみ**、内部詳細（MCP / Adapter / Orchestrator）は隠す
+
+### ローカル/クラウド 2モードアーキテクチャ（合意済）
+
+HOSHUTARO = **1 つの Tauri アプリ** + **ローカル `core` エンジン（常に sidecar として端末で動作）** + **AWS バックエンド（`amplify/`、クラウドモードでのみ使用）**。
+
+| 観点 | ローカルモード | クラウドモード |
+|---|---|---|
+| 認証 | 不要（起動して即利用） | 必須（Cognito ログイン） |
+| LLM | Gemma 4 + MTP（`core` 内、無料） | AWS Bedrock（Claude 主軸）を `llm-proxy` Lambda 経由 |
+| Maximo API | `core` が Maximo REST に直接ページング接続 | ←同左（両モード共通） |
+| クラウド同期 | なし | ユーザー設定を同期 |
+| 課金 | 無料 | サブスク定額 + トークン従量 |
+| 保全データ（星取表・暗黙知） | 端末内 SQLite | 端末内 SQLite（外部送信しない） |
+
+- **`core` エンジンは常にローカル**（両モードとも Tauri sidecar）。AWS では動かさない。
+- **モード判定**: 起動直後はローカルモード、Cognito ログインでクラウドモード、サインアウトでローカルへ。実装上は環境変数 `APP_MODE`（local | cloud）。
+- **5 万件規模への対応**: マネージド LLM の Lambda は薄い中継層であり推論を速くも安くもしない。大量処理の鍵は「LLM をできるだけ呼ばない」決定的処理優先の 3 フェーズパイプライン（`backend/app/mu/pipeline/`）+ 統計ベースの計画推論（`planning_engine.py`）+ LoRA による LLM 呼び出しの逓減。詳細は [docs/CONCEPTS.md](docs/CONCEPTS.md)「動作モード」。
 
 詳細仕様: [docs/PROJECT_MU.md](docs/PROJECT_MU.md)、[docs/CONCEPTS.md](docs/CONCEPTS.md)、[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/4_SKILL_RECIPES.md](docs/4_SKILL_RECIPES.md)
 Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND_INTEGRATION.md)、[docs/7_AUTH_AND_USERS.md](docs/7_AUTH_AND_USERS.md)、[docs/8_TRACK_D_SPRINT_PLAN.md](docs/8_TRACK_D_SPRINT_PLAN.md)
@@ -55,7 +78,7 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **Track D: Sprint 5 本番化 + 残課題** | **Slice A-E (PR #74-#78) 完了**。Lambda llm-proxy default handler を streaming 版に切替 (buffered は bufferedHandler として ロールバック用に保持)、LoginScreen に MFA TOTP challenge flow (confirmSignIn 連携、2 stage inline)、ProfileScreen に MFA 無効化 UI (2 段階確認、`updateMFAPreference({ totp: 'DISABLED' })`)、bundle 最適化 (`auth-vendor` chunk 分離、index -38 KB / App -12 KB gzip)、HANDOFF / docs/8 ドキュメント更新 (本 PR #78)。**Jest +13 件 (276 → 289)**。**Track D 全 5 Sprint コード実装完了** |
 | **Sprint 6: UI Polish + 一貫性監査** | **Phase 0-5 (PR #79-#88) 完了**。**docs/10_UI_DESIGN_SYSTEM.md** (デザイン設計書 SoT、1,034 行) と **docs/9_UI_AUDIT.md** (UI 監査レポート、354 行) を新規作成 (#79)。docs/10 §2 用語マッピング表に従い内部用語 (Sprint X / MTP / DynamoDB テーブル名 / Cognito / MCP) を一掃 (#80)、Dead UI (rememberMe / 外部連携 placeholder) を除去 (#81)、LLM モデル選択を Autocomplete freeSolo → Select with friendly label に変更 (#82)、冗長 subtitle / TOTP 用語を整理 (#83)、**V-1 (index.css の `!important` global override で light theme が実質無効化されていた問題)** を解決し ProfileScreen に Theme UI 配線 (useUserSettings/ThemeProvider 結線、#84)、PluginManager の window.confirm → MUI Dialog 化 (#85)、SkillRunner のハードコード色を theme.palette 経由に (#86)、KnowledgeBase の Project Mu / DB カラム名 を friendly 日本語に置換 (#87)。**Jest +5 件 (289 → 294)**。P0 12 件 + P1 17 件のうち P0 全件 + P1 多数を解消 |
 | **Sprint 7: UI Polish 残課題消化** | **PR #89-#92 完了**。残 P1 を片付けて Track E 着手前の品質をさらに底上げ: V-5 (#89) MuiButton theme override に `&:not(.Mui-disabled):active { transform: scale(0.98) }` 追加で押下感を統一、V-2 (#90) AgentBar.css に CSS custom properties (`--ab-*` 18 個) を導入し `[data-theme="light"]` override で frost glass surface / hover menu / scrollbar 等が light theme でも自然に描画されるよう tokenize、LD-1 (#91) LLMSettingsDialog を Tabs 化 (クラウド設定 / ローカル設定の概念分離 + 各タブに保存先説明追加)、V-3 はレビューの結果 borderRadius のハードコードはすべて pill capsule の意図と合致しているため**コード変更不要としてクローズ**。**Jest 294/294 維持** |
-| **Track E: Sprint 0 設計フェーズ** | **完了 (2026-05-16)**。Track E (~3-4 週間) を **「モノレポ化 + マルチターゲット配布」** として再計画し Sprint 計画ドキュメント **docs/11_TRACK_E_SPRINT_PLAN.md** を作成。コンセプトは「アプリ本体を 1 リポジトリから AWS にもデスクトップにも柔軟にビルド・配布でき、更新もワンクリック」。**旧 Track C (モノレポ化) を Track E に統合・廃止**。設計判断: `apps/` (Web/desktop シェル) + `packages/app` (共有 UI) + `core/` (旧 backend、Python エンジン) + `amplify/` (据え置き) の **npm workspaces 構成** / Tauri 2.x / `core` は sidecar (desktop) + コンテナ (AWS) / ML 重依存は非同梱で初回 DL / Tauri Updater + minisign / 3 OS 署名。Sprint 1-4 ロードマップ + Sprint 1 (モノレポ移行) 詳細タスク分解 (Slice 1-A〜1-F) + リスク表を整備。`npm run dev` 等の開発フロー保全を Sprint 1 検収条件に明記 |
+| **Track E: Sprint 0 設計フェーズ** | **完了 (2026-05-16、2026-05-18 全面改訂)**。Track E (~3-4 週間) の Sprint 計画ドキュメント **docs/11_TRACK_E_SPRINT_PLAN.md** を作成。コンセプトは「1 つの Tauri デスクトップアプリを 1 リポジトリからビルド・配布し、署名付き更新をワンクリックで届ける」。**旧 Track C (モノレポ化) を Track E に統合・廃止**。当初の「モノレポ化 (`apps/` + `packages/` + npm workspaces) + Web の AWS ホスティング再導入 + `core` の AWS コンテナ化」案は確定方針 (UI は常に Tauri / `core` は常にローカル) と矛盾するため**全面撤回**し、**標準 Tauri 構成** (`src/` + `src-tauri/` + `core/` + `amplify/`、ワークスペース機構なし) へ改訂。設計判断: Tauri 2.x / `core` は常に sidecar / `backend/`→`core/` リネーム / `amplify/functions/maximo-proxy` 削除 (Maximo は `core` 直接接続) / クラウド LLM は AWS Bedrock 専用 / ML 重依存は非同梱で初回 DL / Tauri Updater + minisign / 3 OS 署名。Sprint 1-4 ロードマップ + Sprint 1 (ディレクトリ整理) 詳細タスク分解 + リスク表を整備 |
 
 ### ❌ 未着手 / 重い依存待ち
 | 項目 | ブロッカー |
@@ -64,7 +87,7 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **B-Verify**: Track B 実モデル動作確認（Gemma 4 E2B 推論ベンチマーク・MTP accept rate 測定） | OpenVINO 依存 + モデルダウンロード + HuggingFace Token |
 | **Track D 実 AWS deploy 検証**: `npx ampx sandbox` で Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし E2E 確認 | AWS アカウント + IAM credentials。コードは Sprint 1-5 で完全実装済 (PR #57-#78) |
 | **Track D 本番化** (Sprint 5 残): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、Maximo 実 API 接続 (VPC Lambda + Secrets Manager)、段階リリース計画 | 実 AWS 環境 + Maximo 社内ネットワーク。コード基盤は揃っている (CDK overrides + IAM ポリシー stub 配置済) |
-| Track E: モノレポ化 + マルチターゲット配布（Tauri desktop + AWS / 自動更新 / CodeSigning） | Rust、各 OS 証明書、~3-4週間。**Sprint 0 設計完了** ([docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md))、次は Sprint 1 (モノレポ骨格への移行)。**旧 Track C を統合済** |
+| Track E: Tauri デスクトップ化 + ディレクトリ整理 + 配布（自動更新 / CodeSigning） | Rust、各 OS 証明書、~3-4週間。**Sprint 0 設計完了** ([docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md))、次は Sprint 1 (ディレクトリ整理)。**旧 Track C を統合済** |
 
 ### ⚠️ 残技術負債（小規模、優先度低）
 本セッションで 562 → **2 件**まで削減完了。残りは意図的保留:
@@ -199,29 +222,43 @@ npm run build   # tsc -b && vite build
 - ✅ **Sprint 6: UI デザイン設計書 + 一貫性監査 + Polish 完了** (PR #79-#88): docs/10_UI_DESIGN_SYSTEM.md (1,034 行) と docs/9_UI_AUDIT.md (354 行) を新規作成し、Track D + 既存 UI 全体の P0 12 件 + P1 多数を解消。V-1 (index.css の `!important` global override で light theme が実質無効化されていた問題) も解決。**Jest 289 → 294 件 (+5)**
 - ✅ **Sprint 7: UI Polish 残課題消化** (PR #89-#92): V-5 Button active scale 0.98 (#89)、V-2 AgentBar.css CSS custom properties + light theme override (#90)、LD-1 LLMSettingsDialog Tabs 化 (クラウド/ローカル設定分離、#91)。V-3 borderRadius はレビュー結果 pill 意図と合致のためコード変更不要。Jest 294/294 維持
 
-次の候補:
+次の候補（ロードマップ再整理 — モード軸）:
 
-1. **🥇 Track D 実 AWS deploy 検証** — コードは Sprint 1-5 で完全実装済だが、`npx ampx sandbox` での実 AWS deploy は未実施。ユーザー環境で AWS credential + `ampx sandbox` 起動 → Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし、ブラウザでサインアップ→確認→ログイン→MFA→クラウド LLM 呼出→エクスポート→削除の一連を E2E 確認。
-   - 作業: `aws configure` で IAM credentials 設定、`npx ampx sandbox`、`amplify_outputs.json` 生成、テストアカウントで全機能手動確認
-   - ブロッカー: AWS アカウント (個人開発は無料枠内、Bedrock のみ region 制約あり)
+機能は概ね実装済み。残作業を**ローカル/クラウドのモード軸**で整理する。
 
-2. **Track E: モノレポ化 + マルチターゲット配布** — ~3-4週間。**Sprint 0 設計フェーズ完了** ([docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md))。コンセプトは「アプリ本体を 1 リポジトリから AWS にもデスクトップにも柔軟にビルド・配布、更新もワンクリック」。**旧 Track C (モノレポ化) を統合済**。**次は Sprint 1 (モノレポ骨格への移行)** — `apps/` (web/desktop シェル) + `packages/app` (共有 UI、旧 `src/`) + `core/` (旧 `backend/`) の npm workspaces 構成へ再編。Web ビルド・テスト・`npm run dev` を壊さず移行。Sprint 2 = Tauri desktop シェル + core sidecar 化、Sprint 3 = マルチターゲット配布 + 自動更新、Sprint 4 = コード署名 + リリース CI + レガシー除去。
-   - 注意: V-1 の修正で light theme が機能するようになったが、既存 UI コンポーネント (AgentBar.css の frost glass など) の一部は dark UI 前提のハードコード色が残る (docs/9 V-2)。Tauri 移行と同時に手動視覚検証を実施推奨
+**A. ローカルモードの完成**
 
-3. **Track B-Verify: 実機動作確認** — コードは完全に揃っているが、Gemma 4 E2B モデルでの実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。
-   - 作業: PEFT + PyTorch + transformers + datasets 依存インストール、Gemma 4 E2B-it / -it-assistant モデル DL + 量子化、OpenVINO 経由 MTP ベンチマーク、LoRA SFT 動作確認（100ペア × 1epoch）
-   - ブロッカー: HuggingFace Token 取得、Intel Arc GPU 推奨（CPU だと遅い）
+- **🥇 Track B-Verify（実機動作確認）** — Gemma 4 E2B での実推論 / MTP accept rate / LoRA SFT が**一度も動かされていない**。コードは完全実装済（依存未インストール時 graceful）。
+  - 作業: PEFT + PyTorch + transformers + datasets 導入、Gemma 4 E2B-it / -it-assistant DL + 量子化、OpenVINO 経由 MTP ベンチマーク、LoRA SFT 動作確認（100ペア × 1epoch）
+  - ブロッカー: HuggingFace Token、Intel Arc GPU 推奨
+- **Maximo クライアント実装** — `core` に Maximo REST クライアント（**両モードとも直接接続**・ページング取得）を実装し、組込 Skill `maximo_export` / `maximo_import` を実 API に結線（現状は mock のみ）。Maximo 認証情報は端末ローカルに暗号化保存。
+- **Excel 構造化（5 万件規模）の実機確認** + パイプライン大量処理チューニング（`backend/app/mu/pipeline/transformation.py` の `batch_size` 引き上げ・並列度向上）。
 
-4. **Track D 本番化** (Sprint 5 残作業): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch Logs + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、Maximo 実 API 接続 (VPC Lambda + Secrets Manager 経由 basic auth)、段階リリース計画 (社内ベータ → 制限付き一般 → 公開)。
-   - すべて実 AWS 環境必須。コード基盤は CDK overrides + IAM ポリシー stub で揃っている。
+**B. クラウドモードの完成**
 
-5. **Track E: モノレポ化 + マルチターゲット配布** — 上記 #2 参照 (Sprint 0 完了、計画は docs/11)。
+- 対話用 LLM 中継（`llm-proxy` → **AWS Bedrock / Claude**）は **Track D で実装済**。クラウド LLM は Bedrock 専用方針のため、外部プロバイダ拡張は不要。
+- **Track D 実 AWS deploy 検証** — `npx ampx sandbox` で Cognito / DynamoDB / Lambda を実環境に展開し、サインアップ→確認→ログイン→MFA→クラウド LLM 呼出→エクスポート→削除の E2E 確認。
+  - 作業: `aws configure` で IAM credentials 設定、`npx ampx sandbox`、`amplify_outputs.json` 生成、テストアカウントで手動確認
+  - ブロッカー: AWS アカウント（個人開発は無料枠内、Bedrock のみ region 制約あり）
+- **トークン従量計測 + サブスク課金** — 使用量メータリング + 課金システム（`backend/app/services/licensing.py` のプラン種別型を土台に拡張 + 決済連携）。
+- **5 万件処理のコスト最適化** — 共通システムプロンプト + ルール集に Bedrock プロンプトキャッシュを適用。Bedrock Batch Inference は残差が極端に大きい場合の将来オプション（現時点では未着手）。
+- **Track D 本番化** — カスタムドメイン（Route 53 + ACM + CloudFront）、CORS 本番ドメイン絞り込み、observability（CloudWatch + X-Ray + SNS alert）、本番 Amplify pipeline-deploy。
 
-5. **Plugin/Skill 機能拡張**（中粒度、軽量） — 既存の Plugin/Skill プラットフォーム上で新コネクタ Plugin（Maximo / SAP / Excel 別系統）、新 LLM Adapter（Anthropic Claude / OpenAI / Mistral 経由クラウド）、新組込 Skill（運転履歴分析 / 設備故障予測）等を追加。
+**C. 共通基盤 — Track E（Tauri デスクトップ化 + ディレクトリ整理）**
 
-6. ~~**Track C: モノレポ化**~~ — **Track E に統合・廃止** (docs/11)。デスクトップという 2 つ目のターゲットが出る Track E が再編のトリガであるため、独立 Track にせず Track E Sprint 1 で実施
+~3-4 週間。詳細は [docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md)。
 
-7. **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留
+- Sprint 1: ディレクトリ整理 — `backend/`→`core/` リネーム、レガシー配布系（`launcher/` / `build/`）+ 不要になった `amplify/functions/maximo-proxy` Lambda の除去、`src-tauri/` scaffold
+- Sprint 2: Tauri シェル + `core` の sidecar 化
+- Sprint 3: 自動更新（Tauri Updater + minisign）+ モード切替 UX + システムトレイ
+- Sprint 4: コード署名（Win/macOS/Linux）+ リリース CI
+
+> **方針変更（重要）**: 旧「Track C モノレポ化」は Track E に統合・廃止済。さらに旧 docs/11 の「`apps/` + `packages/` + npm workspaces のモノレポ化」「Web の AWS ホスティング再導入」「`core` の AWS コンテナ化」案は**撤回**。UI は常に Tauri 単一アプリ、`core` は常に端末ローカル、構成は**標準 Tauri 構成**（ワークスペース機構なし）とする。
+
+**その他（随時）**
+
+- **Plugin/Skill 機能拡張** — 新コネクタ Plugin（SAP / Excel 別系統）、新組込 Skill（運転履歴分析 / 設備故障予測）等。
+- **残技術負債 2 件**（優先度低） — `MaintenanceCell.tsx` の `value: any` cascade refactor、`loadingOptimization.ts` は React 標準パターンなので保留。
 
 ---
 
