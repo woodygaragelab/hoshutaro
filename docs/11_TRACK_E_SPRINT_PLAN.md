@@ -198,14 +198,24 @@ core スモークテスト全 pass。詳細は §4。
 - `tauri dev` / `tauri build` による実機ウィンドウ・トレイ動作の確認
 - `amplify/` バックエンドの本番配備手順 (`ampx pipeline-deploy`) の整備
 
-### Sprint 4: コード署名 + リリース CI + 仕上げ (Week 4)
+### Sprint 4: コード署名 + リリース CI + 仕上げ (Week 4) 🟡 一部完了 (2026-05-18)
 **目的**: 署名済み配布物を CI で自動生成する。
 
-- GitHub Actions OS matrix workflow (`tauri-action`) を整備
-- Windows Authenticode 署名 / macOS Developer ID 署名 + notarization / Linux AppImage・deb
-- `latest.json` 生成 → GitHub Release 添付 (Tauri Updater 配信元)
-- `docs/12_RELEASE_GUIDE.md` (仮) にリリース・署名手順を記載
-- 本ドキュメント + HANDOFF を Track E 完了状態に更新
+**✅ 整備済 (YAML 構文検証済)**:
+- `.github/workflows/release.yml` — `git tag v*` で起動する OS マトリクス
+  (Windows / macOS / Linux) リリースワークフロー。`tauri-apps/tauri-action`
+  で各 OS のインストーラをビルド・署名し GitHub Release (ドラフト) に添付。
+  Tauri Updater 用の `latest.json` + 署名も生成
+- `docs/12_RELEASE_GUIDE.md` — 必要な GitHub Secrets 一覧、Updater 署名鍵の
+  生成手順、Windows/macOS/Linux 署名手順、リリース手順、未完了事項を記載
+
+**⏭ 残作業 (外部資産・実環境が必要)**:
+- 本番署名証明書の調達 (Windows OV/EV、Apple Developer Program) と Secrets 登録
+- Updater 本番署名鍵の生成・公開鍵差し替え (現状はプレースホルダ)
+- `core` の単一バイナリ化と `bundle.resources` への同梱 (Sprint 2 残と連動。
+  完了するまで配布物は単体動作しない)
+- private リポジトリでの Updater 配信方式の確定
+- 実 `tauri build` 実行と生成インストーラの各 OS 動作確認
 
 ---
 
@@ -293,7 +303,8 @@ git tag v1.x.x && git push --tags
 |---|---|---|
 | `docs/11_TRACK_E_SPRINT_PLAN.md` | 本ドキュメント、Sprint 計画 + 詳細タスク | ✅ Sprint 0 |
 | HANDOFF.md §1 §5 | 設計判断 + ロードマップ (Sprint 単位で更新) | Sprint ごと |
-| `docs/12_RELEASE_GUIDE.md` (仮) | 署名・notarization・リリース手順 | Sprint 4 で作成 |
+| `docs/12_RELEASE_GUIDE.md` | 署名・notarization・リリース手順 | ✅ Sprint 4 |
+| `.github/workflows/release.yml` | OS マトリクスのリリースワークフロー | ✅ Sprint 4 |
 
 ---
 
