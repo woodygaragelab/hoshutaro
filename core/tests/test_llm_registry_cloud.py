@@ -141,7 +141,7 @@ def test_get_adapter_uses_env_when_spec_lacks_endpoint():
     assert adapter.spec["jwt_token"] == "env-only-token"
 
 
-# Allow `python backend/tests/test_llm_registry_cloud.py` direct execution
+# Allow `python core/tests/test_llm_registry_cloud.py` direct execution
 if __name__ == "__main__":
     test_cloud_claude_3_5_sonnet_is_registered()
     test_cloud_claude_3_haiku_is_registered()

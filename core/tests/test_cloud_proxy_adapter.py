@@ -424,7 +424,7 @@ def test_ping_returns_ok_false_when_chat_raises():
     assert "endpoint_url not configured" in result["message"]
 
 
-# Allow `python backend/tests/test_cloud_proxy_adapter.py` direct execution
+# Allow `python core/tests/test_cloud_proxy_adapter.py` direct execution
 if __name__ == "__main__":
     test_chat_returns_content_on_success()
     test_chat_raises_when_endpoint_url_missing()

@@ -163,7 +163,7 @@ def _aggregate(runs: list[RunMetric], *, mtp: bool) -> AggregatedStats:
 def _build_adapter(no_mtp: bool):
     """OpenVinoGemmaAdapter を registry 経由で構築。"""
     # backend をパスに追加（CLI 単体実行を想定）
-    backend = (Path(__file__).resolve().parent.parent.parent / "backend").resolve()
+    backend = (Path(__file__).resolve().parent.parent.parent / "core").resolve()
     if str(backend) not in sys.path:
         sys.path.insert(0, str(backend))
 

@@ -1,7 +1,7 @@
 /**
  * Project Mu / Knowledge Base API クライアント。
  *
- * バックエンド: backend/app/routers/mu.py
+ * バックエンド: core/app/routers/mu.py
  * すべてローカル FastAPI（127.0.0.1:8000、Vite proxy 経由 /api/mu）を呼ぶ。
  */
 

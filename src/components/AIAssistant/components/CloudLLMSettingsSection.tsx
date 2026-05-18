@@ -22,7 +22,7 @@ import {
  * - label: ユーザー向け表示名 (docs/10 §2 用語マッピング表に従い、内部 ID は隠す)
  *
  * 将来 `/api/llm/models` エンドポイントから動的取得に切替予定 (Slice 3-D 残)、
- * 現状は hard-code。新モデル追加時は backend/app/llm/registry.py と本配列の両方を
+ * 現状は hard-code。新モデル追加時は core/app/llm/registry.py と本配列の両方を
  * 更新する。
  */
 type CloudModelOption = { id: string; label: string };

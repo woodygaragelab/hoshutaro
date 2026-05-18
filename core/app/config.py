@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# backend/ ディレクトリの .env を基準にする
+# core/ ディレクトリの .env を基準にする
 _ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 _ENV_EXAMPLE = _ENV_FILE.with_name(".env.example")
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # ── Development Mode ──
     dev_mode: bool = False
     
-    # ── Home Directory (set by Launcher, fallback to backend/) ──
+    # ── Home Directory (set by Launcher, fallback to core/) ──
     hoshutaro_home: str = str(Path(__file__).resolve().parents[1])
     
     # ── LLM Adapter (Global generic settings) ──

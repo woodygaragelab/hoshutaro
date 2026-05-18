@@ -8,5 +8,5 @@ Project Mu — 自律進化型 機器台帳構造化エンジン。
 
 詳細仕様: docs/PROJECT_MU.md
 
-NOTE: Track C のモノレポ化で `core/mu/` へ移動予定。現状は `backend/app/mu/` に配置。
+配置: `core/app/mu/`（Tauri sidecar として動く Python エンジン内）。
 """

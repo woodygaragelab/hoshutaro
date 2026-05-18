@@ -1,7 +1,7 @@
 """
 Project Mu: 初回起動時のモデルダウンロード状態管理。
 
-`backend/app/routers/setup.py` から呼び出される。
+`core/app/routers/setup.py` から呼び出される。
 """
 
 from app.mu.setup.downloader import (

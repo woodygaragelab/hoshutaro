@@ -1,7 +1,7 @@
 """
 LoRA アダプターのバージョン管理。
 
-`backend/app/mu/memory/lora_adapters.py` の薄いラッパに、
+`core/app/mu/memory/lora_adapters.py` の薄いラッパに、
 ファイルシステム上の `.safetensors` 実体管理と、active 切替時の prompt cache invalidate を
 合わせて提供する。
 """

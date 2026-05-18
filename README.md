@@ -29,7 +29,7 @@ npm install
 ### 3. バックエンド依存パッケージのインストール
 
 ```bash
-cd backend
+cd core
 pip install -r requirements.txt
 cd ..
 ```
@@ -39,7 +39,7 @@ cd ..
 
 ### 4. 環境変数の設定
 
-`backend/.env` を編集して、最低限以下を設定します。
+`core/.env` を編集して、最低限以下を設定します。
 
 ```env
 # Gemini API Key (必須 — AI アシスタント機能に必要)
@@ -100,7 +100,7 @@ hoshutaro/
 │   │   └── EnhancedMaintenanceGrid/  # メインテナンスグリッド
 │   └── services/                 # API クライアント・データ管理
 │       └── integration/          # プラグイン API サービス
-├── backend/                      # バックエンド (FastAPI + Python)
+├── core/                      # バックエンド (FastAPI + Python)
 │   ├── app/
 │   │   ├── routers/              # REST API エンドポイント
 │   │   ├── services/             # ビジネスロジック

@@ -31,11 +31,11 @@ node_modules
 amplify_outputs*
 amplifyconfiguration*
 
-# Backend environment
-backend/.env
+# Core engine environment
+core/.env
 __pycache__
 *.pyc
-backend/.npucache/
+core/.npucache/
 
 # Track B benchmark outputs
 bench-out/

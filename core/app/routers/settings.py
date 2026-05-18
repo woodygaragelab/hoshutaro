@@ -6,7 +6,7 @@ from app.config import settings
 
 router = APIRouter()
 
-# backend/ ディレクトリ基準で .env パスを解決
+# core/ ディレクトリ基準で .env パスを解決
 _ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 

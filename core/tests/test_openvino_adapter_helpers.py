@@ -5,7 +5,7 @@ OpenVinoGemmaAdapter のヘルパ純関数の unit test。
 これにより、Track B 本実行（実モデル推論）の事前に最低限の正当性を担保する。
 
 実行:
-    cd backend && python tests/test_openvino_adapter_helpers.py
+    cd core && python tests/test_openvino_adapter_helpers.py
 
 カバー対象:
     - _strip_thinking: <|think|>...</think> ブロック除去

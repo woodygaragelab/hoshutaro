@@ -1,7 +1,7 @@
 """
 Project Mu サブシステムのスモークテスト（依存最小、ローカル DB のみ）。
 
-実行: python -m pytest backend/tests/test_mu_smoke.py -v
+実行: python -m pytest core/tests/test_mu_smoke.py -v
 あるいは python -c で直接スクリプト実行（pytest なしでも動く）
 
 確認内容:

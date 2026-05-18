@@ -7,7 +7,7 @@ ModelSetupManager の mock 駆動 integration test。
 Track B 本実行（実モデル）の前段で、orchestration ロジックの正当性を担保する。
 
 実行:
-    cd backend && python tests/test_downloader_mock.py
+    cd core && python tests/test_downloader_mock.py
 """
 
 from __future__ import annotations
