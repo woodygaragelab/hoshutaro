@@ -1,0 +1,19 @@
+[package]
+name = "hoshutaro"
+version = "0.0.0"
+description = "HOSHUTARO — 設備保全計画管理デスクトップアプリ"
+authors = ["HOSHUTARO"]
+edition = "2021"
+
+[lib]
+# main.rs / モバイルエントリの双方から呼ぶため lib として切り出す
+name = "hoshutaro_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
