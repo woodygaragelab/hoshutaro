@@ -81,6 +81,7 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **Track E: Sprint 0 設計フェーズ** | **完了 (2026-05-16、2026-05-18 全面改訂)**。Track E (~3-4 週間) の Sprint 計画ドキュメント **docs/11_TRACK_E_SPRINT_PLAN.md** を作成。コンセプトは「1 つの Tauri デスクトップアプリを 1 リポジトリからビルド・配布し、署名付き更新をワンクリックで届ける」。**旧 Track C (モノレポ化) を Track E に統合・廃止**。当初の「モノレポ化 (`apps/` + `packages/` + npm workspaces) + Web の AWS ホスティング再導入 + `core` の AWS コンテナ化」案は確定方針 (UI は常に Tauri / `core` は常にローカル) と矛盾するため**全面撤回**し、**標準 Tauri 構成** (`src/` + `src-tauri/` + `core/` + `amplify/`、ワークスペース機構なし) へ改訂。設計判断: Tauri 2.x / `core` は常に sidecar / `backend/`→`core/` リネーム / `amplify/functions/maximo-proxy` 削除 (Maximo は `core` 直接接続) / クラウド LLM は AWS Bedrock 専用 / ML 重依存は非同梱で初回 DL / Tauri Updater + minisign / 3 OS 署名。Sprint 1-4 ロードマップ + Sprint 1 (ディレクトリ整理) 詳細タスク分解 + リスク表を整備 |
 | **Track E: Sprint 1 ディレクトリ整理** | **完了 (2026-05-18)**。標準 Tauri 構成への整理 (Slice 1-A〜1-F)。`backend/`→`core/` リネーム (git mv、107 ファイル、履歴保持、内部 `app/` package 不変) / コア依存と ML 重依存を `core/requirements.txt` + `core/requirements-ml.txt` に分割 / レガシー配布系 `launcher/` `build/` を削除 / 不要な `maximo-proxy` Lambda を削除 (Maximo は core 直接接続方針のため) / `src-tauri/` デスクトップシェルを scaffold (Tauri 2.x、`@tauri-apps/cli` + `tauri`/`tauri:dev`/`tauri:build` スクリプト、アイコン一式)。検証: `npm run lint`/`test`/`build` 全 exit 0 (Jest 24 suites 285 件)、core スモークテスト全 pass。**残: Sprint 2 (Tauri シェル + core sidecar 化)** |
 | **Track E: Sprint 2 sidecar 化** | **🟡 一部完了 (2026-05-18)**。`src-tauri/src/sidecar.rs` 新規: ポート確保 (既定 8000・衝突時は空きポート) / uvicorn 経由の `core` 起動 / `/api/health` ポーリング / graceful kill。`lib.rs`: `setup` で別スレッド起動 → health 後に `window.show()`、`ExitRequested` で `core` 停止、`core_base_url` コマンド公開。`tauri.conf.json`: ウィンドウ `visible:false`。検証: **`cargo build` exit 0** (Rust コンパイル確認)、`core` を sidecar 起動コマンドで起動し `/api/health` 200 を確認。**残: PyInstaller 単一バイナリ化、`tauri dev`/`build` 実機ウィンドウ検証、フロントの `core_base_url` 消費結線 (ヘッドレス環境のため未実施)** |
+| **Track E: Sprint 3 自動更新・トレイ・モード UX** | **🟡 一部完了 (2026-05-18)**。システムトレイ (表示/終了)、`tauri-plugin-single-instance` (二重起動防止)、`tauri-plugin-window-state` (位置/サイズ復元)、`tauri-plugin-updater` (登録 + `tauri.conf.json` updater 設定) を実装。フロント: AgentBar ツールメニューに動作モード表示 (未ログイン=ローカル/ログイン=クラウド)。検証: **`cargo build` exit 0**、`npm run lint`/`test`/`build` 全 exit 0 (Jest 285)。**残: 本番署名鍵ペア + リリースエンドポイント、更新 UI の updater 結線、実機トレイ/ウィンドウ検証 (Sprint 4 と併せ実施)** |
 
 ### ❌ 未着手 / 重い依存待ち
 | 項目 | ブロッカー |
@@ -259,7 +260,7 @@ npm run build   # tsc -b && vite build
 
 - ✅ Sprint 1（完了 2026-05-18）: ディレクトリ整理 — `backend/`→`core/` リネーム、レガシー配布系（`launcher/` / `build/`）+ 不要な `maximo-proxy` Lambda の除去、依存の core/ML 分割、`src-tauri/` scaffold
 - 🟡 Sprint 2（一部完了 2026-05-18）: Tauri シェル + `core` の sidecar 化 — Rust の sidecar 起動・health 監視・graceful kill を実装し `cargo build` で検証済。残: PyInstaller 単一バイナリ化、実機ウィンドウ検証、フロント結線
-- Sprint 3: 自動更新（Tauri Updater + minisign）+ モード切替 UX + システムトレイ
+- 🟡 Sprint 3（一部完了 2026-05-18）: システムトレイ + 単一インスタンス + ウィンドウ状態復元 + 自動更新プラグイン + 動作モード表示を実装（`cargo build` / lint・test・build 検証済）。残: 本番署名鍵 + リリース連携、更新 UI 結線
 - Sprint 4: コード署名（Win/macOS/Linux）+ リリース CI
 
 > **方針変更（重要）**: 旧「Track C モノレポ化」は Track E に統合・廃止済。さらに旧 docs/11 の「`apps/` + `packages/` + npm workspaces のモノレポ化」「Web の AWS ホスティング再導入」「`core` の AWS コンテナ化」案は**撤回**。UI は常に Tauri 単一アプリ、`core` は常に端末ローカル、構成は**標準 Tauri 構成**（ワークスペース機構なし）とする。

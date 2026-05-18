@@ -178,16 +178,25 @@ core スモークテスト全 pass。詳細は §4。
 - `tauri dev` / `tauri build` による実ウィンドウ起動・sidecar 連携の実機確認
 - webview への API ベース URL 注入をフロントエンド側で消費する結線 (`core_base_url`)
 
-### Sprint 3: 自動更新 + モード切替 UX (Week 3)
+### Sprint 3: 自動更新 + モード切替 UX (Week 3) 🟡 一部完了 (2026-05-18)
 **目的**: 更新がワンクリックになり、ローカル/クラウドモードの切替が UX 上明確になる。
 
-- **デスクトップ更新**: `tauri-plugin-updater` + minisign キーペア。アプリ内
-  「更新を確認」UI (既存 `UpdateNotification` を結線) → ワンクリックで取得・適用
-- **モード切替 UX**: 未ログイン = ローカルモード / ログイン = クラウドモードを
-  UI に明示 (現在のモードを表示)。Cognito サインイン/アウトでモード遷移
-- システムトレイ / 単一インスタンス / ウィンドウ状態復元 (`tauri-plugin-*`)
-- `amplify/` バックエンドの本番配備手順 (`ampx pipeline-deploy`) を整備
-  (デスクトップ配布とは別系統、クラウドモード用バックエンド)
+**✅ 実装済 (cargo build / npm lint・test・build で検証)**:
+- システムトレイ — 「ウィンドウを表示」/「終了」メニュー (`tauri` の `tray-icon`)
+- `tauri-plugin-single-instance` — 二重起動時は既存ウィンドウにフォーカス
+- `tauri-plugin-window-state` — ウィンドウ位置・サイズの保存/復元
+- `tauri-plugin-updater` — プラグイン登録 + `tauri.conf.json` の updater 設定
+  (`endpoints` / `pubkey` / `createUpdaterArtifacts`)
+- **モード切替 UX** — AgentBar ツールメニューに現在のモード（ローカル/クラウド）を
+  表示。`useAuth()` の認証状態に追従
+
+**⏭ 残作業 (リリース基盤に依存 → Sprint 4 と併せて実施)**:
+- updater の本番署名鍵ペア生成（秘密鍵は CI シークレット管理、リポジトリ非格納）と
+  実リリースエンドポイント（private repo のリリース資産取得方式の確定）
+- アプリ内「更新を確認」UI を `tauri-plugin-updater` に結線（現状 `UpdateNotification`
+  は `core` 経由の更新確認のまま）
+- `tauri dev` / `tauri build` による実機ウィンドウ・トレイ動作の確認
+- `amplify/` バックエンドの本番配備手順 (`ampx pipeline-deploy`) の整備
 
 ### Sprint 4: コード署名 + リリース CI + 仕上げ (Week 4)
 **目的**: 署名済み配布物を CI で自動生成する。
