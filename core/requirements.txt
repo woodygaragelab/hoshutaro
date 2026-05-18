@@ -1,3 +1,9 @@
+# HOSHUTARO core エンジン — コア依存（軽量）
+#
+# ML 重依存（OpenVINO 推論ランタイム等）は requirements-ml.txt を参照。
+# Track E では本ファイルの依存のみを Tauri sidecar バイナリに同梱し、
+# ML 重依存は初回起動時にダウンロードする方針。
+
 # ── Core ──
 fastapi>=0.110,<1.0
 uvicorn>=0.27,<1.0
@@ -21,11 +27,6 @@ langchain>=0.3
 
 # ── Data Processing ──
 openpyxl>=3.1,<4.0
-
-# ── OpenVINO (Optional) ──
-openvino>=2024.4.0
-openvino-genai>=2024.4.0
-openvino-tokenizers>=2024.4.0
 
 # ── YAML (Skill definitions) ──
 pyyaml>=6.0

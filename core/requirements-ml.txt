@@ -1,0 +1,14 @@
+# HOSHUTARO core エンジン — ML 重依存
+#
+# OpenVINO 推論ランタイム等の重量級依存（数百 MB〜GB クラス）。
+# Tauri sidecar バイナリには同梱せず、初回起動時にダウンロードする
+# （core/app/mu/setup/downloader.py が DL を管理）。
+#
+# LoRA 自律進化（PEFT + PyTorch + transformers + datasets）を使う場合は
+# 別途インストールする（依存未導入時は graceful degradation するため、
+# ここでは固定しない）。
+
+# ── OpenVINO 推論ランタイム ──
+openvino>=2024.4.0
+openvino-genai>=2024.4.0
+openvino-tokenizers>=2024.4.0
