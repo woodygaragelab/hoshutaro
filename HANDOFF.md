@@ -48,7 +48,7 @@ HOSHUTARO = **1 つの Tauri アプリ** + **ローカル `core` エンジン（
 
 - **`core` エンジンは常にローカル**（両モードとも Tauri sidecar）。AWS では動かさない。
 - **モード判定**: 起動直後はローカルモード、Cognito ログインでクラウドモード、サインアウトでローカルへ。実装上は環境変数 `APP_MODE`（local | cloud）。
-- **5 万件規模への対応**: マネージド LLM の Lambda は薄い中継層であり推論を速くも安くもしない。大量処理の鍵は「LLM をできるだけ呼ばない」決定的処理優先の 3 フェーズパイプライン（`backend/app/mu/pipeline/`）+ 統計ベースの計画推論（`planning_engine.py`）+ LoRA による LLM 呼び出しの逓減。詳細は [docs/CONCEPTS.md](docs/CONCEPTS.md)「動作モード」。
+- **5 万件規模への対応**: マネージド LLM の Lambda は薄い中継層であり推論を速くも安くもしない。大量処理の鍵は「LLM をできるだけ呼ばない」決定的処理優先の 3 フェーズパイプライン（`core/app/mu/pipeline/`）+ 統計ベースの計画推論（`planning_engine.py`）+ LoRA による LLM 呼び出しの逓減。詳細は [docs/CONCEPTS.md](docs/CONCEPTS.md)「動作モード」。
 
 詳細仕様: [docs/PROJECT_MU.md](docs/PROJECT_MU.md)、[docs/CONCEPTS.md](docs/CONCEPTS.md)、[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/4_SKILL_RECIPES.md](docs/4_SKILL_RECIPES.md)
 Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND_INTEGRATION.md)、[docs/7_AUTH_AND_USERS.md](docs/7_AUTH_AND_USERS.md)、[docs/8_TRACK_D_SPRINT_PLAN.md](docs/8_TRACK_D_SPRINT_PLAN.md)
@@ -63,13 +63,13 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 |---|---|
 | **A: Project Mu Engine** | memory CRUD（rules / master_map / training_cache / lora_adapters / prompt_cache / vector_search）、embeddings、cache、3フェーズパイプライン、sql_context_resolver、learning メタ管理、API ルーター 13 endpoints、**LoRA トレーナー本体（PEFT + transformers、graceful degradation）** |
 | **B-1: LLM Adapter** | `OpenVinoGemmaAdapter` を transformers + optimum-intel ベースで実装、MTP `assistant_model` 連携、Thinking Mode 抽出、ストリーミング、デバイス自動検出（NPU > GPU > CPU）、依存未インストール時 graceful |
-| **B-2: モデル取得・配置** | `tools/quantize-models/download_and_quantize.py`、`backend/app/mu/setup/downloader.py`、`backend/app/routers/setup.py`（SSE progress） |
-| **B-3: Plugin / MCP プラットフォーム** | `backend/app/services/mcp_hub.py`（MCP プロトコルブリッジ）、`plugin_manager.py`、`skill_engine.py`、`licensing.py`、`update_checker.py`。組込 Plugin: `ollama-adapter` / `openvino-adapter`。組込 Skill 3 種（`data_summary` / `maximo_export` / `maximo_import`）。フロント UI: `PluginManager.tsx` / `SkillRunner.tsx` / `UpdateNotification.tsx`、`src/services/integration/pluginApi.ts` + `types.ts`。AgentBar に Plugin 起動メニュー統合済 |
+| **B-2: モデル取得・配置** | `tools/quantize-models/download_and_quantize.py`、`core/app/mu/setup/downloader.py`、`core/app/routers/setup.py`（SSE progress） |
+| **B-3: Plugin / MCP プラットフォーム** | `core/app/services/mcp_hub.py`（MCP プロトコルブリッジ）、`plugin_manager.py`、`skill_engine.py`、`licensing.py`、`update_checker.py`。組込 Plugin: `ollama-adapter` / `openvino-adapter`。組込 Skill 3 種（`data_summary` / `maximo_export` / `maximo_import`）。フロント UI: `PluginManager.tsx` / `SkillRunner.tsx` / `UpdateNotification.tsx`、`src/services/integration/pluginApi.ts` + `types.ts`。AgentBar に Plugin 起動メニュー統合済 |
 | **UI: Knowledge Base 9画面** | `src/components/KnowledgeBase/`：Dashboard / RuleEditor / MasterMapView / MappingSimilaritySearch / Location & Classification PatternViews / LoRAAdapterManager / TrainingCacheView / LearningHistoryView + KnowledgeBasePage（親 Tabs）+ hooks + common 基盤。**baseline-ui 制約遵守**、`tsc --noEmit` クリーン |
 | **UI: Plugin/Skill Runner** | `PluginManager.tsx`（プラグイン一覧 / インストール / 設定）、`SkillRunner.tsx`（Skill 実行）、`UpdateNotification.tsx`（自動更新通知） |
 | **App 統合** | KnowledgeBasePage / PluginManager / SkillRunner を AgentBar ツールメニュー → fullScreen Dialog で起動可能に組み込み済（PR #1 + Plugin/MCP 系コミット） |
 | **CI / 品質** | `npm run lint` 0 errors / `npm run build` 0 errors / `npm run test` exit 0（PR #2 で main の pre-existing 45 件型エラー + 597 件 lint + test exit-1 を解消、CI green 化済） |
-| **検証** | 5 テスト（`backend/tests/test_mu_smoke.py`：memory CRUD / sql_context_resolver / scheduler 閾値 / lora_trainer graceful degradation / FastAPI dashboard）、TypeScript エラーなし |
+| **検証** | 5 テスト（`core/tests/test_mu_smoke.py`：memory CRUD / sql_context_resolver / scheduler 閾値 / lora_trainer graceful degradation / FastAPI dashboard）、TypeScript エラーなし |
 | **Z: 技術負債削減** | `eslint-disable` 562 → 2 件、Jest テスト 0 → **127 件**（7 suites）、`no-explicit-any` 全体 175件以上削減（App.tsx 68 → 0、EnhancedMaintenanceGrid.tsx 31 → 0、MaintenanceGridLayout.tsx 22 → 0）、`HierarchyDefinition` / `TreeDefinition` 二重型を統合、`WorkOrderBasedRow.type` を canonical `'workOrder' \| 'assetChild'` 2 値にスリム化、`children: any[]` → `HierarchicalData[]`、`aggregatedSchedule: any` → `{ [k]: AggregatedStatus }`、副次バグ修正 10+ 件（`HierarchyPath`/`string` 不整合 = `[object Object]` レンダリングバグ、`React.unstable_batchedUpdates` dead conditional [React 19 自動 batching]、`spec.name` 死フィールド、`handleValidationError` / `handleViewModeChange` 等の dead handlers、`performance.memory` 非Chromiumブラウザ crash） |
 | **Track D: Sprint 1 認証基盤** | **Slice A-E (PR #57-#63) 完了**。amplify Gen2 バックエンド (UserSettings/LLMSettings/SyncMetadata + post-confirmation Lambda + MFA OPTIONAL TOTP + passwordPolicy 12 文字)、AuthProvider + useAuth + AmplifyAuthService + Hub.listen 自動 refresh、認証画面 **7 枚完成** (Login/SignUp/ConfirmEmail/RequestPasswordReset/ResetPasswordWithCode/MfaSetup/Profile) + AuthLayout/authErrors/passwordValidation 共通基盤、AuthGuard + `main.tsx` 統合、AgentBar からのプロフィール/MFA Dialog + サインアウト。**Jest 127 → 211 件 (+84)** |
 | **Track D: Sprint 2 データ基盤** | **Slice A-C (PR #64-#66) 完了**。`cloudSync` (generateClient<Schema> lazy + null fallback)、`useUserSettings` / `useLLMSettings` hook (React Query 5 + Hub auto-refresh)、`CloudLLMSettingsSection` を `LLMSettingsDialog` の冒頭に統合 (Autocomplete + KNOWN_CLOUD_MODELS)。**Jest +29 件 (211 → 240)**。`user-sync` Lambda は当初計画から Sprint 4 に移管 (DynamoDB condition expression で last-write-wins 可、Lambda 不要) |
@@ -79,15 +79,16 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | **Sprint 6: UI Polish + 一貫性監査** | **Phase 0-5 (PR #79-#88) 完了**。**docs/10_UI_DESIGN_SYSTEM.md** (デザイン設計書 SoT、1,034 行) と **docs/9_UI_AUDIT.md** (UI 監査レポート、354 行) を新規作成 (#79)。docs/10 §2 用語マッピング表に従い内部用語 (Sprint X / MTP / DynamoDB テーブル名 / Cognito / MCP) を一掃 (#80)、Dead UI (rememberMe / 外部連携 placeholder) を除去 (#81)、LLM モデル選択を Autocomplete freeSolo → Select with friendly label に変更 (#82)、冗長 subtitle / TOTP 用語を整理 (#83)、**V-1 (index.css の `!important` global override で light theme が実質無効化されていた問題)** を解決し ProfileScreen に Theme UI 配線 (useUserSettings/ThemeProvider 結線、#84)、PluginManager の window.confirm → MUI Dialog 化 (#85)、SkillRunner のハードコード色を theme.palette 経由に (#86)、KnowledgeBase の Project Mu / DB カラム名 を friendly 日本語に置換 (#87)。**Jest +5 件 (289 → 294)**。P0 12 件 + P1 17 件のうち P0 全件 + P1 多数を解消 |
 | **Sprint 7: UI Polish 残課題消化** | **PR #89-#92 完了**。残 P1 を片付けて Track E 着手前の品質をさらに底上げ: V-5 (#89) MuiButton theme override に `&:not(.Mui-disabled):active { transform: scale(0.98) }` 追加で押下感を統一、V-2 (#90) AgentBar.css に CSS custom properties (`--ab-*` 18 個) を導入し `[data-theme="light"]` override で frost glass surface / hover menu / scrollbar 等が light theme でも自然に描画されるよう tokenize、LD-1 (#91) LLMSettingsDialog を Tabs 化 (クラウド設定 / ローカル設定の概念分離 + 各タブに保存先説明追加)、V-3 はレビューの結果 borderRadius のハードコードはすべて pill capsule の意図と合致しているため**コード変更不要としてクローズ**。**Jest 294/294 維持** |
 | **Track E: Sprint 0 設計フェーズ** | **完了 (2026-05-16、2026-05-18 全面改訂)**。Track E (~3-4 週間) の Sprint 計画ドキュメント **docs/11_TRACK_E_SPRINT_PLAN.md** を作成。コンセプトは「1 つの Tauri デスクトップアプリを 1 リポジトリからビルド・配布し、署名付き更新をワンクリックで届ける」。**旧 Track C (モノレポ化) を Track E に統合・廃止**。当初の「モノレポ化 (`apps/` + `packages/` + npm workspaces) + Web の AWS ホスティング再導入 + `core` の AWS コンテナ化」案は確定方針 (UI は常に Tauri / `core` は常にローカル) と矛盾するため**全面撤回**し、**標準 Tauri 構成** (`src/` + `src-tauri/` + `core/` + `amplify/`、ワークスペース機構なし) へ改訂。設計判断: Tauri 2.x / `core` は常に sidecar / `backend/`→`core/` リネーム / `amplify/functions/maximo-proxy` 削除 (Maximo は `core` 直接接続) / クラウド LLM は AWS Bedrock 専用 / ML 重依存は非同梱で初回 DL / Tauri Updater + minisign / 3 OS 署名。Sprint 1-4 ロードマップ + Sprint 1 (ディレクトリ整理) 詳細タスク分解 + リスク表を整備 |
+| **Track E: Sprint 1 ディレクトリ整理** | **完了 (2026-05-18)**。標準 Tauri 構成への整理 (Slice 1-A〜1-F)。`backend/`→`core/` リネーム (git mv、107 ファイル、履歴保持、内部 `app/` package 不変) / コア依存と ML 重依存を `core/requirements.txt` + `core/requirements-ml.txt` に分割 / レガシー配布系 `launcher/` `build/` を削除 / 不要な `maximo-proxy` Lambda を削除 (Maximo は core 直接接続方針のため) / `src-tauri/` デスクトップシェルを scaffold (Tauri 2.x、`@tauri-apps/cli` + `tauri`/`tauri:dev`/`tauri:build` スクリプト、アイコン一式)。検証: `npm run lint`/`test`/`build` 全 exit 0 (Jest 24 suites 285 件)、core スモークテスト全 pass。**残: Sprint 2 (Tauri シェル + core sidecar 化)** |
 
 ### ❌ 未着手 / 重い依存待ち
 | 項目 | ブロッカー |
 |---|---|
 | **B-Verify**: Track A LoRA 学習の実機動作確認（Gemma 4 E2B 実 SFT・loss 推移・delta 計測） | PEFT + PyTorch + Intel Arc GPU 推奨。コードは実装済み（依存未インストール時 NotImplementedError） |
 | **B-Verify**: Track B 実モデル動作確認（Gemma 4 E2B 推論ベンチマーク・MTP accept rate 測定） | OpenVINO 依存 + モデルダウンロード + HuggingFace Token |
-| **Track D 実 AWS deploy 検証**: `npx ampx sandbox` で Cognito User Pool / DynamoDB / 4 Lambda (post-confirmation / llm-proxy streaming / user-management / maximo-proxy mock) を実環境で動かし E2E 確認 | AWS アカウント + IAM credentials。コードは Sprint 1-5 で完全実装済 (PR #57-#78) |
-| **Track D 本番化** (Sprint 5 残): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、Maximo 実 API 接続 (VPC Lambda + Secrets Manager)、段階リリース計画 | 実 AWS 環境 + Maximo 社内ネットワーク。コード基盤は揃っている (CDK overrides + IAM ポリシー stub 配置済) |
-| Track E: Tauri デスクトップ化 + ディレクトリ整理 + 配布（自動更新 / CodeSigning） | Rust、各 OS 証明書、~3-4週間。**Sprint 0 設計完了** ([docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md))、次は Sprint 1 (ディレクトリ整理)。**旧 Track C を統合済** |
+| **Track D 実 AWS deploy 検証**: `npx ampx sandbox` で Cognito User Pool / DynamoDB / 3 Lambda (post-confirmation / llm-proxy streaming / user-management) を実環境で動かし E2E 確認 | AWS アカウント + IAM credentials。コードは Sprint 1-5 で実装済 (PR #57-#78、maximo-proxy Lambda は Track E Sprint 1 で削除) |
+| **Track D 本番化** (Sprint 5 残): カスタムドメイン (Route 53 + ACM + CloudFront)、CORS 本番ドメイン絞り込み、observability (CloudWatch + X-Ray + SNS alert)、本番 Amplify pipeline-deploy、段階リリース計画 | 実 AWS 環境。コード基盤は揃っている (CDK overrides + IAM ポリシー stub 配置済)。※ Maximo 実 API 接続は core が直接続する方針のため Track D ではなくローカルモード残作業 (§5 A) |
+| Track E: Tauri デスクトップ化 + 配布（自動更新 / CodeSigning） | Rust、各 OS 証明書、~3-4週間。**Sprint 0 設計 + Sprint 1 ディレクトリ整理 完了** ([docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md))、次は Sprint 2 (Tauri シェル + core sidecar 化)。**旧 Track C を統合済** |
 
 ### ⚠️ 残技術負債（小規模、優先度低）
 本セッションで 562 → **2 件**まで削減完了。残りは意図的保留:
@@ -98,11 +99,11 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 | `src/components/EnhancedMaintenanceGrid/MaintenanceCell.tsx` | 1 | `value: any` を狭めると body 内 30+ 箇所の `value?.planned` / `value?.planCost` / spread が全部 narrow 必要。リファクタは別 PR で（オプション 5） |
 
 ### スタブ（NotImplementedError）
-- `backend/app/mu/learning/model_merger.py` — OpenVINO IR マージ
-- `backend/app/llm/adapters/cloud_proxy.py` — Lambda llm-proxy 経由（Track D）※ MCP Hub 移行で旧 `factory.py` / `openai_compat.py` / `openvino_genai.py` は削除済
-- `backend/app/llm/adapters/sagemaker.py` — SageMaker（オンデマンド代替）
+- `core/app/mu/learning/model_merger.py` — OpenVINO IR マージ
+- `core/app/llm/adapters/cloud_proxy.py` — Lambda llm-proxy 経由（Track D）※ MCP Hub 移行で旧 `factory.py` / `openai_compat.py` / `openvino_genai.py` は削除済
+- `core/app/llm/adapters/sagemaker.py` — SageMaker（オンデマンド代替）
 - `OpenVinoGemmaAdapter` の chat/stream/classify/generate は依存未インストール時のみ `HARD_FAIL`
-- `backend/app/mu/learning/lora_trainer.train_lora` は依存未インストール時のみ `NotImplementedError`
+- `core/app/mu/learning/lora_trainer.train_lora` は依存未インストール時のみ `NotImplementedError`
   （torch/transformers/peft/datasets が揃った環境では実 SFT を実行）
 
 ---
@@ -110,7 +111,7 @@ Track D 設計: [docs/6_FRONTEND_BACKEND_INTEGRATION.md](docs/6_FRONTEND_BACKEND
 ## 3. ディレクトリ地図（迷わないため）
 
 ```
-backend/app/
+core/app/
 ├── llm/                    # LLM 抽象層
 │   ├── base.py             # LLMAdapter ABC
 │   ├── registry.py         # LLM_MODELS + resolve() + MTP target/drafter
@@ -139,11 +140,11 @@ backend/app/
     ├── updater.py          # 自動更新 API
     └── setup.py            # モデル DL（status / download / SSE progress）
 
-backend/plugins/             # 組込 Plugin
+core/plugins/             # 組込 Plugin
 ├── ollama-adapter/         # Ollama LLM 経由
 └── openvino-adapter/       # OpenVINO LLM 経由
 
-backend/skills/builtin/      # 組込 Skill
+core/skills/builtin/      # 組込 Skill
 ├── data_summary.yaml
 ├── maximo_export.yaml
 └── maximo_import.yaml
@@ -165,6 +166,12 @@ src/
 │   └── muApi.ts            # Knowledge Base API クライアント + SSE
 └── types.ts                # HierarchicalData 等の中核型
 
+src-tauri/                   # Tauri デスクトップシェル（Track E Sprint 1〜）
+├── Cargo.toml / build.rs
+├── src/{main,lib}.rs        # Sprint 2 で core を sidecar 起動・監視
+├── tauri.conf.json / capabilities/
+└── icons/
+
 tools/quantize-models/       # HF → OpenVINO INT4/INT8 量子化 CLI
 
 docs/                        # 全 10 ファイル
@@ -179,8 +186,9 @@ docs/                        # 全 10 ファイル
 ├── 4_SKILL_RECIPES.md      # Skill レシピ集
 └── 5_PUBLISH_GUIDE.md      # Plugin 公開フロー
 
-backend/tests/test_mu_smoke.py     # スモークテスト
-src/**/__tests__/*.test.ts(x)      # Jest テスト 127 件（7 suites）
+core/tests/test_mu_smoke.py        # スモークテスト
+core/requirements.txt              # コア依存（ML 重依存は requirements-ml.txt）
+src/**/__tests__/*.test.ts(x)      # Jest テスト 285 件（24 suites）
 ```
 
 ---
@@ -232,7 +240,7 @@ npm run build   # tsc -b && vite build
   - 作業: PEFT + PyTorch + transformers + datasets 導入、Gemma 4 E2B-it / -it-assistant DL + 量子化、OpenVINO 経由 MTP ベンチマーク、LoRA SFT 動作確認（100ペア × 1epoch）
   - ブロッカー: HuggingFace Token、Intel Arc GPU 推奨
 - **Maximo クライアント実装** — `core` に Maximo REST クライアント（**両モードとも直接接続**・ページング取得）を実装し、組込 Skill `maximo_export` / `maximo_import` を実 API に結線（現状は mock のみ）。Maximo 認証情報は端末ローカルに暗号化保存。
-- **Excel 構造化（5 万件規模）の実機確認** + パイプライン大量処理チューニング（`backend/app/mu/pipeline/transformation.py` の `batch_size` 引き上げ・並列度向上）。
+- **Excel 構造化（5 万件規模）の実機確認** + パイプライン大量処理チューニング（`core/app/mu/pipeline/transformation.py` の `batch_size` 引き上げ・並列度向上）。
 
 **B. クラウドモードの完成**
 
@@ -240,7 +248,7 @@ npm run build   # tsc -b && vite build
 - **Track D 実 AWS deploy 検証** — `npx ampx sandbox` で Cognito / DynamoDB / Lambda を実環境に展開し、サインアップ→確認→ログイン→MFA→クラウド LLM 呼出→エクスポート→削除の E2E 確認。
   - 作業: `aws configure` で IAM credentials 設定、`npx ampx sandbox`、`amplify_outputs.json` 生成、テストアカウントで手動確認
   - ブロッカー: AWS アカウント（個人開発は無料枠内、Bedrock のみ region 制約あり）
-- **トークン従量計測 + サブスク課金** — 使用量メータリング + 課金システム（`backend/app/services/licensing.py` のプラン種別型を土台に拡張 + 決済連携）。
+- **トークン従量計測 + サブスク課金** — 使用量メータリング + 課金システム（`core/app/services/licensing.py` のプラン種別型を土台に拡張 + 決済連携）。
 - **5 万件処理のコスト最適化** — 共通システムプロンプト + ルール集に Bedrock プロンプトキャッシュを適用。Bedrock Batch Inference は残差が極端に大きい場合の将来オプション（現時点では未着手）。
 - **Track D 本番化** — カスタムドメイン（Route 53 + ACM + CloudFront）、CORS 本番ドメイン絞り込み、observability（CloudWatch + X-Ray + SNS alert）、本番 Amplify pipeline-deploy。
 
@@ -248,8 +256,8 @@ npm run build   # tsc -b && vite build
 
 ~3-4 週間。詳細は [docs/11_TRACK_E_SPRINT_PLAN.md](docs/11_TRACK_E_SPRINT_PLAN.md)。
 
-- Sprint 1: ディレクトリ整理 — `backend/`→`core/` リネーム、レガシー配布系（`launcher/` / `build/`）+ 不要になった `amplify/functions/maximo-proxy` Lambda の除去、`src-tauri/` scaffold
-- Sprint 2: Tauri シェル + `core` の sidecar 化
+- ✅ Sprint 1（完了 2026-05-18）: ディレクトリ整理 — `backend/`→`core/` リネーム、レガシー配布系（`launcher/` / `build/`）+ 不要な `maximo-proxy` Lambda の除去、依存の core/ML 分割、`src-tauri/` scaffold
+- Sprint 2: Tauri シェル + `core` の sidecar 化（次はここ）
 - Sprint 3: 自動更新（Tauri Updater + minisign）+ モード切替 UX + システムトレイ
 - Sprint 4: コード署名（Win/macOS/Linux）+ リリース CI
 
@@ -608,8 +616,9 @@ hoshutaro/ (リポジトリ root)
 │   ├── 6_FRONTEND_BACKEND_INTEGRATION.md   # ★ Track D アーキテクチャ
 │   ├── 7_AUTH_AND_USERS.md             # ★ Track D 認証フロー + 7 画面
 │   └── 8_TRACK_D_SPRINT_PLAN.md        # ★ Track D Sprint 計画 + 詳細タスク
-├── backend/                            # FastAPI + Project Mu Engine
+├── core/                               # FastAPI + Project Mu Engine (Python, Tauri sidecar)
 ├── src/                                # Frontend (React + MUI 7)
+├── src-tauri/                          # Tauri デスクトップシェル (Rust)
 ├── amplify/                            # AWS Amplify Gen2 (Track D)
 ├── tools/quantize-models/              # OpenVINO INT4/INT8 量子化
 └── .claude/                            # Claude Code 関連 (リポ内、worktree, plans)

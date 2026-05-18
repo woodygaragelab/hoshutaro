@@ -151,12 +151,14 @@ hoshutaro-mu/
 - [x] **(改訂)** モノレポ化 / Web AWS ホスティング / `core` コンテナ化案を撤回し、
   標準 Tauri 構成へ計画を全面改訂
 
-### Sprint 1: ディレクトリ整理 (Week 1)
+### Sprint 1: ディレクトリ整理 (Week 1) ✅ 完了 (2026-05-18)
 **目的**: レガシー配布系・不要 Lambda を除去し、`backend/`→`core/` リネーム +
 `src-tauri/` scaffold で標準 Tauri 構成へ整える。**`npm run dev` /
-`npx ampx sandbox` / Jest (294) / pytest (21) を一切壊さずに**完了する。
+`npx ampx sandbox` / Jest / pytest を一切壊さずに**完了する。
 
-詳細は §4。
+Slice 1-A〜1-F 完了。検証結果: `npm run lint` / `npm run build` exit 0、
+Jest 24 suites **285 件** pass (maximo-proxy テスト 9 件除去で 294→285)、
+core スモークテスト全 pass。詳細は §4。
 
 ### Sprint 2: Tauri シェル + core sidecar 化 (Week 2)
 **目的**: デスクトップアプリが起動する状態にする。
@@ -191,18 +193,18 @@ hoshutaro-mu/
 
 ---
 
-## 4. Sprint 1 詳細タスク分解 (実装着手用)
+## 4. Sprint 1 詳細タスク分解
 
-実装は **1 Slice = 1 PR** で分割し squash-merge する (HANDOFF の作業ルール準拠)。
-**各スライスで `npm run lint` / `tsc` / `npm run build` / `npm run test` (Jest 294) /
-Python スモーク (21) が green** であることを必須条件とする。
+**✅ Slice 1-A〜1-F 完了 (2026-05-18)**。各スライスを個別コミットで実施 (PR #94)。
+各スライスで `npm run lint` / `npm run build` / `npm run test` / core スモークテストが
+green であることを確認済み (最終: lint・build exit 0、Jest 24 suites 285 件 pass)。
 
-| Slice | 内容 | 検証の要点 |
+| Slice | 内容 | 結果 |
 |---|---|---|
 | 1-A | `backend/` → `core/` リネーム。`git mv` で履歴保持。内部 package `app` を維持し Python import を不変に保つ。`core/tests/` の参照、`package.json` の `dev` スクリプト等の `backend` パス参照、CI workflow のパスを更新 | `python core/tests/test_mu_smoke.py` 21 green。`uvicorn` 起動確認。`npm run dev` で :8000 起動 |
 | 1-B | `core/requirements.txt` を **コア依存** (FastAPI/uvicorn/sqlite 系) と **`core/requirements-ml.txt`** (torch/openvino/transformers/peft 系) に分割 | コア依存のみで FastAPI 起動可。ML 依存込みで従来どおり推論可 |
 | 1-C | レガシー配布系の除去 — `launcher/`、`build/build_all.py`、`build/hoshutaro_setup.iss` を削除。残す `build/` 配下があれば精査 | `npm run dev` / `npm run build` に影響なし |
-| 1-D | 不要 Lambda の除去 — `amplify/functions/maximo-proxy/` を削除し、`amplify/backend.ts` から `maximoProxy` の import・`defineBackend` 登録・Function URL / IAM ブロックを除去。`maximo-proxy/__tests__` も削除 | `npx ampx sandbox` の synth が通る。Jest が green (maximo-proxy テスト除去後も 294 相当を維持) |
+| 1-D | 不要 Lambda の除去 — `amplify/functions/maximo-proxy/` を削除し、`amplify/backend.ts` から `maximoProxy` の import・`defineBackend` 登録・Function URL / IAM ブロックを除去。`maximo-proxy/__tests__` も削除 | `amplify/tsconfig.json` で `tsc --noEmit` + eslint exit 0。Jest green (maximo-proxy テスト 9 件除去で 294→285) |
 | 1-E | `src-tauri/` scaffold (`tauri init` 相当) — `Cargo.toml` / `tauri.conf.json` / `src/main.rs` (最小) / `capabilities/` / `icons/`。root `package.json` に `tauri:dev` / `tauri:build` スクリプト追加。`@tauri-apps/cli` を devDependency に追加 | `npm run dev` (Vite :5173 + uvicorn :8000) は不変。`npm run tauri:dev` で空ウィンドウ起動 (Sprint 2 で sidecar 結線) |
 | 1-F | 本ドキュメント + HANDOFF を Sprint 1 完了状態に更新 | — |
 
