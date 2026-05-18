@@ -499,6 +499,14 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 </IconButton>
                 {showToolsMenu && (
                   <div className="hover-menu-vertical plugin-menu-override">
+                    <div
+                      className="menu-mode"
+                      title={user ? `クラウドモード${user.email ? ` — ${user.email}` : ''}` : 'ローカルモード（未ログイン）'}
+                    >
+                      <span className={`menu-mode-dot ${user ? 'cloud' : 'local'}`} />
+                      {user ? 'クラウドモード' : 'ローカルモード'}
+                    </div>
+                    <div className="menu-separator" />
                     <div className="menu-item" onClick={() => { setIsSettingsOpen(true); setShowToolsMenu(false); }}>LLM設定</div>
                     <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
                     <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>プラグイン管理</div>
