@@ -160,16 +160,23 @@ Slice 1-A〜1-F 完了。検証結果: `npm run lint` / `npm run build` exit 0�
 Jest 24 suites **285 件** pass (maximo-proxy テスト 9 件除去で 294→285)、
 core スモークテスト全 pass。詳細は §4。
 
-### Sprint 2: Tauri シェル + core sidecar 化 (Week 2)
+### Sprint 2: Tauri シェル + core sidecar 化 (Week 2) 🟡 一部完了 (2026-05-18)
 **目的**: デスクトップアプリが起動する状態にする。
 
-- `src-tauri/` の Rust エントリ / `tauri.conf.json` / capabilities / icons を実装
-- `core` を単一バイナリ化 (PyInstaller `--onefile` 第一候補 / PyOxidizer 比較検証)。
-  ML 重依存 (`requirements-ml.txt`) は **同梱せず初回起動時 DL** (本体 ~50MB 制約)
-- `core` バイナリを Tauri `externalBin` (sidecar) 登録。Rust 側でアプリ起動 →
-  sidecar spawn → `/health` ポーリング → ready 後にウィンドウ表示。終了時 graceful kill
-- ポート: 空きポートを探索 → webview に API ベース URL として注入 (D-11)
-- `launcher/main.py` の必要ロジック (MCP server 管理等) を Rust に移植
+**✅ 実装済 (cargo build exit 0 で検証)**:
+- `src-tauri/src/sidecar.rs` — ポート確保 (既定 8000・衝突時は空きポート探索) /
+  uvicorn 経由の `core` 起動 / `/api/health` HTTP ポーリング / graceful kill
+- `src-tauri/src/lib.rs` — `setup` フックで別スレッド起動 → health 後に
+  `window.show()`、`ExitRequested` で `core` 停止。`core_base_url` コマンドを公開
+- `tauri.conf.json` — メインウィンドウを `visible:false` に (ready 後に表示)
+- `launcher/main.py` の役割 (バックエンド起動) は上記 sidecar 管理で代替。
+  MCP server 管理は `core` 内の `mcp_hub` が担うため Rust 側移植は不要
+
+**⏭ 残作業 (本環境では検証不可 — ローカル/CI 環境で実施)**:
+- `core` の単一バイナリ化 (PyInstaller `--onefile`)。ML 重依存は非同梱・初回 DL。
+  現状は dev と同じく Python インタプリタ経由で `core` を起動している
+- `tauri dev` / `tauri build` による実ウィンドウ起動・sidecar 連携の実機確認
+- webview への API ベース URL 注入をフロントエンド側で消費する結線 (`core_base_url`)
 
 ### Sprint 3: 自動更新 + モード切替 UX (Week 3)
 **目的**: 更新がワンクリックになり、ローカル/クラウドモードの切替が UX 上明確になる。
