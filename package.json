@@ -15,14 +15,7 @@
     "tauri:build": "tauri build",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "deploy:vercel": "vercel --prod",
-    "deploy:netlify": "netlify deploy --prod",
-    "deploy:preview": "vercel",
-    "build:analyze": "npm run build && npx vite-bundle-analyzer dist",
-    "prepare:deploy": "npm run lint && npm run test && npm run build",
-    "deploy:check": "node scripts/deploy-check-simple.js",
-    "deploy:full": "npm run deploy:check && npm run deploy:vercel"
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.2",

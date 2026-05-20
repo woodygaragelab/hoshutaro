@@ -15,6 +15,12 @@
       "LLM_BASE_URL": "C:\\Users\\kazuh\\OpenVINO_Models",
       "LLM_MODEL": "Qwen3-8B-int4-ov",
       "LLM_API_KEY": "none"
+    },
+    "maximo-connector": {
+      "MAXIMO_BASE_URL": "https://maximo.example.com/maximo/oslc",
+      "MAXIMO_API_KEY": "",
+      "MAXIMO_OBJECT_STRUCTURE": "MXASSET",
+      "MAXIMO_TIMEOUT_SEC": "30"
     }
   }
 }

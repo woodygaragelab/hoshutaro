@@ -271,8 +271,8 @@ export type LicensePlan = 'free' | 'standard' | 'enterprise' | 'dev';
 export interface LicenseInfo {
   plan: LicensePlan;
   isDevMode: boolean;
-  geminiQuota: number;         // 月間上限
-  geminiUsed: number;          // 今月使用数
+  llmQuota: number;            // 月間上限（LLM 呼出回数。旧 geminiQuota）
+  llmUsed: number;             // 今月使用数（旧 geminiUsed）
   enabledPlugins: string[];
   expiresAt: string;
 }

@@ -1,0 +1,51 @@
+{
+  "id": "maximo-connector",
+  "name": "Maximo コネクタ",
+  "version": "0.1.0-skeleton",
+  "author": "WoodyGarageLab",
+  "category": "connector",
+  "icon": "🔌",
+  "license": "free",
+  "minAppVersion": "1.0.0",
+  "transport": "stdio",
+  "command": "python",
+  "args": ["-u", "server.py"],
+  "tools": [
+    "test_connection",
+    "fetch_assets",
+    "fetch_work_orders",
+    "fetch_hierarchies",
+    "fetch_classifications",
+    "push_assets",
+    "push_work_orders",
+    "compute_diff"
+  ],
+  "configSchema": {
+    "MAXIMO_BASE_URL": {
+      "type": "string",
+      "label": "Maximo REST ベース URL",
+      "default": "https://maximo.example.com/maximo/oslc",
+      "description": "Maximo の OSLC REST エンドポイントの URL"
+    },
+    "MAXIMO_API_KEY": {
+      "type": "string",
+      "label": "API キー",
+      "secret": true,
+      "default": "",
+      "description": "Maximo の API キー（apikey ヘッダで送信）"
+    },
+    "MAXIMO_OBJECT_STRUCTURE": {
+      "type": "string",
+      "label": "Object Structure 名",
+      "default": "MXASSET",
+      "description": "Maximo 側で公開された Object Structure 名"
+    },
+    "MAXIMO_TIMEOUT_SEC": {
+      "type": "string",
+      "label": "リクエストタイムアウト（秒）",
+      "default": "30"
+    }
+  },
+  "developmentStatus": "skeleton",
+  "developmentNotes": "本プラグインは別チームが Maximo 連携を開発するための雛形。各ツールは NotImplementedError を投げる。期待 I/O は docs/13_MAXIMO_CONNECTOR_GUIDE.md を参照。"
+}
