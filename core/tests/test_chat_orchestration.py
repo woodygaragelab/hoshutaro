@@ -189,6 +189,105 @@ def test_classifier_falls_back_on_adapter_error():
     assert result == {"intent": "converse", "parameters": {}, "confidence": 0.0}
 
 
+# ── orchestrator: ダイアログ操作系 intent ハンドラ（WS1-10） ──
+
+
+class DialogOpAdapter(MockAdapter):
+    """generate_structured がダイアログ操作 JSON を返すモック。"""
+
+    def __init__(self, op: dict) -> None:
+        super().__init__({})
+        self._op = op
+
+    async def generate_structured(self, *args: Any, **kwargs: Any) -> str:
+        import json as _json
+        return _json.dumps(self._op)
+
+
+def test_dialog_intent_map_covers_all_dialog_intents():
+    from app.engine.orchestrator import DIALOG_INTENT_MAP
+
+    assert DIALOG_INTENT_MAP["hierarchy_edit"] == "hierarchy"
+    assert DIALOG_INTENT_MAP["asset_classification_assign"] == "assetClassification"
+    assert DIALOG_INTENT_MAP["work_order_line_edit"] == "workOrderLine"
+    assert DIALOG_INTENT_MAP["specification_edit"] == "specification"
+    assert DIALOG_INTENT_MAP["asset_reassign"] == "assetReassign"
+
+
+def test_handle_dialog_intent_returns_operation_and_dialog_request(monkeypatch):
+    """hierarchy_edit を処理し、operations と dialog_request を返すこと。"""
+    import app.engine.orchestrator as orch
+
+    adapter = DialogOpAdapter(
+        {
+            "dialog": "hierarchy",
+            "action": "add_value",
+            "params": {"levelKey": "L3", "value": "ポンプ室"},
+            "summary": "第3階層に『ポンプ室』を追加します。",
+        }
+    )
+    monkeypatch.setattr(orch, "get_llm_adapter", lambda *a, **k: adapter)
+
+    result = _run(
+        orch._handle_dialog_intent(
+            intent="hierarchy_edit",
+            parameters={},
+            session_id="s1",
+            context={},
+            instruction="第3階層にポンプ室を追加して",
+            ui_context={"currentDialog": None},  # ダイアログ未起動
+        )
+    )
+    assert result["operations"], "operation が返ること"
+    op = result["operations"][0]
+    assert op["intent"] == "hierarchy_edit"
+    assert op["dialog"] == "hierarchy"
+    assert op["action"] == "add_value"
+    # ダイアログ未起動なので起動要求が出る
+    assert result["dialog_request"] == "hierarchy"
+
+
+def test_handle_dialog_intent_no_open_request_when_dialog_already_open(monkeypatch):
+    """対象ダイアログが既に開いていれば dialog_request は None。"""
+    import app.engine.orchestrator as orch
+
+    adapter = DialogOpAdapter(
+        {"dialog": "hierarchy", "action": "rename_level", "params": {}, "summary": "改名します。"}
+    )
+    monkeypatch.setattr(orch, "get_llm_adapter", lambda *a, **k: adapter)
+
+    result = _run(
+        orch._handle_dialog_intent(
+            intent="hierarchy_edit",
+            parameters={},
+            session_id="s1",
+            context={},
+            instruction="第1階層の名前を変えて",
+            ui_context={"currentDialog": "hierarchy"},  # 既に開いている
+        )
+    )
+    assert result["dialog_request"] is None
+
+
+def test_handle_dialog_intent_graceful_when_llm_unavailable(monkeypatch):
+    """LLM が None のときも例外を投げず案内を返す。"""
+    import app.engine.orchestrator as orch
+
+    monkeypatch.setattr(orch, "get_llm_adapter", lambda *a, **k: None)
+    result = _run(
+        orch._handle_dialog_intent(
+            intent="specification_edit",
+            parameters={},
+            session_id="s1",
+            context={},
+            instruction="仕様を追加して",
+            ui_context={"currentDialog": "specification"},
+        )
+    )
+    assert result["operations"] == []
+    assert "LLM" in result["final_response"]
+
+
 if __name__ == "__main__":
     test_format_ui_context_no_dialog()
     test_format_ui_context_with_hierarchy_dialog()
@@ -201,4 +300,5 @@ if __name__ == "__main__":
     test_classifier_allows_schedule_planning_without_dialog()
     test_classifier_low_confidence_overrides_to_converse()
     test_classifier_falls_back_on_adapter_error()
-    print("All chat orchestration tests passed.")
+    test_dialog_intent_map_covers_all_dialog_intents()
+    print("All chat orchestration tests passed (monkeypatch tests require pytest).")

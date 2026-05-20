@@ -9,6 +9,7 @@ from app.engine.conversational_dispatcher import create_parallel_dispatch
 from app.services.skill_loader import skill_loader
 from app.services.session_manager import session_manager
 from app.llm import get_adapter as get_llm_adapter
+from app.llm.json_utils import extract_json_object
 
 # ユーザー確認を示すキーワードパターン
 _CONFIRMATION_KEYWORDS = {"はい", "お願い", "OK", "ok", "Ok", "yes", "よろしく", "それで", "実行", "追加して", "進めて"}
@@ -51,22 +52,45 @@ async def prepare_dispatch(
         return None, None, None
 
 
+# intent → 対象ダイアログ種別（プラン WS1-10）。チャットからのダイアログ操作のルーティング。
+DIALOG_INTENT_MAP: Dict[str, str] = {
+    "hierarchy_edit": "hierarchy",
+    "asset_classification_define": "assetClassification",
+    "asset_classification_assign": "assetClassification",
+    "work_order_classification_edit": "workOrderClassification",
+    "work_order_line_edit": "workOrderLine",
+    "specification_edit": "specification",
+    "asset_reassign": "assetReassign",
+}
+
+
 async def execute_agent(
     intent: str,
     parameters: dict,
     session_id: str,
     context: Dict[str, Any],
     instruction: str = "",
+    ui_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    分類結果に基づきReActエージェントを実行する。
+    分類結果に基づきReActエージェント / ダイアログ操作ハンドラを実行する。
 
     Returns:
-        {"final_response": str, "operations": list[dict]}
+        {
+          "final_response": str,
+          "operations": list[dict],
+          "dialog_request": str | None,   # フロントに開かせたいダイアログ種別
+        }
     """
     session = session_manager.get_session(session_id)
     history = session.get_recent_history(10)
     messages = history + [{"role": "user", "content": instruction}]
+
+    # ── ダイアログ操作系 intent（プラン WS1-10） ──
+    if intent in DIALOG_INTENT_MAP or intent == "dialog_open_then_edit":
+        return await _handle_dialog_intent(
+            intent, parameters, session_id, context, instruction, ui_context
+        )
 
     if intent == "schedule_planning":
         # ── 保留中の提案がある場合: ユーザー確認を検知して即実行 ──
@@ -160,12 +184,143 @@ async def execute_agent(
     if intent == "excel_import":
         logger.info("Excel import requested via chat — delegating to ExcelImportAgent")
         return {
-            "final_response": "Excelファイルのインポートは、画面上部のインポートボタンからファイルをアップロードしてください。",
+            "final_response": "Excelファイルのインポートは、エージェントバーの添付アイコンからファイルを選択してください。",
             "operations": [],
+            "dialog_request": None,
         }
 
     # converse or unknown — エージェント実行なし
-    return {"final_response": "", "operations": []}
+    return {"final_response": "", "operations": [], "dialog_request": None}
+
+
+# ========== ダイアログ操作系 intent ハンドラ（プラン WS1-10） ==========
+
+# 各ダイアログで許可される操作（LLM へのガイド + バリデーション用）。
+_DIALOG_OPERATIONS: Dict[str, list[str]] = {
+    "hierarchy": [
+        "add_level", "delete_level", "reorder_level", "rename_level",
+        "add_value", "edit_value", "delete_value",
+    ],
+    "assetClassification": [
+        "add_level", "delete_level", "reorder_level", "rename_level",
+        "add_value", "edit_value", "delete_value", "assign_to_assets",
+    ],
+    "workOrderClassification": [
+        "add_classification", "delete_classification",
+        "reorder_classification", "rename_classification",
+    ],
+    "workOrderLine": [
+        "add_line", "delete_line", "duplicate_line", "edit_line",
+        "edit_work_order",
+    ],
+    "specification": ["add_spec", "edit_spec", "delete_spec"],
+    "assetReassign": ["select_path", "execute_reassign"],
+}
+
+_DIALOG_OP_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "dialog": {
+            "type": "string",
+            "description": "対象ダイアログ種別（hierarchy / assetClassification / "
+            "workOrderClassification / workOrderLine / specification / assetReassign）",
+        },
+        "action": {"type": "string", "description": "実行する操作名"},
+        "params": {
+            "type": "object",
+            "description": "操作のパラメタ（levelKey / value / assetId 等）",
+        },
+        "summary": {"type": "string", "description": "ユーザー向けの操作要約（1 文）"},
+    },
+    "required": ["dialog", "action", "summary"],
+}
+
+
+async def _handle_dialog_intent(
+    intent: str,
+    parameters: dict,
+    session_id: str,
+    context: Dict[str, Any],
+    instruction: str,
+    ui_context: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    ダイアログ操作系 intent を処理（プラン WS1-10）。
+
+    チャット指示を LLM で「ダイアログ操作」に構造化し、フロントに渡す operation を返す。
+    実際の編集はフロントの各ダイアログ（HierarchyEditDialog 等）が onSave 経路で適用する。
+    ダイアログ未起動なら dialog_request でフロントにダイアログ起動を依頼する。
+    """
+    ui_context = ui_context or {}
+    current_dialog = ui_context.get("currentDialog")
+
+    # intent → 対象ダイアログ。dialog_open_then_edit は LLM に判定させる。
+    target_dialog = DIALOG_INTENT_MAP.get(intent)
+
+    adapter = get_llm_adapter()
+    if adapter is None:
+        return {
+            "final_response": "LLM が利用できないため、ダイアログ操作を解釈できませんでした。"
+            "セットアップ画面でモデルを取得してください。",
+            "operations": [],
+            "dialog_request": target_dialog if target_dialog != current_dialog else None,
+        }
+
+    allowed = _DIALOG_OPERATIONS.get(target_dialog or "", [])
+    allowed_hint = (
+        f"対象ダイアログ: {target_dialog}。許可される action: {', '.join(allowed)}。"
+        if target_dialog
+        else "ユーザーの指示から適切なダイアログ（hierarchy / assetClassification / "
+        "workOrderClassification / workOrderLine / specification / assetReassign）を選んでください。"
+    )
+    system_prompt = (
+        "あなたは HOSHUTARO のダイアログ操作アシスタントです。"
+        "ユーザーの自然言語指示を、ダイアログで実行する 1 つの構造化操作に変換してください。\n"
+        + allowed_hint
+        + "\nJSON のみで応答し、説明文やコードブロックは出力しないこと。"
+    )
+
+    try:
+        raw = await adapter.generate_structured(
+            system_prompt=system_prompt,
+            user_prompt=instruction,
+            json_schema=_DIALOG_OP_SCHEMA,
+            max_new_tokens=512,
+        )
+    except NotImplementedError as e:
+        logger.warning("dialog intent: LLM unavailable: %s", e)
+        return {
+            "final_response": "LLM が未準備のため操作を生成できませんでした。",
+            "operations": [],
+            "dialog_request": target_dialog if target_dialog != current_dialog else None,
+        }
+    except Exception as e:
+        logger.error("dialog intent generation failed: %s", e)
+        return {
+            "final_response": f"操作の生成に失敗しました: {e}",
+            "operations": [],
+            "dialog_request": None,
+        }
+
+    op = extract_json_object(raw) or {}
+    resolved_dialog = op.get("dialog") or target_dialog
+    action = op.get("action", "")
+    summary = op.get("summary") or "ダイアログ操作を提案しました。"
+
+    operation = {
+        "intent": intent,
+        "dialog": resolved_dialog,
+        "action": action,
+        "params": op.get("params", {}),
+    }
+    # ダイアログが開いていなければフロントに起動を依頼
+    needs_open = bool(resolved_dialog) and resolved_dialog != current_dialog
+
+    return {
+        "final_response": summary,
+        "operations": [operation],
+        "dialog_request": resolved_dialog if needs_open else None,
+    }
 
 
 # ========== フォールバック: LLM不可時のキーワードマッチ ==========

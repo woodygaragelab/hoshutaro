@@ -29,6 +29,8 @@ export interface SSEEvent {
   final_response?: string;
   operations?: unknown[];
   pending_operations?: unknown[];
+  // dialog_open_request 用: 開くべきダイアログ種別
+  dialog?: string;
 }
 
 export function startChatStream(

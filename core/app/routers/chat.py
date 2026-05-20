@@ -174,7 +174,7 @@ async def chat_completions(body: ChatRequest, request: Request):
                     yield {"data": "[DONE]"}
                     return
 
-                # ── エージェント実行（schedule_planning / data_editing / その他） ──
+                # ── エージェント実行（schedule_planning / data_editing / ダイアログ操作系） ──
                 yield _sse({"type": "tool_call", "intent": intent})
                 result = await execute_agent(
                     intent=intent,
@@ -182,10 +182,22 @@ async def chat_completions(body: ChatRequest, request: Request):
                     session_id=session_id,
                     context=body.data_context or {},
                     instruction=user_msg,
+                    ui_context=body.ui_context,
                 )
 
                 final_response = result.get("final_response", "")
                 operations = result.get("operations", [])
+
+                # ダイアログ起動要求（プラン WS1-10）— フロントが該当ダイアログを開く
+                dialog_request = result.get("dialog_request")
+                if dialog_request:
+                    yield _sse(
+                        {
+                            "type": "dialog_open_request",
+                            "dialog": dialog_request,
+                            "intent": intent,
+                        }
+                    )
 
                 # schedule_planning の保留提案を検出して proposal_pending を発行
                 pending = session.metadata.get("pending_schedule_ops")

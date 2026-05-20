@@ -257,7 +257,6 @@ async def convert_node(state: ExcelImportState) -> Dict[str, Any]:
         if not analysis_results:
             return {"status": "error", "error_message": "解析結果がありません"}
 
-        chunk_size = 500
         total_rows = state.get("total_rows", 0)
 
         # 蓄積済みデータ
@@ -266,8 +265,10 @@ async def convert_node(state: ExcelImportState) -> Dict[str, Any]:
         all_wol = list(state.get("extracted_wo_lines", []))
         all_errors = list(state.get("error_rows", []))
 
+        # WS1-7: chunk_size / timeout は config、session_id 経由でキャンセル可
         chunk_result = execute_chunk_conversion(
-            analysis_results, chunk_size=chunk_size,
+            analysis_results,
+            session_id=state.get("session_id"),
         )
 
         # 結果をマージ

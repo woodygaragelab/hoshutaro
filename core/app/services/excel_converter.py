@@ -793,30 +793,63 @@ async def analyze_excel_full(file_bytes: bytes, filename: str = "unknown.xlsx", 
 
 def execute_chunk_conversion(
     analysis_results: list[dict[str, Any]],
-    chunk_size: int = 500,
+    chunk_size: Optional[int] = None,
+    session_id: Optional[str] = None,
+    timeout_sec: Optional[float] = None,
 ) -> dict[str, Any]:
     """
     Phase 3: チャンク変換。LLM呼び出しゼロ。複数シートを全て変換して統合する。
+
+    プラン WS1-7:
+      - chunk_size 未指定なら settings.excel_pipeline_chunk_size を使う
+      - session_id 指定時はチャンクごとに is_cancelled をチェック（キャンセル即時反映）
+      - timeout_sec 経過でタイムアウト（既定 settings.excel_pipeline_phase_timeout_sec）
     """
+    import time as _time
+    from app.config import settings as _ws17_settings
+
+    if chunk_size is None:
+        chunk_size = int(_ws17_settings.excel_pipeline_chunk_size)
+    if timeout_sec is None:
+        timeout_sec = float(_ws17_settings.excel_pipeline_phase_timeout_sec)
+
+    _deadline = _time.monotonic() + timeout_sec
+
+    def _check_cancelled() -> None:
+        if session_id:
+            from app.services.session_manager import session_manager
+            session = session_manager.get_session(session_id)
+            if getattr(session, "is_cancelled", False):
+                raise asyncio.CancelledError(
+                    f"Phase 3 変換がユーザーによりキャンセルされました (session={session_id})"
+                )
+
     assets = {}
     work_orders = {}
     wo_lines = []
     error_rows = []
     processed_count = 0
-    
+
     for analysis_result in analysis_results:
         grid = analysis_result["grid"]
         structure = analysis_result["structure"]
         descriptors = analysis_result["descriptors"]
         symbol_mapping = analysis_result["symbol_mapping"]
-        
+
         # data_start以降から処理
         actual_start = structure.data_start
-        
+
         # シート単位のチャンク処理
         total_rows = grid.total_rows
         current_row = actual_start
         while current_row < total_rows:
+            _check_cancelled()
+            if _time.monotonic() > _deadline:
+                raise TimeoutError(
+                    f"Phase 3 変換が {timeout_sec:.0f}s を超過しました "
+                    f"(processed={processed_count} 行)。チャンクサイズや対象範囲を見直してください。"
+                )
+
             chunk_result = convert_chunk(
                 grid=grid,
                 structure=structure,
@@ -825,7 +858,7 @@ def execute_chunk_conversion(
                 start_row=current_row,
                 chunk_size=chunk_size,
             )
-            
+
             for asset in chunk_result["assets"]:
                 aid = asset["id"]
                 if aid not in assets:
@@ -841,7 +874,7 @@ def execute_chunk_conversion(
             error_rows.extend([{"sheet": grid.sheet_name, **err} for err in chunk_result["error_rows"]])
             processed_count += chunk_result["processed_count"]
             current_row += chunk_size
-            
+
     return {
         "assets": list(assets.values()),
         "work_orders": list(work_orders.values()),

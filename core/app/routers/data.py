@@ -137,13 +137,12 @@ async def confirm_import(body: ConfirmImportRequest):
                 res["symbol_mapping"] = body.symbol_mapping
             import_state["symbol_mapping"] = body.symbol_mapping
         
-        # Phase 3: チャンク変換実行
+        # Phase 3: チャンク変換実行（WS1-7: chunk_size/timeout は config、session でキャンセル可）
         logger.info("[confirm_import] Phase 3 開始: チャンク変換 (全シート)")
-        
-        chunk_size = 500
-        
+
         chunk_result = execute_chunk_conversion(
-            analysis_results, chunk_size=chunk_size,
+            analysis_results,
+            session_id=body.session_id,
         )
         
         all_assets_dict = {a["id"]: a for a in chunk_result["assets"]}

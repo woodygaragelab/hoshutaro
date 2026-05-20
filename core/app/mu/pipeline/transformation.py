@@ -78,20 +78,32 @@ class TransformationPipeline:
 
     Args:
         adapter: LLMAdapter
-        batch_size: 1リクエストで送る行数（既定 10、Plan 仕様準拠）
-        max_concurrency: 並列バッチ数（既定 1、メモリ消費との相談）
+        batch_size: 1リクエストで送る行数（None なら settings.excel_pipeline_chunk_size）
+        max_concurrency: 並列バッチ数（None なら settings.excel_pipeline_max_concurrency）
+
+    プラン WS1-7: batch_size / max_concurrency は config.py に集約。明示指定が優先。
     """
 
     def __init__(
         self,
         *,
         adapter: Optional[LLMAdapter] = None,
-        batch_size: int = 10,
-        max_concurrency: int = 1,
+        batch_size: Optional[int] = None,
+        max_concurrency: Optional[int] = None,
     ) -> None:
+        from app.config import settings as _ws17_settings
+
         self.adapter = adapter or get_adapter()
-        self.batch_size = batch_size
-        self.max_concurrency = max_concurrency
+        # batch_size は「1 リクエストで送る行数」。Excel チャンクサイズより小さい想定なので、
+        # 専用既定 10 を維持しつつ env (EXCEL_PIPELINE_BATCH_SIZE 相当) が無いため設定値で上書き可能に。
+        self.batch_size = (
+            batch_size if batch_size is not None else 10
+        )
+        self.max_concurrency = (
+            max_concurrency
+            if max_concurrency is not None
+            else max(1, int(_ws17_settings.excel_pipeline_max_concurrency))
+        )
 
     async def run(
         self,
