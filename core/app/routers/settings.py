@@ -59,10 +59,12 @@ async def update_settings(new_settings: LLMSettings):
     # plugins.jsonに設定を反映し、対応するMCPサーバを起動/再起動する
     from app.services.plugin_manager import plugin_manager
     from app.services.mcp_hub import mcp_hub
+    from app.llm import LLM_MODELS
 
     plugin_id = new_settings.llm_adapter
 
-    if plugin_id != "gemini":
+    # registry に登録された組込モデル（openvino_gemma 等）は MCP プラグインではないためスキップ
+    if plugin_id not in LLM_MODELS:
         manifest = plugin_manager.get_plugin_manifest(plugin_id)
         if manifest:
             import sys
@@ -70,7 +72,7 @@ async def update_settings(new_settings: LLMSettings):
             command = manifest.get("command", plugin_id)
             if command in ("python", "python3"):
                 command = sys.executable
-            
+
             launch_options = {
                 "command": command,
                 "args": manifest.get("args", []),
@@ -102,10 +104,12 @@ class LLMStartRequest(BaseModel):
 @router.post("/api/settings/llm/start")
 async def start_llm_adapter(req: LLMStartRequest):
     from app.services.mcp_hub import mcp_hub
-    
+    from app.llm import LLM_MODELS
+
     plugin_id = req.adapter
 
-    if plugin_id == "gemini":
+    # 組込 registry モデル（openvino_gemma 等）は MCP プロセス管理対象外
+    if plugin_id in LLM_MODELS:
         return {"ok": True}
 
     # 選択されていないアダプタを停止
@@ -159,25 +163,30 @@ class LLMTestRequest(BaseModel):
 
 @router.post("/api/settings/llm/test")
 async def test_llm_connection(req: LLMTestRequest):
-    from app.services.gemini_client import gemini_client
     from app.services.mcp_hub import mcp_hub
-    
+    from app.llm import LLM_MODELS, get_adapter
+
     plugin_id = req.adapter
     prompt = "こんにちは！短い挨拶を1文で返してください。"
 
-    if plugin_id == "gemini":
+    # 組込 registry モデル（openvino_gemma 等）は adapter.ping() でヘルスチェック
+    if plugin_id in LLM_MODELS:
         try:
-            # gemini_clientの内部機能でテストを実施
-            res_text = await gemini_client.generate_text(
-                prompt=prompt,
+            adapter = get_adapter(plugin_id)
+            ping = await adapter.ping()
+            if not ping.get("ok"):
+                return {"ok": False, "latency_ms": 0, "error": ping.get("message", "ping failed")}
+            # 短い挨拶で実生成テスト
+            res_text = await adapter.chat(
+                [{"role": "user", "content": prompt}],
                 temperature=0.0,
-                max_tokens=15
+                max_new_tokens=32,
             )
             return {
-                "ok": True, 
-                "latency_ms": 0, 
-                "model_info": "Gemini System Tuning",
-                "response_text": res_text.strip()
+                "ok": True,
+                "latency_ms": 0,
+                "model_info": ping.get("target") or plugin_id,
+                "response_text": str(res_text).strip(),
             }
         except Exception as e:
             return {"ok": False, "latency_ms": 0, "error": str(e)}
@@ -300,8 +309,10 @@ async def get_llm_models(req: LLMModelsRequest):
     from app.services.mcp_hub import mcp_hub
     
     plugin_id = req.adapter
-    if plugin_id == "gemini":
-        return {"ok": True, "models": ["gemini-1.5-pro"]}
+    from app.llm import LLM_MODELS
+    if plugin_id in LLM_MODELS:
+        # registry の組込モデルは「自身が唯一のモデル」を返す
+        return {"ok": True, "models": [plugin_id]}
 
     from app.services.plugin_manager import plugin_manager
     manifest = plugin_manager.get_plugin_manifest(plugin_id)

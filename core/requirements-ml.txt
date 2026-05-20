@@ -1,14 +1,27 @@
-# HOSHUTARO core エンジン — ML 重依存
+# HOSHUTARO core エンジン — ML 重依存（推論ランタイム + モデル変換）
 #
-# OpenVINO 推論ランタイム等の重量級依存（数百 MB〜GB クラス）。
-# Tauri sidecar バイナリには同梱せず、初回起動時にダウンロードする
-# （core/app/mu/setup/downloader.py が DL を管理）。
+# 数百 MB〜GB クラスの重量級依存。Tauri sidecar バイナリには同梱せず、
+# 初回起動時に `pip install -r core/requirements-ml.txt` で導入する
+# （`core/app/mu/setup/downloader.py` がモデル DL を管理）。
 #
-# LoRA 自律進化（PEFT + PyTorch + transformers + datasets）を使う場合は
-# 別途インストールする（依存未導入時は graceful degradation するため、
-# ここでは固定しない）。
+# 依存未導入でもバックエンドは boot し、setup ページを配信できるよう
+# `core/app/llm/adapters/openvino_gemma.py` は optional import パターンを採用する。
+#
+# LoRA 自律進化（PEFT + datasets）を使う場合は別途インストールする
+# （`core/app/mu/learning/` 配下、未導入時 graceful degradation）。
 
-# ── OpenVINO 推論ランタイム ──
+# ── 推論ランタイム（openvino-genai LLMPipeline + Speculative Decoding） ──
+# MTP（Multi-Token Prediction / Speculative Decoding）は LLMPipeline の
+# `draft_model=` 引数で実装。openvino-genai 2024.4 以降がこの API をサポート。
 openvino>=2024.4.0
 openvino-genai>=2024.4.0
 openvino-tokenizers>=2024.4.0
+
+# ── モデル変換: HuggingFace → OpenVINO IR ──
+# `tools/quantize-models/download_and_quantize.py` および `OpenVinoGemmaAdapter`
+# が target / drafter の IR を生成・ロードする際に使用。
+optimum-intel[nncf]>=1.20
+transformers>=4.44
+torch>=2.3
+huggingface_hub>=0.24
+nncf>=2.13

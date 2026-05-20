@@ -13,13 +13,13 @@ httpx>=0.27,<1.0
 sse-starlette>=2.0,<3.0
 python-multipart>=0.0.9,<1.0
 
-# ── Gemini (Built-in LLM) ──
-google-generativeai>=0.8
-
 # ── MCP SDK (Plugin Infrastructure) ──
 mcp>=1.0
 
-# ── Legacy LLM (Phase 5 で MCP 移行予定) ──
+# ── Agent Orchestration ──
+# orchestrator/conversational_dispatcher/agents は LangGraph StateGraph で実装
+# （core/app/engine/agents/*.py）。openai は現状未使用だが将来の cloud_proxy 経由で必要に
+# なる可能性があるため残置。
 openai>=1.12,<2.0
 langgraph>=0.2
 langchain-core>=0.3

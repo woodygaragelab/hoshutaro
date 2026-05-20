@@ -1,11 +1,26 @@
 import asyncio
 import logging
 from typing import Optional
-from app.services.llm_shim import get_llm_adapter
-from app.services.llm_shim import extract_json_object, extract_json_array
+from app.config import settings
+from app.llm import get_adapter as get_llm_adapter
+from app.llm.json_utils import extract_json_object, extract_json_array
 from app.services.excel_types import PhysicalGrid, StructureInfo, ColumnDescriptor
 
 logger = logging.getLogger(__name__)
+
+# プラン WS1-7: Phase 2 の並列実行を Semaphore で制御。フェーズごとに新しい Semaphore を作って
+# モデル/環境変更時にも再評価される。
+def _make_phase_semaphore() -> asyncio.Semaphore:
+    return asyncio.Semaphore(max(1, int(settings.excel_pipeline_max_concurrency)))
+
+
+async def _bounded_generate_structured(adapter, *args, **kwargs):
+    """LLM 呼び出しを per-call タイムアウトで包む（プラン WS1-7）。"""
+    timeout = float(settings.excel_pipeline_phase_timeout_sec)
+    return await asyncio.wait_for(
+        adapter.generate_structured(*args, **kwargs),
+        timeout=timeout,
+    )
 
 def _get_title_injection(grid: PhysicalGrid) -> str:
     """常にシートの先頭3行を抽出してコンテキストとする（Title Injection）"""
@@ -198,25 +213,50 @@ async def run_phase1b_global_state(grid: PhysicalGrid, filename: str, p1a_data: 
 # フェーズ2: 並列マッピングエージェント
 # ═══════════════════════════════════════════════════════════════
 
-async def _agentic_column_mapper(agent_name: str, system_prompt: str, json_schema: dict, user_text: str, validator) -> list[dict]:
-    adapter = get_llm_adapter(wait_timeout=30.0)
+async def _agentic_column_mapper(
+    agent_name: str,
+    system_prompt: str,
+    json_schema: dict,
+    user_text: str,
+    validator,
+    semaphore: Optional[asyncio.Semaphore] = None,
+) -> list[dict]:
+    adapter = get_llm_adapter()
     if not adapter:
         return []
-    
+
     max_retries = 2
     error_msg = ""
     for retry in range(max_retries):
         prompt = user_text
         if error_msg:
             prompt += f"\n\n【エラー修正指示】\n{error_msg}"
-            
-        raw_text = await adapter.generate_structured(system_prompt, prompt, json_schema=json_schema, retries=1)
+
+        # WS1-7: Semaphore で同時 LLM 呼び出し数を絞り、per-call timeout を適用
+        try:
+            if semaphore is not None:
+                async with semaphore:
+                    raw_text = await _bounded_generate_structured(
+                        adapter, system_prompt, prompt, json_schema=json_schema, retries=1
+                    )
+            else:
+                raw_text = await _bounded_generate_structured(
+                    adapter, system_prompt, prompt, json_schema=json_schema, retries=1
+                )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "[P2] %s LLM タイムアウト (>%ss)。スキップします。",
+                agent_name,
+                settings.excel_pipeline_phase_timeout_sec,
+            )
+            return []
+
         data_obj = extract_json_object(raw_text)
         if not data_obj:
             error_msg = "JSONオブジェクトを出力してください"
             continue
         arr = data_obj.get("mappings", [])
-        
+
         ok, err = validator(arr)
         if ok:
             logger.info("[P2] %s 解析完了 (%d件)", agent_name, len(arr))
@@ -305,15 +345,19 @@ async def run_phase2_parallel_mapping(grid: PhysicalGrid, structure: StructureIn
 「点検内容」「作業項目」や「4月」「5月」等のスケジュール列だけを抽出。
 スケジュールの場合は month=数字(1-12), sub="both"|"plan"|"actual" を付与すること。"""
 
-    logger.info("[P2] 4つの並列エージェントを起動します...")
-    
-    # 🏃 並列実行 (Gather)
+    logger.info(
+        "[P2] 4つの並列エージェントを起動します（max_concurrency=%d）...",
+        settings.excel_pipeline_max_concurrency,
+    )
+
+    # 🏃 並列実行（Semaphore で同時 LLM 呼び出し数を制御）
+    semaphore = _make_phase_semaphore()
     results = await asyncio.gather(
-        _agentic_column_mapper("Asset", prompt_asset, PHASE2_SCHEMA, user_text, val_asset),
-        _agentic_column_mapper("Hierarchy", prompt_hierarchy, PHASE2_SCHEMA, user_text, val_hierarchy),
-        _agentic_column_mapper("Spec", prompt_spec, PHASE2_SCHEMA, user_text, val_spec),
-        _agentic_column_mapper("Work", prompt_work, PHASE2_SCHEMA, user_text, val_work),
-        return_exceptions=True
+        _agentic_column_mapper("Asset", prompt_asset, PHASE2_SCHEMA, user_text, val_asset, semaphore=semaphore),
+        _agentic_column_mapper("Hierarchy", prompt_hierarchy, PHASE2_SCHEMA, user_text, val_hierarchy, semaphore=semaphore),
+        _agentic_column_mapper("Spec", prompt_spec, PHASE2_SCHEMA, user_text, val_spec, semaphore=semaphore),
+        _agentic_column_mapper("Work", prompt_work, PHASE2_SCHEMA, user_text, val_work, semaphore=semaphore),
+        return_exceptions=True,
     )
     
     all_descriptors = []

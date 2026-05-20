@@ -1,6 +1,6 @@
 import logging
 from app.engine.state import AgentState
-from app.services.llm_shim import get_llm_adapter
+from app.llm import get_adapter as get_llm_adapter
 from app.models.schemas import MaintenanceOperation
 
 logger = logging.getLogger(__name__)
@@ -63,10 +63,13 @@ async def reasoning_node(state: AgentState) -> dict:
                 "thinking_iterations": iterations + 1
             }
     else:
-        # 一般的なチャットの場合（簡易的なテキスト生成）
+        # 一般的なチャット（短答）。LLMAdapter ABC は generate_text を持たないため chat を使う。
         last_msg = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         try:
-            res = await adapter.generate_text(prompt=f"ユーザーの質問「{last_msg}」に短く答えてください。", max_tokens=512)
+            res = await adapter.chat(
+                [{"role": "user", "content": f"ユーザーの質問「{last_msg}」に短く答えてください。"}],
+                max_new_tokens=512,
+            )
             return {"final_response": res, "operations": [], "error_message": ""}
         except Exception as e:
             return {"final_response": f"エラー: {e}", "operations": [], "error_message": str(e)}

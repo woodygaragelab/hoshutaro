@@ -202,8 +202,10 @@ async def confirm_import(body: ConfirmImportRequest):
             elif not new_asset["id"].startswith("AUTO-"):
                 # 2. difflib による類似度マッチング（最高スコアのマッチを採用）
                 # 注意: AUTO- で始まる自動生成ID群は、名前が似通ってしまうためファジーマッチを無効化する
+                # 閾値は settings.excel_pipeline_fuzzy_match_threshold で調整可能（プラン WS1-7）。
+                from app.config import settings as _ws17_settings
                 best_match = None
-                best_score = 0.8  # 閾値
+                best_score = _ws17_settings.excel_pipeline_fuzzy_match_threshold
                 for ext_asset in existing_assets.values():
                     score = difflib.SequenceMatcher(None, new_asset["name"], ext_asset["name"]).ratio()
                     if score > best_score:

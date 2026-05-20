@@ -25,6 +25,7 @@ import {
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
 import type { Asset, WorkOrder, WorkOrderLine, DataModel } from '../../types/maintenanceTask';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
+import { useUIContextStore } from '../../state/uiContextStore';
 import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelImport } from '../../services/ExcelProcessingService';
 import { LLMSettingsDialog } from '../AIAssistant/components/LLMSettingsDialog';
 import DateJumpDialog from '../DateJumpDialog/DateJumpDialog';
@@ -253,7 +254,9 @@ export const AgentBar: React.FC<AgentBarProps> = ({
         }));
         setIsLoading(false);
       },
-      dataContext
+      dataContext,
+      // プラン WS1-10: 現在の UI コンテキスト（開いているダイアログ + グリッド状態）を送信
+      useUIContextStore.getState().snapshot()
     );
   };
 

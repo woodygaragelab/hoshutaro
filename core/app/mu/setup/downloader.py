@@ -24,8 +24,16 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_TARGET_REPO = "google/gemma-4-E2B-it"
-DEFAULT_DRAFTER_REPO = "google/gemma-4-E2B-it-assistant"
+# target / drafter のリポジトリは env で上書き可能（プラン WS1-3）。
+# - target: 既定 google/gemma-4-E2B-it（変更想定なし）
+# - drafter: 既定 google/gemma-4-E2B-it-assistant。MTP drafter を別モデルへ差し替える場合は
+#   `LOCAL_LLM_DRAFTER_HF_REPO` 環境変数で指定。
+DEFAULT_TARGET_REPO = os.environ.get(
+    "LOCAL_LLM_TARGET_HF_REPO", "google/gemma-4-E2B-it"
+)
+DEFAULT_DRAFTER_REPO = os.environ.get(
+    "LOCAL_LLM_DRAFTER_HF_REPO", "google/gemma-4-E2B-it-assistant"
+)
 
 
 def _models_root() -> Path:

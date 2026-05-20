@@ -8,7 +8,7 @@ from app.engine.agents.schedule_planner import schedule_planner_engine
 from app.engine.conversational_dispatcher import create_parallel_dispatch
 from app.services.skill_loader import skill_loader
 from app.services.session_manager import session_manager
-from app.services.llm_shim import get_llm_adapter
+from app.llm import get_adapter as get_llm_adapter
 
 # ユーザー確認を示すキーワードパターン
 _CONFIRMATION_KEYWORDS = {"はい", "お願い", "OK", "ok", "Ok", "yes", "よろしく", "それで", "実行", "追加して", "進めて"}
@@ -17,10 +17,19 @@ logger = logging.getLogger(__name__)
 
 
 async def prepare_dispatch(
-    session_id: str, instruction: str, context: Dict[str, Any]
+    session_id: str,
+    instruction: str,
+    context: Dict[str, Any],
+    ui_context: Optional[Dict[str, Any]] = None,
 ) -> tuple[Optional[asyncio.Task], Optional[AsyncGenerator[str, None]], Any]:
     """
     並列LLM呼び出しを準備し、intent_task と conv_stream を返す。
+
+    Args:
+        session_id: セッション ID
+        instruction: ユーザー発話
+        context: data_context（assets/workOrders/workOrderLines のスナップショット）
+        ui_context: UI コンテキスト（currentDialog/dialogParams/gridState）。プラン WS1-10。
 
     Returns:
         intent_task: Call A の asyncio.Task（await で分類結果 dict を取得）。LLM不可時は None。
@@ -29,11 +38,12 @@ async def prepare_dispatch(
     """
     session = session_manager.get_session(session_id)
     history = session.get_recent_history(10)
-    adapter = get_llm_adapter(wait_timeout=2.0)
+    # registry.get_adapter は wait_timeout を受け取らないため互換用の **kwargs 経由
+    adapter = get_llm_adapter()
 
     if adapter:
         intent_task, conv_stream = await create_parallel_dispatch(
-            instruction, context, history, adapter
+            instruction, context, history, adapter, ui_context=ui_context
         )
         return intent_task, conv_stream, adapter
     else:

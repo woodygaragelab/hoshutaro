@@ -3,7 +3,7 @@ from datetime import datetime
 import logging
 from typing import List, Dict, Any, Optional
 
-from app.services.llm_shim import get_llm_adapter
+from app.llm import get_adapter as get_llm_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +66,38 @@ def analyze_periodicity(work_order_lines: List[Dict[str, Any]], target_asset_id:
         "latest_date": dates[-1].strftime("%Y-%m-%d")
     }
 
+def _stats_fallback_text(periodicity_data: Dict[str, Any]) -> str:
+    """LLM 不可時の統計ベースフォールバック（WS1-8）。LLM 未初期化で停止させない。"""
+    avg = periodicity_data.get("avg_days", 0)
+    latest = periodicity_data.get("latest_date")
+    if not latest or not isinstance(avg, (int, float)) or avg <= 0:
+        return "履歴が不足しているため次回時期を統計から推定できません。"
+    try:
+        latest_dt = datetime.strptime(latest, "%Y-%m-%d")
+        from datetime import timedelta
+        next_dt = latest_dt + timedelta(days=int(round(float(avg))))
+        return (
+            f"次回は {next_dt.strftime('%Y-%m')} 頃が目安です。"
+            f"過去の平均間隔は約 {int(round(float(avg)))} 日で、直近実績 {latest} から推定。"
+        )
+    except Exception:
+        return "履歴の解析に失敗したため次回時期を提案できません。"
+
+
 async def generate_predictive_schedule(periodicity_data: Dict[str, Any], context: str) -> str:
     """
-    周期性データとコンテキストをLLMに渡し、自然言語での予測計画・根拠説明を生成させる。
+    周期性データとコンテキストを LLM に渡し、自然言語での予測計画・根拠説明を生成させる。
+    LLM 不可時は統計ベースのフォールバック文を返す（WS1-8）。
     """
-    adapter = get_llm_adapter()
+    try:
+        adapter = get_llm_adapter()
+    except Exception as e:
+        logger.warning("LLM adapter unavailable, using stats fallback: %s", e)
+        return _stats_fallback_text(periodicity_data)
+
     if not adapter:
-        return "LLMが初期化されていません。"
-        
+        return _stats_fallback_text(periodicity_data)
+
     system_prompt = (
         "あなたは保全計画の専門アシスタントです。\n"
         "回答ルール:\n"
@@ -87,11 +111,18 @@ async def generate_predictive_schedule(periodicity_data: Dict[str, Any], context
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"統計データ: {periodicity_data}\nコンテキスト: {context}\n\n次回の保全日を簡潔に提案してください。"}
     ]
-    
+
     try:
         response = await adapter.chat(messages)
-        return response
+        if response and response.strip():
+            return response
+        return _stats_fallback_text(periodicity_data)
+    except NotImplementedError as e:
+        logger.warning("LLM not available (NotImplementedError), using stats fallback: %s", e)
+        return _stats_fallback_text(periodicity_data)
     except Exception as e:
-        logger.error(f"Prediction LLM Error: {e}")
-        return f"予測の生成中にエラーが生じました: {str(e)}"
+        logger.error("Prediction LLM Error: %s", e)
+        # 例外時も統計フォールバックでユーザーに何かしらの提案を返す
+        fallback = _stats_fallback_text(periodicity_data)
+        return f"{fallback}\n（LLM 推論に失敗したため統計ベースで応答しました）"
 

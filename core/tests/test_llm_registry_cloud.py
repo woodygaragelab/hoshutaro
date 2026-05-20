@@ -32,7 +32,8 @@ def test_cloud_claude_3_5_sonnet_is_registered():
     assert spec["provider"] == "bedrock"
     # model_id は Lambda 側 BEDROCK_MODEL_MAP のキーと一致する必要がある
     assert spec["model_id"] == "cloud_claude_3_5_sonnet"
-    assert "local" in spec["available_in"]
+    # プラン WS3-1: cloud モデルは cloud モード限定
+    assert spec["available_in"] == ["cloud"]
 
 
 def test_cloud_claude_3_haiku_is_registered():
@@ -40,18 +41,30 @@ def test_cloud_claude_3_haiku_is_registered():
     assert spec is not None
     assert spec["adapter"] == "cloud_proxy"
     assert spec["model_id"] == "cloud_claude_3_haiku"
+    assert spec["available_in"] == ["cloud"]
 
 
 # ----------------------------------------------------- resolve()
 
 
-def test_resolve_picks_cloud_claude_when_preferred():
-    with patch.dict(os.environ, {"APP_MODE": "local"}, clear=False):
+def test_resolve_picks_cloud_claude_when_preferred_in_cloud_mode():
+    with patch.dict(os.environ, {"APP_MODE": "cloud"}, clear=False):
         result = registry.resolve(
             preferred_model="cloud_claude_3_5_sonnet",
             fallback_models=[],
         )
     assert result == "cloud_claude_3_5_sonnet"
+
+
+def test_resolve_skips_cloud_claude_in_local_mode():
+    # WS3-1: cloud モデルは local モードでは利用不可。DEFAULT_MODEL（local Gemma）にフォールバック。
+    with patch.dict(os.environ, {"APP_MODE": "local"}, clear=False):
+        result = registry.resolve(
+            preferred_model="cloud_claude_3_5_sonnet",
+            fallback_models=[],
+        )
+    assert result == registry.DEFAULT_MODEL
+    assert result == "local_gemma_4_e2b_it"
 
 
 def test_resolve_falls_back_to_default_for_unknown_model():
@@ -65,7 +78,7 @@ def test_resolve_falls_back_to_default_for_unknown_model():
 
 def test_resolve_skips_unavailable_drafter_only_models():
     # drafter_only=True のモデルは _is_available で弾かれる
-    with patch.dict(os.environ, {"APP_MODE": "local"}, clear=False):
+    with patch.dict(os.environ, {"APP_MODE": "cloud"}, clear=False):
         result = registry.resolve(
             preferred_model="local_gemma_4_e2b_it_assistant",
             fallback_models=["cloud_claude_3_5_sonnet"],
@@ -82,6 +95,7 @@ def test_get_adapter_returns_cloud_proxy_adapter_for_claude():
         {
             "LLM_PROXY_URL": "https://test.lambda-url.us-west-2.on.aws/",
             "LLM_PROXY_JWT_TOKEN": "test.jwt.token",
+            "APP_MODE": "cloud",
         },
         clear=False,
     ):
@@ -132,6 +146,7 @@ def test_get_adapter_uses_env_when_spec_lacks_endpoint():
         {
             "LLM_PROXY_URL": "https://env-only.lambda-url.us-west-2.on.aws/",
             "LLM_PROXY_JWT_TOKEN": "env-only-token",
+            "APP_MODE": "cloud",
         },
         clear=False,
     ):
@@ -145,7 +160,8 @@ def test_get_adapter_uses_env_when_spec_lacks_endpoint():
 if __name__ == "__main__":
     test_cloud_claude_3_5_sonnet_is_registered()
     test_cloud_claude_3_haiku_is_registered()
-    test_resolve_picks_cloud_claude_when_preferred()
+    test_resolve_picks_cloud_claude_when_preferred_in_cloud_mode()
+    test_resolve_skips_cloud_claude_in_local_mode()
     test_resolve_falls_back_to_default_for_unknown_model()
     test_resolve_skips_unavailable_drafter_only_models()
     test_get_adapter_returns_cloud_proxy_adapter_for_claude()

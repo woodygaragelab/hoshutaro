@@ -1,10 +1,34 @@
 import type { Asset, WorkOrder, WorkOrderLine } from '../types/maintenanceTask';
+import type { UIContextSnapshot } from '../state/uiContextStore';
 
 export interface SSEEvent {
-  type: 'status' | 'text_delta' | 'suggestion' | 'error' | 'workbook_update' | 'dashboard_update' | 'document_update' | 'op_summary';
+  type:
+    | 'status'
+    | 'text_delta'
+    | 'suggestion'
+    | 'error'
+    | 'workbook_update'
+    | 'dashboard_update'
+    | 'document_update'
+    | 'op_summary'
+    // プラン WS1-9 で追加した orchestrator イベント
+    | 'intent_classified'
+    | 'tool_call'
+    | 'tool_result'
+    | 'proposal_pending'
+    | 'proposal_executed'
+    | 'dialog_open_request';
   message?: string;
   delta?: string;
   suggestion?: unknown;
+  // orchestrator イベント用フィールド（任意）
+  intent?: string;
+  confidence?: number;
+  parameters?: Record<string, unknown>;
+  out_of_scope_reason?: string | null;
+  final_response?: string;
+  operations?: unknown[];
+  pending_operations?: unknown[];
 }
 
 export function startChatStream(
@@ -13,7 +37,8 @@ export function startChatStream(
   onEvent: (event: SSEEvent) => void,
   onDone: () => void,
   onError: (err: string) => void,
-  dataContext?: { assets: Asset[]; workOrders: WorkOrder[]; workOrderLines: WorkOrderLine[] }
+  dataContext?: { assets: Asset[]; workOrders: WorkOrder[]; workOrderLines: WorkOrderLine[] },
+  uiContext?: UIContextSnapshot
 ): () => void {
   const controller = new AbortController()
   let doneEmitted = false
@@ -35,6 +60,7 @@ export function startChatStream(
           session_id: sessionId,
           messages,
           data_context: dataContext || undefined,
+          ui_context: uiContext || undefined,
         }),
       })
 
