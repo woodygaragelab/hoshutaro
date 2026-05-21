@@ -1,4 +1,5 @@
 import { ErrorHandlingConfiguration, RecoveryStrategy, ErrorContext, OfflineData } from './types';
+import { apiUrl } from '../../services/apiBase';
 
 /**
  * エラーリカバリマネージャー
@@ -36,7 +37,7 @@ export class ErrorRecoveryManager {
 
         // 接続テスト
         try {
-          await fetch('/api/health', { method: 'HEAD' });
+          await fetch(apiUrl('/api/health'), { method: 'HEAD' });
           return true;
         } catch {
           throw new Error('ネットワーク接続に失敗しました');

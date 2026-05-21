@@ -1,4 +1,5 @@
 import { MaintenanceSuggestion } from '../components/AIAssistant/types';
+import { apiUrl } from './apiBase';
 
 /** Excel-side structure metadata reported by backend */
 export interface ExcelStructureInfo {
@@ -54,7 +55,7 @@ export async function uploadExcelFile(file: File, sessionId: string): Promise<Ex
   formData.append('file', file);
   formData.append('session_id', sessionId);
 
-  const res = await fetch('/api/data/import/excel', {
+  const res = await fetch(apiUrl('/api/data/import/excel'), {
     method: 'POST',
     body: formData,
   });
@@ -74,7 +75,7 @@ export async function uploadExcelFile(file: File, sessionId: string): Promise<Ex
 }
 
 export async function confirmExcelImport(sessionId: string): Promise<unknown> {
-  const res = await fetch('/api/data/import/confirm', {
+  const res = await fetch(apiUrl('/api/data/import/confirm'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),
@@ -95,7 +96,7 @@ export async function confirmExcelImport(sessionId: string): Promise<unknown> {
 }
 
 export async function cancelExcelImport(sessionId: string): Promise<unknown> {
-  const res = await fetch('/api/data/import/cancel', {
+  const res = await fetch(apiUrl('/api/data/import/cancel'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),

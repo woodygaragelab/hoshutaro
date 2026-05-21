@@ -56,6 +56,8 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // process プラグイン: 更新適用後の再起動（relaunch）に使用
+        .plugin(tauri_plugin_process::init())
         .manage(CoreSidecar::new())
         .invoke_handler(tauri::generate_handler![core_base_url])
         .setup(|app| {

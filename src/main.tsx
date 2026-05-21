@@ -10,6 +10,7 @@ import { LazyWrapper, SkeletonLoaders } from './utils/loadingOptimization';
 import { performanceMonitor } from './utils/performanceMonitor';
 import { accessibilityManager } from './utils/accessibility';
 import { registerSW } from './utils/serviceWorker';
+import { initApiBase } from './services/apiBase';
 
 // Lazy load components for better performance
 const App = LazyWrapper(
@@ -155,33 +156,37 @@ const root = createRoot(document.getElementById('root')!);
 // Measure initial render performance
 const renderStart = performance.now();
 
-root.render(
-  <StrictMode>
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <Suspense fallback={<SkeletonLoaders.Header />}>
-            <div id="main-content" role="main">
-              <AuthGuard>
-                <RouterProvider router={router} />
-              </AuthGuard>
-            </div>
-          </Suspense>
-        </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+// Tauri sidecar のベース URL を解決してから描画する（プラン Track E Gap 1）。
+// ブラウザ / dev では initApiBase() は即座に解決する。
+initApiBase().finally(() => {
+  root.render(
+    <StrictMode>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AuthProvider>
+            <Suspense fallback={<SkeletonLoaders.Header />}>
+              <div id="main-content" role="main">
+                <AuthGuard>
+                  <RouterProvider router={router} />
+                </AuthGuard>
+              </div>
+            </Suspense>
+          </AuthProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </StrictMode>
+  );
 
-// Record render performance
-setTimeout(() => {
-  performanceMonitor.recordMetric({
-    name: 'initial-render',
-    duration: performance.now() - renderStart,
-    timestamp: Date.now(),
-    type: 'render',
-  });
-}, 0);
+  // Record render performance
+  setTimeout(() => {
+    performanceMonitor.recordMetric({
+      name: 'initial-render',
+      duration: performance.now() - renderStart,
+      timestamp: Date.now(),
+      type: 'render',
+    });
+  }, 0);
+});
 
 // Register service worker for caching and offline support
 registerSW({

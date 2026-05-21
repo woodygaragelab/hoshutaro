@@ -1,3 +1,5 @@
+import { apiUrl } from './apiBase'
+
 export interface LLMSettings {
   llm_adapter: string
   llm_temperature: number
@@ -13,13 +15,13 @@ export interface TestConnectionResult {
 }
 
 export async function getLLMSettings(): Promise<LLMSettings> {
-  const res = await fetch('/api/settings/llm')
+  const res = await fetch(apiUrl('/api/settings/llm'))
   if (!res.ok) throw new Error('Failed to fetch settings')
   return res.json()
 }
 
 export async function updateLLMSettings(settings: LLMSettings): Promise<void> {
-  const res = await fetch('/api/settings/llm', {
+  const res = await fetch(apiUrl('/api/settings/llm'), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
@@ -28,7 +30,7 @@ export async function updateLLMSettings(settings: LLMSettings): Promise<void> {
 }
 
 export async function startLLMAdapter(adapter: string, pluginConfig: Record<string, unknown>): Promise<{ok: boolean, error?: string}> {
-  const res = await fetch('/api/settings/llm/start', {
+  const res = await fetch(apiUrl('/api/settings/llm/start'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ adapter, plugin_config: pluginConfig }),
@@ -38,7 +40,7 @@ export async function startLLMAdapter(adapter: string, pluginConfig: Record<stri
 }
 
 export async function testLLMConnection(adapter: string, pluginConfig: Record<string, unknown>): Promise<TestConnectionResult> {
-  const res = await fetch('/api/settings/llm/test', {
+  const res = await fetch(apiUrl('/api/settings/llm/test'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ adapter, plugin_config: pluginConfig }),
@@ -47,7 +49,7 @@ export async function testLLMConnection(adapter: string, pluginConfig: Record<st
 }
 
 export async function getLLMModels(adapter: string, pluginConfig: Record<string, unknown>): Promise<string[]> {
-  const res = await fetch('/api/settings/llm/models', {
+  const res = await fetch(apiUrl('/api/settings/llm/models'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -62,7 +64,7 @@ export async function getLLMModels(adapter: string, pluginConfig: Record<string,
 }
 
 export async function callLLMTool(adapter: string, pluginConfig: Record<string, unknown>, toolName: string, toolArgs: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch('/api/settings/llm/tool', {
+  const res = await fetch(apiUrl('/api/settings/llm/tool'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -100,18 +102,18 @@ export interface PluginInfo {
 }
 
 export async function getInstalledPlugins(): Promise<PluginInfo[]> {
-  const res = await fetch('/api/plugins')
+  const res = await fetch(apiUrl('/api/plugins'))
   if (!res.ok) throw new Error('Failed to fetch plugins')
   const data = await res.json()
   return data.plugins || []
 }
 
 export async function getLocalModels(base_dir?: string): Promise<LocalModelInfo[]> {
-  const url = base_dir 
+  const path = base_dir
     ? `/api/settings/local_models?base_dir=${encodeURIComponent(base_dir)}`
     : '/api/settings/local_models';
-    
-  const res = await fetch(url)
+
+  const res = await fetch(apiUrl(path))
   if (!res.ok) throw new Error('Failed to fetch local models')
   const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Unknown error fetching local models')
@@ -119,7 +121,7 @@ export async function getLocalModels(base_dir?: string): Promise<LocalModelInfo[
 }
 
 export async function getPluginConfig(pluginId: string): Promise<Record<string, unknown>> {
-  const res = await fetch(`/api/plugins/${pluginId}/config`)
+  const res = await fetch(apiUrl(`/api/plugins/${pluginId}/config`))
   if (!res.ok) {
     if (res.status === 404) return {}; // Plugin not found or no config
     throw new Error('Failed to fetch plugin config')
@@ -129,7 +131,7 @@ export async function getPluginConfig(pluginId: string): Promise<Record<string, 
 }
 
 export async function updatePluginConfig(pluginId: string, config: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch(`/api/plugins/${pluginId}/config`, {
+  const res = await fetch(apiUrl(`/api/plugins/${pluginId}/config`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ config })

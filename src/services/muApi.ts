@@ -2,8 +2,10 @@
  * Project Mu / Knowledge Base API クライアント。
  *
  * バックエンド: core/app/routers/mu.py
- * すべてローカル FastAPI（127.0.0.1:8000、Vite proxy 経由 /api/mu）を呼ぶ。
+ * ベース URL は apiBase が解決（Tauri 梱包時は sidecar 実ポート、dev は Vite proxy 経由）。
  */
+
+import { apiUrl } from './apiBase'
 
 // ───────────────────────────────────────────────────────────
 // Types（Pydantic と一致、Track D で OpenAPI 自動生成に置換予定）
@@ -107,7 +109,8 @@ export interface MuHealth {
 const BASE = '/api/mu'
 
 async function jsonGet<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+  // ベース URL は apiBase が解決（Tauri 梱包時は sidecar 実ポート、dev は相対パス）
+  const res = await fetch(apiUrl(url))
   if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`)
   return res.json() as Promise<T>
 }
@@ -117,7 +120,7 @@ async function jsonRequest<T>(
   method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   body?: unknown,
 ): Promise<T | null> {
-  const res = await fetch(url, {
+  const res = await fetch(apiUrl(url), {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -234,7 +237,7 @@ export const setupApi = {
    * @returns close 関数
    */
   streamProgress: (onProgress: (status: SetupStatus) => void): (() => void) => {
-    const es = new EventSource('/api/setup/download_progress')
+    const es = new EventSource(apiUrl('/api/setup/download_progress'))
     es.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data)

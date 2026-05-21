@@ -12,13 +12,13 @@ import type {
   SkillExecutionProgress,
   UpdateInfo,
 } from './types';
+import { apiUrl } from '../apiBase';
 
 // ── Helpers ─────────────────────────────────────────
 
-const API_BASE = '';  // same-origin
-
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  // ベース URL は apiBase が解決（Tauri 梱包時は sidecar 実ポート、dev は相対パス）
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: {
       'Content-Type': 'application/json',

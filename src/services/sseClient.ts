@@ -1,5 +1,6 @@
 import type { Asset, WorkOrder, WorkOrderLine } from '../types/maintenanceTask';
 import type { UIContextSnapshot } from '../state/uiContextStore';
+import { apiUrl } from './apiBase';
 
 export interface SSEEvent {
   type:
@@ -54,7 +55,7 @@ export function startChatStream(
 
   async function run() {
     try {
-      const res = await fetch('/api/chat/completions', {
+      const res = await fetch(apiUrl('/api/chat/completions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
