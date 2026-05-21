@@ -6,9 +6,10 @@
 #
 # 必要な GitHub Secrets と署名証明書の準備は docs/12_RELEASE_GUIDE.md を参照。
 #
-# 注: core（Python エンジン）の同梱は PyInstaller 単一バイナリ化の完了後に
-#     tauri.conf.json の bundle.resources へ追加する（Track E 残作業）。
-#     現状この workflow が生成するのは Tauri シェル本体のインストーラ。
+# core（Python エンジン）は PyInstaller で梱包し、tauri.conf.json の
+# bundle.resources でアプリに同梱する。配布先 PC に Python は不要。
+# macOS 注: PyInstaller の core バイナリはランナーのアーキテクチャ単一。
+#           universal バイナリ化は今後の課題（docs/12_RELEASE_GUIDE.md 参照）。
 
 name: Release
 
@@ -65,6 +66,28 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build core sidecar (PyInstaller)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r core/requirements.txt
+          pip install -r core/requirements-ml.txt
+          pip install pyinstaller
+          ( cd core && pyinstaller --noconfirm hoshutaro-core.spec )
+          # Tauri 同梱用にステージング（tauri.conf.json: bundle.resources）
+          dest=src-tauri/resources/core
+          mkdir -p "$dest/bin" "$dest/home-template/skills"
+          cp -r core/dist/hoshutaro-core "$dest/bin/hoshutaro-core"
+          cp -r core/config "$dest/home-template/config"
+          cp -r core/skills/builtin "$dest/home-template/skills/builtin"
+          cp -r core/plugins "$dest/home-template/plugins"
+          cp core/.env.example "$dest/home-template/.env.example"
 
       - name: Build, sign & release
         uses: tauri-apps/tauri-action@v0

@@ -1,15 +1,23 @@
 //! core（Python エンジン）を sidecar として起動・ヘルス監視・停止する。
 //!
-//! Sprint 2: デスクトップアプリ起動時に core を子プロセスとして spawn し、
-//! `/api/health` が応答するまで待ってからメインウィンドウを表示、
-//! アプリ終了時に kill する。
+//! - **dev ビルド**: リポジトリの `core/` を `python -m uvicorn` で起動する
+//!   （開発者の Python 環境を使う）。
+//! - **release ビルド**: PyInstaller で梱包した `hoshutaro-core` 実行ファイルを
+//!   起動する。Python インタプリタごとアプリに同梱されるため、配布先 PC に
+//!   Python のインストールは不要。設定 / スキル / プラグインは初回起動時に
+//!   書き込み可能なユーザーディレクトリへ展開し、`HOSHUTARO_HOME` で core に渡す。
 
+use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+
+use tauri::AppHandle;
+#[cfg(not(debug_assertions))]
+use tauri::Manager;
 
 /// 既定ポート。dev では Vite プロキシ（/api → :8000）と揃える。
 /// 衝突時は OS 割り当ての空きポートにフォールバックする。
@@ -52,38 +60,51 @@ fn pick_port() -> u16 {
         .unwrap_or(PREFERRED_PORT)
 }
 
-/// core ディレクトリ（uvicorn を起動する cwd）。
-/// dev ビルドではリポジトリ内の `core/` を指す。
+/// Windows で余計なコンソールウィンドウを出さない（CREATE_NO_WINDOW）。
+fn suppress_console(cmd: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = cmd;
+    }
+}
+
+/// ディレクトリを再帰コピーする（home テンプレート展開用）。
+#[cfg_attr(debug_assertions, allow(dead_code))]
+fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let to = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(&entry.path(), &to)?;
+        } else {
+            fs::copy(entry.path(), &to)?;
+        }
+    }
+    Ok(())
+}
+
+// ── dev ビルド: リポジトリの core/ を Python で起動 ───────────────────
+
+/// dev の HOSHUTARO_HOME。リポジトリの `core/` をそのまま使う（書き込み可能）。
 #[cfg(debug_assertions)]
-fn core_dir() -> PathBuf {
+fn resolve_home(_app: &AppHandle) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .map(|repo| repo.join("core"))
         .unwrap_or_else(|| PathBuf::from("core"))
 }
 
-/// release ビルドでは実行ファイルと同梱された `core/` を指す。
-/// （単一バイナリ同梱の最終形は後続スプリントで確定する。）
-#[cfg(not(debug_assertions))]
-fn core_dir() -> PathBuf {
-    std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|dir| dir.join("core")))
-        .unwrap_or_else(|| PathBuf::from("core"))
-}
-
-/// Python インタプリタ名（OS 差）。
-fn python_exe() -> &'static str {
-    if cfg!(windows) {
-        "python"
-    } else {
-        "python3"
-    }
-}
-
-/// uvicorn 経由で core を起動する。
-fn spawn_core(port: u16) -> std::io::Result<Child> {
-    let mut cmd = Command::new(python_exe());
+/// dev: `python -m uvicorn` で core を起動する。
+#[cfg(debug_assertions)]
+fn spawn_core(_app: &AppHandle, port: u16, home: &Path) -> std::io::Result<Child> {
+    let python = if cfg!(windows) { "python" } else { "python3" };
+    let mut cmd = Command::new(python);
     cmd.args([
         "-m",
         "uvicorn",
@@ -93,17 +114,84 @@ fn spawn_core(port: u16) -> std::io::Result<Child> {
         "--port",
         &port.to_string(),
     ])
-    .current_dir(core_dir());
-
-    // Windows: 余計なコンソールウィンドウを出さない（CREATE_NO_WINDOW）。
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000);
-    }
-
+    .current_dir(home)
+    .env("HOSHUTARO_HOME", home);
+    suppress_console(&mut cmd);
     cmd.spawn()
 }
+
+// ── release ビルド: 梱包バイナリ hoshutaro-core を起動 ────────────────
+
+/// 梱包された core 実行ファイルのパス。
+/// tauri.conf.json の bundle.resources で `core/` 配下に同梱される。
+#[cfg(not(debug_assertions))]
+fn core_binary(app: &AppHandle) -> PathBuf {
+    let exe_name = if cfg!(windows) {
+        "hoshutaro-core.exe"
+    } else {
+        "hoshutaro-core"
+    };
+    app.path()
+        .resource_dir()
+        .map(|res| {
+            res.join("core")
+                .join("bin")
+                .join("hoshutaro-core")
+                .join(exe_name)
+        })
+        .unwrap_or_else(|_| PathBuf::from(exe_name))
+}
+
+/// release の HOSHUTARO_HOME。アプリデータディレクトリ配下の書き込み可能な
+/// `home/`。初回起動時に同梱テンプレート（config / skills / plugins / .env.example）
+/// を展開する。
+#[cfg(not(debug_assertions))]
+fn resolve_home(app: &AppHandle) -> PathBuf {
+    let home = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("home");
+
+    let marker = home.join(".initialized");
+    if !marker.exists() {
+        let template = app
+            .path()
+            .resource_dir()
+            .map(|res| res.join("core").join("home-template"))
+            .unwrap_or_default();
+        if template.is_dir() {
+            match copy_dir_all(&template, &home) {
+                Ok(()) => {
+                    let _ = fs::write(&marker, b"1");
+                    eprintln!("[hoshutaro] home テンプレートを展開しました: {home:?}");
+                }
+                Err(err) => {
+                    eprintln!("[hoshutaro] WARN: home テンプレート展開に失敗: {err}");
+                }
+            }
+        } else {
+            eprintln!("[hoshutaro] WARN: home テンプレートが見つかりません: {template:?}");
+        }
+    }
+    home
+}
+
+/// release: 梱包バイナリ `hoshutaro-core` で core を起動する。
+#[cfg(not(debug_assertions))]
+fn spawn_core(app: &AppHandle, port: u16, home: &Path) -> std::io::Result<Child> {
+    let bin = core_binary(app);
+    let mut cmd = Command::new(&bin);
+    cmd.args(["--host", "127.0.0.1", "--port", &port.to_string()])
+        .env("HOSHUTARO_HOME", home);
+    if let Some(dir) = bin.parent() {
+        cmd.current_dir(dir);
+    }
+    suppress_console(&mut cmd);
+    cmd.spawn()
+}
+
+// ── ヘルス監視 ───────────────────────────────────────────────────────
 
 /// `/api/health` に HTTP/1.0 GET を投げ、ステータス 200 が返れば true。
 /// localhost 通信のみのため依存クレートを足さず最小実装にしている。
@@ -138,11 +226,12 @@ fn wait_for_health(port: u16, timeout: Duration) -> bool {
 }
 
 /// core を起動し、ヘルス確認まで行う。準備完了したかを返す。
-pub fn start(state: &CoreSidecar) -> bool {
+pub fn start(app: &AppHandle, state: &CoreSidecar) -> bool {
     let port = pick_port();
     *state.port.lock().unwrap() = port;
+    let home = resolve_home(app);
 
-    match spawn_core(port) {
+    match spawn_core(app, port, &home) {
         Ok(child) => {
             *state.child.lock().unwrap() = Some(child);
         }
@@ -152,7 +241,8 @@ pub fn start(state: &CoreSidecar) -> bool {
         }
     }
 
-    let ready = wait_for_health(port, Duration::from_secs(60));
+    // 梱包バイナリの初回起動は展開に時間がかかるため余裕を持たせる。
+    let ready = wait_for_health(port, Duration::from_secs(90));
     if ready {
         eprintln!("[hoshutaro] core sidecar ready (port {port})");
     } else {

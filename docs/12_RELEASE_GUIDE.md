@@ -75,6 +75,45 @@ AppImage / .deb は署名なしで配布可（OS 側の Gatekeeper 相当の制�
 
 ---
 
+## 4.5. core（Python エンジン）の同梱
+
+配布先 PC に Python は不要。`core` は **PyInstaller** で梱包し、Tauri アプリに
+同梱する。`release.yml` の "Build core sidecar" ステップが CI で自動実行する。
+
+ローカルで `tauri build` を試す場合は、`tauri build` の前に手動で同じ手順を実行する:
+
+```bash
+# 1. core を梱包（ML 依存込み = Gemma 4 推論を含める）
+cd core
+pip install -r requirements.txt
+pip install -r requirements-ml.txt   # openvino-genai 等。Gemma を動かすなら必須
+pip install pyinstaller
+pyinstaller --noconfirm hoshutaro-core.spec   # → core/dist/hoshutaro-core/
+cd ..
+
+# 2. Tauri 同梱用にステージング（tauri.conf.json: bundle.resources → resources/core）
+dest=src-tauri/resources/core
+mkdir -p "$dest/bin" "$dest/home-template/skills"
+cp -r core/dist/hoshutaro-core "$dest/bin/hoshutaro-core"
+cp -r core/config             "$dest/home-template/config"
+cp -r core/skills/builtin     "$dest/home-template/skills/builtin"
+cp -r core/plugins            "$dest/home-template/plugins"
+cp    core/.env.example       "$dest/home-template/.env.example"
+
+# 3. インストーラをビルド
+npm run tauri build   # → src-tauri/target/release/bundle/ にインストーラ
+```
+
+- 梱包バイナリは `--port` を受け取り、`HOSHUTARO_HOME` 環境変数で渡された
+  書き込み可能ディレクトリから設定を読む（Tauri の `sidecar.rs` が配線）。
+- 初回起動時、`home-template/` がユーザーのアプリデータディレクトリへ展開される。
+- `requirements-ml.txt` を入れずに梱包すると core は起動するが Gemma 推論は不可。
+
+> macOS 注: PyInstaller の core バイナリはビルドしたランナーのアーキテクチャ単一。
+> Intel/ARM 両対応の universal バイナリ化は今後の課題。
+
+---
+
 ## 5. リリース手順
 
 1. `src-tauri/tauri.conf.json` と `package.json` の `version` を更新。
@@ -94,10 +133,10 @@ AppImage / .deb は署名なしで配布可（OS 側の Gatekeeper 相当の制�
 
 本ガイドの手順を完全に機能させるには、以下が未完了:
 
-- **`core`（Python エンジン）の同梱** — 現状リリースワークフローが生成するのは
-  Tauri シェル本体のみ。`core` を PyInstaller で単一バイナリ化し、
-  `tauri.conf.json` の `bundle.resources`（または sidecar）へ追加する必要がある。
-  これが済むまで配布物は単体で動作しない。
+- ~~**`core`（Python エンジン）の同梱**~~ — **完了**。PyInstaller で梱包し
+  `tauri.conf.json` の `bundle.resources` で同梱（§4.5）。Linux 環境で梱包
+  バイナリの起動・ヘルス応答を検証済み。残: ML 依存込み（Gemma）の梱包と
+  Windows/macOS 実機での `tauri build` 検証。
 - **本番署名証明書の調達** — Windows OV/EV 証明書、Apple Developer Program。
   未調達の間は署名なしビルドになる（OS の警告が出る）。
 - **private リポジトリの Updater 配信** — `tauri-plugin-updater` は匿名で

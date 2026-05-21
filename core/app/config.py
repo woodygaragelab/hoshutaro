@@ -1,9 +1,14 @@
+import os
 import shutil
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# core/ ディレクトリの .env を基準にする
-_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+# データ基準ディレクトリ。HOSHUTARO_HOME（Tauri が渡す書き込み可能ディレクトリ）が
+# あればそれを、無ければ core/ ディレクトリを使う。梱包実行ファイルでも .env を
+# 正しい（書き込み可能な）場所に置けるようにするため env を優先する。
+_HOME_ENV = os.environ.get("HOSHUTARO_HOME")
+_BASE_DIR = Path(_HOME_ENV) if _HOME_ENV else Path(__file__).resolve().parents[1]
+_ENV_FILE = _BASE_DIR / ".env"
 _ENV_EXAMPLE = _ENV_FILE.with_name(".env.example")
 
 # .env が存在しなければ .env.example からコピーして初期設定を適用
@@ -18,8 +23,8 @@ class Settings(BaseSettings):
     # ── Development Mode ──
     dev_mode: bool = False
 
-    # ── Home Directory (set by Launcher, fallback to core/) ──
-    hoshutaro_home: str = str(Path(__file__).resolve().parents[1])
+    # ── Home Directory (HOSHUTARO_HOME env or core/) ──
+    hoshutaro_home: str = str(_BASE_DIR)
 
     # ── LLM Adapter (registry resolve のデフォルト) ──
     # 既定はローカル Gemma 4 E2B-it（OpenVINO）。

@@ -68,7 +68,7 @@ pub fn run() {
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 let state = handle.state::<CoreSidecar>();
-                if !sidecar::start(state.inner()) {
+                if !sidecar::start(&handle, state.inner()) {
                     eprintln!("[hoshutaro] core 未準備のままウィンドウを表示します");
                 }
                 if let Some(window) = handle.get_webview_window("main") {
