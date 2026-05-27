@@ -298,7 +298,7 @@ JSON 配列で出力してください。
 
 ### Knowledge Base UI
 
-`apps/web/src/features/knowledge-base/`:
+`src/components/KnowledgeBase/`:
 
 | 画面 | 内容 |
 |---|---|
@@ -315,7 +315,7 @@ JSON 配列で出力してください。
 ### ディレクトリ配置
 
 ```
-core/mu/
+core/app/mu/
 ├── memory/
 │   ├── rules.py
 │   ├── master_map.py

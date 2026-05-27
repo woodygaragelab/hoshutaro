@@ -309,6 +309,32 @@
   margin: 4px 8px;
 }
 
+/* 動作モード表示（ローカル / クラウド） */
+.menu-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  color: var(--ab-text-idle);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.menu-mode-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.menu-mode-dot.cloud {
+  background-color: var(--ab-accent);
+}
+
+.menu-mode-dot.local {
+  background-color: var(--ab-text-disabled);
+}
+
 @keyframes slide-up {
   from { opacity: 0; transform: translate(-50%, 10px); }
   to { opacity: 1; transform: translate(-50%, 0); }

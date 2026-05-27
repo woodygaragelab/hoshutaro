@@ -17,7 +17,7 @@ tools/bench-mu/
 └── prompts/
     └── benchmark_set.jsonl        # 8 prompt の代表セット（phase1/2/3 + 対話 short/med/long）
 
-backend/tests/
+core/tests/
 ├── test_openvino_adapter_helpers.py  # 純関数 unit test (no deps required)
 └── test_downloader_mock.py            # ModelSetupManager の mock 駆動 integration test
 ```
@@ -51,7 +51,7 @@ python tools/quantize-models/download_and_quantize.py \
 ```
 
 (本リポにはこのスクリプトを呼ぶ FastAPI ルート `POST /api/setup/download_models`
-も存在し、SSE 進捗付きで起動可能。詳細は `backend/app/routers/setup.py` 参照)
+も存在し、SSE 進捗付きで起動可能。詳細は `core/app/routers/setup.py` 参照)
 
 ### 3. ベンチ本実行
 
@@ -137,10 +137,10 @@ jobs:
 deps 無し環境でも実行可能なテスト群:
 
 ```bash
-cd backend
+cd core
 python tests/test_openvino_adapter_helpers.py   # 6/6 OK 想定（純関数）
 python tests/test_downloader_mock.py            # 4/4 OK 想定（mock 駆動）
 ```
 
-これらは `backend/tests/test_mu_smoke.py` と同じ実行スタイル。
+これらは `core/tests/test_mu_smoke.py` と同じ実行スタイル。
 将来 pytest 化する際もそのまま移行可能。

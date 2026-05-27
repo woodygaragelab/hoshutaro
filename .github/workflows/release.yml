@@ -1,0 +1,117 @@
+# HOSHUTARO リリースワークフロー
+#
+# git タグ（v*）の push で起動し、Windows / macOS / Linux のデスクトップ
+# インストーラをビルド・署名して GitHub Release（ドラフト）に添付する。
+# Tauri Updater 用の latest.json と署名も tauri-action が生成する。
+#
+# 必要な GitHub Secrets と署名証明書の準備は docs/12_RELEASE_GUIDE.md を参照。
+#
+# core（Python エンジン）は PyInstaller で梱包し、tauri.conf.json の
+# bundle.resources でアプリに同梱する。配布先 PC に Python は不要。
+# macOS 注: PyInstaller の core バイナリはランナーのアーキテクチャ単一。
+#           universal バイナリ化は今後の課題（docs/12_RELEASE_GUIDE.md 参照）。
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build core sidecar (PyInstaller)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r core/requirements.txt
+          pip install -r core/requirements-ml.txt
+          pip install pyinstaller
+          ( cd core && pyinstaller --noconfirm hoshutaro-core.spec )
+          # Tauri 同梱用にステージング（tauri.conf.json: bundle.resources）
+          dest=src-tauri/resources/core
+          mkdir -p "$dest/bin" "$dest/home-template/skills"
+          cp -r core/dist/hoshutaro-core "$dest/bin/hoshutaro-core"
+          cp -r core/config "$dest/home-template/config"
+          cp -r core/skills/builtin "$dest/home-template/skills/builtin"
+          cp -r core/plugins "$dest/home-template/plugins"
+          cp core/.env.example "$dest/home-template/.env.example"
+
+      - name: Build, sign & release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri Updater 署名鍵（npx tauri signer generate で作成）
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS: Developer ID 署名 + notarization
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'HOSHUTARO ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  # Windows Authenticode 署名について:
+  #   tauri-action は Apple 署名のような専用 env を持たないため、Windows は
+  #   tauri.conf.json の bundle.windows.certificateThumbprint（ランナーの証明書
+  #   ストアに導入した証明書）または Azure Trusted Signing で署名する。
+  #   詳細な設定手順は docs/12_RELEASE_GUIDE.md を参照。

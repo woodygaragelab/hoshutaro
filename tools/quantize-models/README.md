@@ -37,7 +37,7 @@ python tools/quantize-models/download_and_quantize.py \
 ### バックエンド経由（初回起動時自動）
 
 `POST /api/setup/download_models` を呼ぶと、本スクリプトと同等の処理を SSE 進捗付きで実行。
-詳細は `backend/app/routers/setup.py` を参照。
+詳細は `core/app/routers/setup.py` を参照。
 
 ## 量子化方式
 

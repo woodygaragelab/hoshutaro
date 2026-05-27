@@ -1,0 +1,32 @@
+# HOSHUTARO core エンジン — コア依存（軽量）
+#
+# ML 重依存（OpenVINO 推論ランタイム等）は requirements-ml.txt を参照。
+# Track E では本ファイルの依存のみを Tauri sidecar バイナリに同梱し、
+# ML 重依存は初回起動時にダウンロードする方針。
+
+# ── Core ──
+fastapi>=0.110,<1.0
+uvicorn>=0.27,<1.0
+pydantic>=2.5,<3.0
+pydantic-settings>=2.1,<3.0
+httpx>=0.27,<1.0
+sse-starlette>=2.0,<3.0
+python-multipart>=0.0.9,<1.0
+
+# ── MCP SDK (Plugin Infrastructure) ──
+mcp>=1.0
+
+# ── Agent Orchestration ──
+# orchestrator/conversational_dispatcher/agents は LangGraph StateGraph で実装
+# （core/app/engine/agents/*.py）。openai は現状未使用だが将来の cloud_proxy 経由で必要に
+# なる可能性があるため残置。
+openai>=1.12,<2.0
+langgraph>=0.2
+langchain-core>=0.3
+langchain>=0.3
+
+# ── Data Processing ──
+openpyxl>=3.1,<4.0
+
+# ── YAML (Skill definitions) ──
+pyyaml>=6.0

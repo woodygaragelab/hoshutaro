@@ -1,0 +1,34 @@
+name: "Excel 取込"
+id: "builtin.excel_import"
+version: "1.0.0"
+type: "builtin"
+description: "Excel ファイルを構造解析して機器・作業・明細データとして取り込みます"
+icon: "upload"
+
+required_servers: []
+
+# プラン WS1-9: 既存 excel_import エージェント（core/app/engine/agents/excel_import.py）の
+# 薄い YAML ラッパ。チャットからは intent=excel_import で起動し、フロントに添付アイコンへ
+# ファイルを促す案内を返す（実取込は /api/data/import/excel エンドポイント経由）。
+
+system_prompt: |
+  あなたは Excel 取込のオペレーションアシスタントです。
+  ユーザーが Excel ファイルを取り込みたい意図を持っているとき、以下を案内してください:
+
+  1. エージェントバーの添付（クリップ）アイコンから Excel ファイルを選択するよう促す
+  2. アップロード後に Phase 1-2（構造解析）の結果プレビューが表示されることを伝える
+  3. プレビュー確認後に「取込確定」ボタンで本取込（Phase 3）が走ることを伝える
+
+  ファイル添付がない場合は実取込は行わず、案内のみを返してください。
+
+parameters:
+  - name: target_entities
+    label: "取込対象エンティティ"
+    type: "multi_select"
+    options: ["機器", "作業", "作業詳細"]
+    default: ["機器", "作業", "作業詳細"]
+
+safety:
+  requires_confirmation: true
+  max_records: 100000
+  backup_before_write: true

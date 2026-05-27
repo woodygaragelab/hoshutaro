@@ -12,7 +12,7 @@
 
 **拡張機能の唯一の総称**。`manifest.json` + 実装コードで配布される独立した拡張モジュール。
 
-- **配置**: 外部配布は `plugins/<plugin-id>/`、内蔵は `core/connectors/` または `core/llm/adapters/`
+- **配置**: 外部配布は `core/plugins/<plugin-id>/`、組込 LLM アダプタは `core/app/llm/adapters/`
 - **触る人**: プラグイン開発者・運用者
 - **内部分類は manifest.json の `category` フィールド** で表現:
   - `llm` — LLM 接続（例: openvino-gemma4-plugin、cloud-llm-plugin）
@@ -25,11 +25,11 @@
 
 **ユーザーが定義するタスクの手順・ルール**。LLM選択（preferred_model）と SQL 参照（sql_context）も内包する。
 
-- **配置**: `core/skills/definitions/`
+- **配置**: 内蔵 `core/skills/builtin/*.yaml` / ユーザー追加 `core/skills/user/*.yaml`
 - **触る人**: 業務担当者・PM
-- **2形式**:
-  - **Markdown Skill** — 自然言語の手順書、LLM が解釈実行（宣言的）。`definitions/markdown/*.skill.md`
-  - **Script Skill** — Python コードでの実装、決定的処理（命令的）。`definitions/scripts/*.py`
+- **形式**: YAML 定義（`id` / `system_prompt` / `required_servers` / `parameters` / `safety` /
+  `preferred_model` / `fallback_models`）。Skill Engine が LLM のプロンプトベース tool-calling
+  で実行する（プラン WS1-5 で旧 Markdown / Script 2 形式は廃止）。
 
 ---
 
@@ -67,7 +67,7 @@ LLM Plugin の**実装パターン名**（Strategy パターン）。
 
 > Drafter の提案を Target が 1 パスで検証することで、出力品質を維持しつつ最大 3x の推論高速化を実現する。
 
-**HOSHUTARO での実装**: `core/llm/registry.py` の `LLM_MODELS` で
+**HOSHUTARO での実装**: `core/app/llm/registry.py` の `LLM_MODELS` で
 - target エントリは `role: "target"`、`assistant_model_id` で対応する drafter を参照
 - drafter エントリは `role: "drafter"`、`drafter_only: true` で単体選択不可
 
@@ -79,9 +79,37 @@ LLM Plugin の**実装パターン名**（Strategy パターン）。
 
 ### LLM 選択ロジック
 
-`core/llm/registry.py:resolve()` 関数で完結。Skill 定義の `preferred_model` と `fallback_models` を環境変数 `APP_MODE` に応じて解決する。
+`core/app/llm/registry.py:resolve()` 関数で完結。Skill 定義の `preferred_model` と `fallback_models` を環境変数 `APP_MODE` に応じて解決する。
 
 > 「MoE Router」のような独立コンポーネントは作らない（YAGNI）。
+
+---
+
+## 動作モード（ローカルモード / クラウドモード）
+
+HOSHUTARO は **1 つの Tauri アプリ**として配布され、起動後の状態に応じて 2 つの
+**動作モード**を持つ。モードは「Cognito にサインインしているか」で決まる。
+
+| 観点 | ローカルモード | クラウドモード |
+|---|---|---|
+| 認証 | 不要（起動して即利用） | 必須（Cognito ログイン） |
+| LLM | ローカル Gemma 4 + MTP（`core` 内で実行、無料） | AWS Bedrock（Claude 主軸）を `llm-proxy` Lambda 経由 |
+| Maximo API | `core` が Maximo REST に直接ページング接続（両モード共通） | ←同左 |
+| クラウド同期 | なし | ユーザー設定を同期 |
+| 課金 | 無料 | サブスク定額 + トークン従量 |
+| 保全データ（星取表・暗黙知） | 端末内 SQLite | 端末内 SQLite（外部送信しない） |
+
+**モード判定ルール**:
+- 起動直後は常に**ローカルモード**（サインイン不要で即利用可能）。
+- Cognito にサインインすると**クラウドモード**へ切り替わる。
+- サインアウトでローカルモードに戻る。
+- 実装上は環境変数 `APP_MODE`（`local` | `cloud`）として `core/app/llm/registry.py:resolve()`
+  に渡り、Skill の `preferred_model` / `fallback_models` の解決に使われる。
+
+**不変条件**: どちらのモードでも `core` エンジンは常に端末ローカルで動作し（AWS では
+動かさない）、価値の源泉である保全データ（Excel 由来の暗黙知 + 星取表）は端末内 SQLite
+に留まる。クラウドが保持するのは認証情報・ユーザー設定・利用量のみ。クラウドモードの
+マネージド LLM は **AWS Bedrock 専用**（外部 API キーを保存せず IAM 認証で完結）。
 
 ---
 
@@ -93,8 +121,10 @@ LLM Plugin の**実装パターン名**（Strategy パターン）。
 | 「コネクタ」（口語、対外） | Plugin (category=connector) | カテゴリ名は内部のみ |
 | 「LLM Adapter」（対外） | Plugin (category=llm) | 同上 |
 | 「MoE Router」 | Skill 定義の `preferred_model` + `fallback_models` | YAGNI、独立コンポーネント不要 |
-| `engine/` ディレクトリ | `orchestration/` | Orchestrator/Agent を含むため明示的命名 |
-| `services/` ディレクトリ | ドメイン別に分解（`core/llm/`, `core/skills/`, etc） | レイヤー軸でなくドメイン軸 |
+
+> 旧モノレポ計画にあった「`engine/` → `orchestration/`」「`services/` → ドメイン別分解」の
+> 改名は採用しません。実体は `core/app/engine/` + `core/app/services/` のまま運用します
+> （プラン WS4-4 で確定）。
 
 ---
 

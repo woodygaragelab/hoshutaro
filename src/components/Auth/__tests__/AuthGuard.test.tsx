@@ -103,6 +103,22 @@ describe('AuthGuard', () => {
     useAuthMock.mockReturnValue({
       user: { userId: 'u1', username: 'a@b.com', email: 'a@b.com' },
       loading: false,
+      authAvailable: true,
+    });
+    render(
+      <AuthGuard>
+        <div data-testid="app-content">APP</div>
+      </AuthGuard>,
+    );
+    expect(screen.getByTestId('app-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('login-screen')).not.toBeInTheDocument();
+  });
+
+  it('renders children in offline mode when cloud auth is unavailable', () => {
+    useAuthMock.mockReturnValue({
+      user: null,
+      loading: false,
+      authAvailable: false,
     });
     render(
       <AuthGuard>
@@ -114,7 +130,7 @@ describe('AuthGuard', () => {
   });
 
   it('renders LoginScreen by default when unauthenticated', () => {
-    useAuthMock.mockReturnValue({ user: null, loading: false });
+    useAuthMock.mockReturnValue({ user: null, loading: false, authAvailable: true });
     render(
       <AuthGuard>
         <div>APP</div>
@@ -125,7 +141,7 @@ describe('AuthGuard', () => {
 
   it('navigates from login to sign-up and back', async () => {
     const user = userEvent.setup();
-    useAuthMock.mockReturnValue({ user: null, loading: false });
+    useAuthMock.mockReturnValue({ user: null, loading: false, authAvailable: true });
     render(
       <AuthGuard>
         <div>APP</div>
@@ -139,7 +155,7 @@ describe('AuthGuard', () => {
 
   it('carries pendingEmail from signUp success into ConfirmEmail', async () => {
     const user = userEvent.setup();
-    useAuthMock.mockReturnValue({ user: null, loading: false });
+    useAuthMock.mockReturnValue({ user: null, loading: false, authAvailable: true });
     render(
       <AuthGuard>
         <div>APP</div>
@@ -155,7 +171,7 @@ describe('AuthGuard', () => {
 
   it('routes UserNotConfirmed-triggered onGotoConfirmEmail with email', async () => {
     const user = userEvent.setup();
-    useAuthMock.mockReturnValue({ user: null, loading: false });
+    useAuthMock.mockReturnValue({ user: null, loading: false, authAvailable: true });
     render(
       <AuthGuard>
         <div>APP</div>
@@ -170,7 +186,7 @@ describe('AuthGuard', () => {
 
   it('carries pendingEmail from password reset request into ResetPasswordWithCode', async () => {
     const user = userEvent.setup();
-    useAuthMock.mockReturnValue({ user: null, loading: false });
+    useAuthMock.mockReturnValue({ user: null, loading: false, authAvailable: true });
     render(
       <AuthGuard>
         <div>APP</div>
@@ -186,7 +202,7 @@ describe('AuthGuard', () => {
 
   it('returns to login after a successful password reset', async () => {
     const user = userEvent.setup();
-    useAuthMock.mockReturnValue({ user: null, loading: false });
+    useAuthMock.mockReturnValue({ user: null, loading: false, authAvailable: true });
     render(
       <AuthGuard>
         <div>APP</div>

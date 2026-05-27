@@ -30,7 +30,7 @@ type AuthScreen =
 type Props = { children: ReactNode };
 
 export function AuthGuard({ children }: Props) {
-  const { user, loading } = useAuth();
+  const { user, loading, authAvailable } = useAuth();
   const [screen, setScreen] = useState<AuthScreen>('login');
   const [pendingEmail, setPendingEmail] = useState<string>('');
 
@@ -50,7 +50,8 @@ export function AuthGuard({ children }: Props) {
     );
   }
 
-  if (user) {
+  // クラウドバックエンド未デプロイ時はオフラインモードでアプリへ素通りさせる。
+  if (!authAvailable || user) {
     return <>{children}</>;
   }
 

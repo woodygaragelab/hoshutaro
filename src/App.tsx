@@ -31,6 +31,9 @@ import { extractIdsFromRowId } from './components/EnhancedMaintenanceGrid/utils/
 
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
 import { AgentBar } from './components/AgentBar/AgentBar';
+import { useUIContextStore } from './state/uiContextStore';
+import { SetupScreen } from './components/SetupScreen/SetupScreen';
+import { useSetupStatus } from './components/KnowledgeBase/hooks';
 import { EmptyState } from './components/EmptyState';
 import { CostTrendGraph } from './components/CostTrendGraph';
 import { AnimatePresence } from 'framer-motion';
@@ -221,6 +224,17 @@ const App: React.FC = () => {
   const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
   const [isSkillRunnerOpen, setIsSkillRunnerOpen] = useState(false);
   const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
+  // プラン WS1-6: 初回モデル取得画面の表示制御
+  const [isSetupDismissed, setIsSetupDismissed] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('hoshutaro_setup_dismissed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setupStatusQuery = useSetupStatus();
+  const setupNeeded =
+    !isSetupDismissed && !!setupStatusQuery.data && !setupStatusQuery.data.target_done;
 
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
@@ -537,6 +551,48 @@ const App: React.FC = () => {
       );
     }
   }, [isServicesInitialized]); // Remove hookUpdateData to prevent infinite loops
+
+  // プラン WS1-10: 散在するダイアログ open 状態を uiContextStore に同期。
+  // AgentBar はこの store を読んで `/api/chat/completions` の `ui_context` に含める。
+  // ダイアログを起動する各ボタンの状態を集約し、開いているダイアログ種別を 1 つに正規化。
+  useEffect(() => {
+    const setDialog = useUIContextStore.getState().setCurrentDialog;
+    const closeDialog = useUIContextStore.getState().closeDialog;
+    if (isHierarchyManagerOpen) {
+      setDialog('hierarchy', { selectedAssetIds: selectedAssets });
+    } else if (isAssetClassificationEditOpen) {
+      setDialog('assetClassification', { selectedAssetIds: selectedAssets });
+    } else if (isWorkOrderClassificationEditOpen) {
+      setDialog('workOrderClassification', {});
+    } else if (taskEditDialogOpen) {
+      setDialog('workOrderLine', {
+        assetId: taskEditAssetId,
+        dateKey: taskEditDateKey,
+        workOrderId: taskEditTaskId,
+      });
+    } else {
+      closeDialog();
+    }
+  }, [
+    isHierarchyManagerOpen,
+    isAssetClassificationEditOpen,
+    isWorkOrderClassificationEditOpen,
+    taskEditDialogOpen,
+    taskEditAssetId,
+    taskEditDateKey,
+    taskEditTaskId,
+    selectedAssets,
+  ]);
+
+  // グリッド状態（viewMode / timeScale / displayMode / editScope）も store に同期。
+  useEffect(() => {
+    useUIContextStore.getState().patchGridState({
+      viewMode: dataViewMode,
+      timeScale,
+      displayMode,
+      selectedAssetIds: selectedAssets,
+    });
+  }, [dataViewMode, timeScale, displayMode, selectedAssets]);
 
   // Memoized data transformation functions - Requirements 10.1, 10.2, 10.3
   const transformEquipmentData = useMemo(() => {
@@ -3097,6 +3153,21 @@ const App: React.FC = () => {
         <UpdateNotification
           onOpenPluginManager={() => setIsPluginManagerOpen(true)}
         />
+
+        {/* Setup Screen — 初回モデル取得（プラン WS1-6） */}
+        {setupNeeded && (
+          <SetupScreen
+            onComplete={() => {
+              setIsSetupDismissed(true);
+              try { sessionStorage.setItem('hoshutaro_setup_dismissed', '1'); } catch { /* noop */ }
+              setupStatusQuery.refetch();
+            }}
+            onSkip={() => {
+              setIsSetupDismissed(true);
+              try { sessionStorage.setItem('hoshutaro_setup_dismissed', '1'); } catch { /* noop */ }
+            }}
+          />
+        )}
 
         {/* Snackbar */}
         <Snackbar

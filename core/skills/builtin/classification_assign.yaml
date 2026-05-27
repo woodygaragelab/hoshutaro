@@ -1,0 +1,38 @@
+name: "機器分類付与"
+id: "builtin.classification_assign"
+version: "1.0.0"
+type: "builtin"
+description: "選択中の機器に対して分類（種別/用途/重要度等）を LLM 推論で付与します"
+icon: "tag"
+
+required_servers: []
+
+# プラン WS1-9 / WS1-10: 機器分類エディタ（AssetClassificationEditDialog）Tab1 を開いている
+# 状態で、チャット指示「選択中の機器に分類を付与して」で起動するスキル。分類定義と機器名
+# から最も適切な分類値を推論して付与する。
+
+system_prompt: |
+  あなたは機器分類付与の専門アシスタントです。
+  ユーザーがダイアログで選択した機器に対し、既存の分類定義を踏まえて適切な分類値を推論し
+  付与します。
+
+  処理手順:
+  1. datastore.query_assets で対象機器の名前・仕様を取得
+  2. 既存の分類レベル値（assetClassification 定義）を確認
+  3. 機器名・仕様から最も近い既存分類を推論（自信が低ければ空文字を返す）
+  4. 推論結果を JSON で返し、ユーザー確認後にダイアログの一括適用に反映
+
+  出力は機器 ID と分類パスのマップ形式:
+    {"assetId1": {"分類L1": "値", "分類L2": "値"}, "assetId2": {"分類L1": ""}}
+
+parameters:
+  - name: target_asset_ids
+    label: "対象機器 ID リスト"
+    type: "array"
+    description: "分類付与を行う機器 ID の配列（空ならダイアログ選択中の全機器）"
+    default: []
+
+safety:
+  requires_confirmation: true
+  max_records: 10000
+  backup_before_write: false

@@ -10,7 +10,6 @@ import { data } from './data/resource';
 import { postConfirmationTrigger } from './functions/post-confirmation-trigger/resource';
 import { llmProxy } from './functions/llm-proxy/resource';
 import { userManagement } from './functions/user-management/resource';
-import { maximoProxy } from './functions/maximo-proxy/resource';
 
 const backend = defineBackend({
   auth,
@@ -18,7 +17,6 @@ const backend = defineBackend({
   postConfirmationTrigger,
   llmProxy,
   userManagement,
-  maximoProxy,
 });
 
 const { cfnUserPool, cfnUserPoolClient } = backend.auth.resources.cfnResources;
@@ -127,45 +125,5 @@ const userManagementUrl = userManagementLambda.addFunctionUrl({
 backend.addOutput({
   custom: {
     userManagementUrl: userManagementUrl.url,
-  },
-});
-
-// ============================================================================
-// Track D Sprint 4 - maximo-proxy Lambda (Slice 4-C, mock 実装)
-// ============================================================================
-
-const maximoProxyLambda = backend.maximoProxy.resources.lambda as LambdaFunction;
-
-// 環境変数: Cognito 検証 + Maximo 接続情報 (sandbox では mock のみ)
-maximoProxyLambda.addEnvironment('USER_POOL_ID', cfnUserPool.ref);
-maximoProxyLambda.addEnvironment('USER_POOL_CLIENT_ID', cfnUserPoolClient.ref);
-maximoProxyLambda.addEnvironment('MAXIMO_BASE_URL', ''); // 空 = mock。本番では VPC 内 Maximo URL を設定
-maximoProxyLambda.addEnvironment('MAXIMO_MOCK_ENABLED', 'true'); // sandbox / 開発用デフォルト
-
-// 実 Maximo 接続時 (Sprint 5) は Secrets Manager から basic auth credentials を読む。
-// 現時点では IAM 権限のみを準備しておく:
-//   secretsmanager:GetSecretValue
-// 対象 ARN は Sprint 5 で Secret を作成してから絞り込む。
-maximoProxyLambda.addToRolePolicy(
-  new PolicyStatement({
-    effect: Effect.ALLOW,
-    actions: ['secretsmanager:GetSecretValue'],
-    resources: ['arn:aws:secretsmanager:*:*:secret:hoshutaro/maximo/*'],
-  }),
-);
-
-// Function URL: Lambda 内 JWT 検証なので NONE。Streaming 不要なので buffered。
-const maximoProxyUrl = maximoProxyLambda.addFunctionUrl({
-  authType: FunctionUrlAuthType.NONE,
-  cors: {
-    allowedOrigins: ['*'], // 本番では特定ドメインに絞る (Sprint 5)
-    allowedMethods: ['POST' as never, 'OPTIONS' as never],
-    allowedHeaders: ['Authorization', 'Content-Type'],
-  },
-});
-
-backend.addOutput({
-  custom: {
-    maximoProxyUrl: maximoProxyUrl.url,
   },
 });
