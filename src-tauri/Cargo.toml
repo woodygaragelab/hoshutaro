@@ -1,6 +1,6 @@
 [package]
 name = "hoshutaro"
-version = "0.0.0"
+version = "0.1.0"
 description = "HOSHUTARO — 設備保全計画管理デスクトップアプリ"
 authors = ["HOSHUTARO"]
 edition = "2021"
