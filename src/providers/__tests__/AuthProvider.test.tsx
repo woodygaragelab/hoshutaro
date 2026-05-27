@@ -25,11 +25,12 @@ import { AuthProvider } from '../AuthProvider';
 import { useAuth } from '../../hooks/useAuth';
 
 function Probe() {
-  const { user, loading } = useAuth();
+  const { user, loading, authAvailable } = useAuth();
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="user">{user?.email ?? 'none'}</span>
+      <span data-testid="auth-available">{String(authAvailable)}</span>
     </div>
   );
 }
@@ -90,6 +91,7 @@ describe('AuthProvider', () => {
     );
     expect(getCurrentUserDetailsMock).not.toHaveBeenCalled();
     expect(hubListenMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('auth-available').textContent).toBe('false');
   });
 
   it('throws when useAuth is used outside AuthProvider', () => {

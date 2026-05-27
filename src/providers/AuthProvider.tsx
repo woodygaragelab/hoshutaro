@@ -21,6 +21,7 @@ type AuthProviderProps = { children: ReactNode };
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authAvailable, setAuthAvailable] = useState(true);
 
   const refresh = useCallback(async () => {
     const current = await AmplifyAuthService.getCurrentUserDetails();
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const configured = ensureAmplifyConfigured();
     if (!configured) {
+      setAuthAvailable(false);
       setLoading(false);
       return;
     }
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return unsubscribe;
   }, [refresh]);
 
-  const value: AuthContextValue = { user, loading, refresh, signOut };
+  const value: AuthContextValue = { user, loading, authAvailable, refresh, signOut };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
