@@ -1,5 +1,5 @@
-import { OfflineData, ErrorContext } from './types';
 import { HierarchicalData } from '../../types';
+import { OfflineData } from './types';
 
 /**
  * オフラインモードマネージャー
@@ -8,7 +8,7 @@ import { HierarchicalData } from '../../types';
 export class OfflineModeManager {
   private isOnline = navigator.onLine;
   private offlineQueue: Map<string, OfflineData> = new Map();
-  private syncQueue: Map<string, any> = new Map();
+  private syncQueue: Map<string, unknown> = new Map();
   private storageKey = 'grid_offline_data';
   private maxStorageSize = 10 * 1024 * 1024; // 10MB
   private syncInterval = 30000; // 30秒
@@ -61,7 +61,7 @@ export class OfflineModeManager {
   addToOfflineQueue(
     operation: 'create' | 'update' | 'delete',
     itemId: string,
-    data: any,
+    data: { type: string; [key: string]: unknown },
     deviceType: 'desktop' | 'tablet' | 'mobile' = 'desktop'
   ): void {
     const offlineData: OfflineData = {
@@ -90,7 +90,7 @@ export class OfflineModeManager {
   addCellEdit(
     rowId: string,
     columnId: string,
-    value: any,
+    value: unknown,
     deviceType: 'desktop' | 'tablet' | 'mobile' = 'desktop'
   ): void {
     this.addToOfflineQueue('update', `${rowId}_${columnId}`, {
@@ -186,7 +186,7 @@ export class OfflineModeManager {
    */
   private async syncSingleOperation(key: string, offlineData: OfflineData): Promise<void> {
     try {
-      const { operation, itemId, data } = offlineData.data;
+      const { data } = offlineData.data;
       
       switch (data.type) {
         case 'cell_edit':
@@ -222,7 +222,7 @@ export class OfflineModeManager {
   /**
    * セル編集を同期
    */
-  private async syncCellEdit(data: any): Promise<void> {
+  private async syncCellEdit(_data: { type: string; [key: string]: unknown }): Promise<void> {
     // 実際の実装では、サーバーAPIを呼び出し
         
     // シミュレーション
@@ -237,7 +237,7 @@ export class OfflineModeManager {
   /**
    * 機器仕様編集を同期
    */
-  private async syncSpecificationEdit(data: any): Promise<void> {
+  private async syncSpecificationEdit(_data: { type: string; [key: string]: unknown }): Promise<void> {
         await this.delay(100);
     
     if (Math.random() < 0.03) { // 3%の確率で競合
@@ -248,7 +248,7 @@ export class OfflineModeManager {
   /**
    * アイテム作成を同期
    */
-  private async syncItemCreation(data: any): Promise<void> {
+  private async syncItemCreation(_data: { type: string; [key: string]: unknown }): Promise<void> {
         await this.delay(200);
     
     if (Math.random() < 0.02) { // 2%の確率で競合
@@ -259,7 +259,7 @@ export class OfflineModeManager {
   /**
    * アイテム削除を同期
    */
-  private async syncItemDeletion(data: any): Promise<void> {
+  private async syncItemDeletion(_data: { type: string; [key: string]: unknown }): Promise<void> {
         await this.delay(150);
     
     if (Math.random() < 0.01) { // 1%の確率で競合
@@ -273,13 +273,11 @@ export class OfflineModeManager {
   private async handleSyncConflict(
     key: string,
     offlineData: OfflineData,
-    error: Error
+    _error: Error
   ): Promise<void> {
-        
-    // 競合解決UI を表示する必要がある
-    // ここでは簡単な自動解決を実装
-    
-    const { operation, itemId, data } = offlineData.data;
+
+    // 競合解決UI を表示する必要がある（自動マージで暫定対応）
+    const { itemId, data } = offlineData.data;
     
     // 最新データを取得
     const latestData = await this.fetchLatestData(itemId);
@@ -300,7 +298,7 @@ export class OfflineModeManager {
   /**
    * 最新データを取得
    */
-  private async fetchLatestData(itemId: string): Promise<any> {
+  private async fetchLatestData(itemId: string): Promise<Record<string, unknown>> {
     // 実際の実装では、サーバーから最新データを取得
         await this.delay(100);
     
@@ -314,19 +312,18 @@ export class OfflineModeManager {
   /**
    * 自動マージを試行
    */
-  private attemptAutoMerge(localData: any, serverData: any): any | null {
-    // 簡単なマージロジック
-    // 実際の実装では、より複雑なマージアルゴリズムが必要
-    
+  private attemptAutoMerge(
+    localData: { type: string; [key: string]: unknown },
+    serverData: Record<string, unknown>
+  ): { type: string; [key: string]: unknown } | null {
     if (localData.type === 'cell_edit') {
-      // セル編集の場合、タイムスタンプで判定
-      if (localData.timestamp > serverData.lastModified) {
+      const localTs = localData['timestamp'] as number;
+      const serverTs = serverData['lastModified'] as number;
+      if (localTs > serverTs) {
         return localData; // ローカルの変更を優先
-      } else {
-        return null; // 手動解決が必要
       }
+      return null; // 手動解決が必要
     }
-    
     return null;
   }
 

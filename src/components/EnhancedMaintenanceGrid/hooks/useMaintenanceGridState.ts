@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo } from 'react';
-import { HierarchicalData } from '../../../types';
 import { GridColumn, GridState, GridRange, GridSelection } from '../types';
 
 export const useMaintenanceGridState = (columns: GridColumn[], visibleRowIds: string[]) => {

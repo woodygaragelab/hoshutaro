@@ -72,6 +72,7 @@ export const validateSpecificationKey = (
   }
   
   // 特殊文字の警告
+  // eslint-disable-next-line no-useless-escape
   if (/[<>\"'&]/.test(trimmedKey)) {
     warnings.push('項目名に特殊文字が含まれています');
   }
@@ -113,6 +114,7 @@ export const validateSpecificationValue = (
   }
   
   // 特殊文字の警告
+  // eslint-disable-next-line no-useless-escape
   if (/[<>\"'&]/.test(trimmedValue)) {
     warnings.push('値に特殊文字が含まれています');
   }
@@ -231,6 +233,7 @@ export const sanitizeSpecifications = (specifications: SpecificationValue[]): Sp
   const sanitizeString = (str: string): string => {
     return str
       .replace(/[<>]/g, '') // HTMLタグの除去
+      // eslint-disable-next-line no-useless-escape
       .replace(/[\"']/g, '') // クォートの除去
       .replace(/&/g, '&amp;') // アンパサンドのエスケープ
       .trim();

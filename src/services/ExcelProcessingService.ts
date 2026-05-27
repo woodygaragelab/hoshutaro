@@ -1,4 +1,30 @@
 import { MaintenanceSuggestion } from '../components/AIAssistant/types';
+import { apiUrl } from './apiBase';
+
+/** Excel-side structure metadata reported by backend */
+export interface ExcelStructureInfo {
+  pattern?: string;
+  implied_hierarchy?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/** Per-column descriptor returned by backend after Excel analysis */
+export interface ExcelColumnDescriptor {
+  col: number | string;
+  field: string;
+  month?: number | string;
+  sub?: string;
+  label?: string;
+  [key: string]: unknown;
+}
+
+/** Preview record (one row sample) returned by backend */
+export interface ExcelPreviewRecord {
+  asset_id?: string;
+  asset_name?: string;
+  hierarchyPath?: Record<string, string>;
+  [key: string]: unknown;
+}
 
 export interface ExcelAnalysisResult {
   success: boolean;
@@ -9,10 +35,10 @@ export interface ExcelAnalysisResult {
     sheet_name: string;
     summary: string;
     total_rows: number;
-    structure_info: any;
-    descriptors_info: any[];
+    structure_info: ExcelStructureInfo;
+    descriptors_info: ExcelColumnDescriptor[];
     symbol_mapping: Record<string, string>;
-    preview_records: any[];
+    preview_records: ExcelPreviewRecord[];
     warnings: string[];
   }>;
   suggestions?: MaintenanceSuggestion[];
@@ -29,7 +55,7 @@ export async function uploadExcelFile(file: File, sessionId: string): Promise<Ex
   formData.append('file', file);
   formData.append('session_id', sessionId);
 
-  const res = await fetch('/api/data/import/excel', {
+  const res = await fetch(apiUrl('/api/data/import/excel'), {
     method: 'POST',
     body: formData,
   });
@@ -48,8 +74,8 @@ export async function uploadExcelFile(file: File, sessionId: string): Promise<Ex
   return res.json();
 }
 
-export async function confirmExcelImport(sessionId: string): Promise<any> {
-  const res = await fetch('/api/data/import/confirm', {
+export async function confirmExcelImport(sessionId: string): Promise<unknown> {
+  const res = await fetch(apiUrl('/api/data/import/confirm'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),
@@ -69,8 +95,8 @@ export async function confirmExcelImport(sessionId: string): Promise<any> {
   return res.json();
 }
 
-export async function cancelExcelImport(sessionId: string): Promise<any> {
-  const res = await fetch('/api/data/import/cancel', {
+export async function cancelExcelImport(sessionId: string): Promise<unknown> {
+  const res = await fetch(apiUrl('/api/data/import/cancel'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),
@@ -115,7 +141,7 @@ export function formatMappingSummary(result: ExcelAnalysisResult): string {
 
       if (sheet.descriptors_info) {
         lines.push('  **列マッピング:**');
-        const mapped = sheet.descriptors_info.filter((d: any) => d.field !== 'ignore');
+        const mapped = sheet.descriptors_info.filter((d) => d.field !== 'ignore');
         for (const d of mapped.slice(0, 8)) {
           let desc = `    Col${d.col} → ${d.field}`;
           if (d.month) desc += ` (${d.month}月)`;

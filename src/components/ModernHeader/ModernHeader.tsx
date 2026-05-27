@@ -30,13 +30,11 @@ import {
   ViewList as EquipmentIcon,
   Assignment as TaskIcon,
   AccountTree as HierarchyIcon,
-  SwapHoriz as ReassignIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
-import { MonthCalendar } from '@mui/x-date-pickers/MonthCalendar';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
@@ -45,6 +43,7 @@ import 'dayjs/locale/ja';
 dayjs.extend(weekOfYear);
 import Legend from '../EnhancedMaintenanceGrid/Legend';
 import { ViewMode, HierarchyDefinition, Asset } from '../../types/maintenanceTask';
+import type { FilterTreeNode } from '../../utils/dataTransformer';
 import HierarchyEditDialog from '../HierarchyEditDialog/HierarchyEditDialog';
 import './ModernHeader.css';
 
@@ -62,7 +61,7 @@ interface ModernHeaderProps {
   onLevel1FilterChange: (event: SelectChangeEvent) => void;
   onLevel2FilterChange: (event: SelectChangeEvent) => void;
   onLevel3FilterChange: (event: SelectChangeEvent) => void;
-  hierarchyFilterTree: any;
+  hierarchyFilterTree: FilterTreeNode | null;
   level2Options: string[];
   level3Options: string[];
   
@@ -120,7 +119,7 @@ interface ModernHeaderProps {
   onRedo?: () => void;
 
   // Classification filters
-  assetClassification?: { levels: Array<{ key: string; order: number; values: string[] }> };
+  assetClassification?: { levels: Array<{ key: string; order: number; values: { value: string; parentValue?: string }[] }> };
   workOrderClassifications?: Array<{ id: string; name: string }>;
   classificationFilter?: { [key: string]: string };
   onClassificationFilterChange?: (filter: { [key: string]: string }) => void;
@@ -147,8 +146,8 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   onTimeScaleChange,
   dataViewMode = 'asset-based',
   onDataViewModeChange,
-  editScope = 'single-asset',
-  onEditScopeChange,
+  editScope: _editScope = 'single-asset',
+  onEditScopeChange: _onEditScopeChange,
   showBomCode,
   onShowBomCodeChange,
   displayMode,
@@ -160,12 +159,12 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
   onResetData,
   onAIAssistantToggle,
   isAIAssistantOpen,
-  currentYear = new Date().getFullYear(),
+  currentYear: _currentYear = new Date().getFullYear(),
   onJumpToDate,
   hierarchy,
   assets = [],
-  selectedAssets = [],
-  onAssetSelectionChange,
+  selectedAssets: _selectedAssets = [],
+  onAssetSelectionChange: _onAssetSelectionChange,
   onHierarchyEdit,
   canUndo = false,
   canRedo = false,
@@ -439,7 +438,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
         >
           <Button
             variant={timeScale === 'year' ? 'contained' : 'outlined'}
-            onClick={() => onTimeScaleChange({ target: { value: 'year' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'year' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,
@@ -455,7 +454,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
           <Button
             variant={timeScale === 'month' ? 'contained' : 'outlined'}
-            onClick={() => onTimeScaleChange({ target: { value: 'month' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'month' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,
@@ -471,7 +470,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
           <Button
             variant={timeScale === 'week' ? 'contained' : 'outlined'}
-            onClick={() => onTimeScaleChange({ target: { value: 'week' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'week' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,
@@ -487,7 +486,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
           </Button>
           <Button
             variant={timeScale === 'day' ? 'contained' : 'outlined'}
-            onClick={() => onTimeScaleChange({ target: { value: 'day' } } as any)}
+            onClick={() => onTimeScaleChange({ target: { value: 'day' } } as unknown as SelectChangeEvent)}
             sx={{ 
               fontSize: '0.75rem', 
               minWidth: 30,
@@ -749,7 +748,7 @@ export const IntegratedToolbar: React.FC<ModernHeaderProps> = ({
                                 >
                                   <MenuItem value="">すべて</MenuItem>
                                   {level.values.map(v => (
-                                    <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    <MenuItem key={v.value} value={v.value}>{v.value}</MenuItem>
                                   ))}
                                 </Select>
                               </FormControl>

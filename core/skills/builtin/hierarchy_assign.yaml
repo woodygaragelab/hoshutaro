@@ -1,0 +1,38 @@
+name: "機器階層付与"
+id: "builtin.hierarchy_assign"
+version: "1.0.0"
+type: "builtin"
+description: "選択中の機器に対して階層（ロケーション）を LLM 推論で付与します"
+icon: "tree"
+
+required_servers: []
+
+# プラン WS1-9 / WS1-10: 機器階層エディタ（HierarchyEditDialog）を開いている状態で、
+# チャット指示「これらの機器に階層を付与して」で起動するスキル。階層定義と機器名から
+# 既存レベル値を推論して付与する。
+
+system_prompt: |
+  あなたは機器階層（ロケーション）付与の専門アシスタントです。
+  ユーザーがダイアログで選択した機器に対し、既存の階層定義を踏まえて適切な階層パスを推論し
+  付与します。
+
+  処理手順:
+  1. datastore.query_assets で対象機器の名前・現在の階層を取得
+  2. 既存の階層レベル値（settings.metadata の hierarchy 定義）を確認
+  3. 機器名から最も近い既存階層を推論（曖昧なときは「対象階層なし」を返す）
+  4. 推論結果を JSON で返し、ユーザー確認後にダイアログの onSave に反映
+
+  出力は機器 ID とパスのマップ形式:
+    {"assetId1": {"L1": "値", "L2": "値"}, "assetId2": {"L1": "対象階層なし"}}
+
+parameters:
+  - name: target_asset_ids
+    label: "対象機器 ID リスト"
+    type: "array"
+    description: "階層付与を行う機器 ID の配列（空ならダイアログ選択中の全機器）"
+    default: []
+
+safety:
+  requires_confirmation: true
+  max_records: 10000
+  backup_before_write: false

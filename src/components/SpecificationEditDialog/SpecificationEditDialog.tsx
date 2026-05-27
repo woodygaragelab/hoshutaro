@@ -5,7 +5,6 @@ import {
   Typography,
   Box,
   Popover,
-  Paper,
   useTheme,
   Fade,
   IconButton,
@@ -125,8 +124,8 @@ export const SpecificationEditDialog: React.FC<SpecificationEditDialogProps> = (
       // Reset initialization flag when dialog closes
       setIsInitialized(false);
     }
-    // Only re-run if open status changes. We don't want to re-initialize if the parent
-    // passing down the specifications prop causes a re-render from our own onChange
+    // open の遷移時のみ再初期化する。specifications 自体を deps に入れると
+    // onChange の伝播で再初期化ループが起きるため意図的に除外。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isInitialized, convertToEditItems]);
 

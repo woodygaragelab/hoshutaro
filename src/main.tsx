@@ -4,11 +4,13 @@ import './index.css';
 import './styles/globals.css';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ThemeProvider from './providers/ThemeProvider';
+import AuthProvider from './providers/AuthProvider';
+import { AuthGuard } from './components/Auth/AuthGuard';
 import { LazyWrapper, SkeletonLoaders } from './utils/loadingOptimization';
 import { performanceMonitor } from './utils/performanceMonitor';
-import { bundleAnalyzer } from './utils/bundleAnalyzer';
 import { accessibilityManager } from './utils/accessibility';
 import { registerSW } from './utils/serviceWorker';
+import { initApiBase } from './services/apiBase';
 
 // Lazy load components for better performance
 const App = LazyWrapper(
@@ -154,35 +156,43 @@ const root = createRoot(document.getElementById('root')!);
 // Measure initial render performance
 const renderStart = performance.now();
 
-root.render(
-  <StrictMode>
-    <ErrorBoundary>
-      <ThemeProvider>
-        <Suspense fallback={<SkeletonLoaders.Header />}>
-          <div id="main-content" role="main">
-            <RouterProvider router={router} />
-          </div>
-        </Suspense>
-      </ThemeProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+// Tauri sidecar のベース URL を解決してから描画する（プラン Track E Gap 1）。
+// ブラウザ / dev では initApiBase() は即座に解決する。
+initApiBase().finally(() => {
+  root.render(
+    <StrictMode>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AuthProvider>
+            <Suspense fallback={<SkeletonLoaders.Header />}>
+              <div id="main-content" role="main">
+                <AuthGuard>
+                  <RouterProvider router={router} />
+                </AuthGuard>
+              </div>
+            </Suspense>
+          </AuthProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </StrictMode>
+  );
 
-// Record render performance
-setTimeout(() => {
-  performanceMonitor.recordMetric({
-    name: 'initial-render',
-    duration: performance.now() - renderStart,
-    timestamp: Date.now(),
-    type: 'render',
-  });
-}, 0);
+  // Record render performance
+  setTimeout(() => {
+    performanceMonitor.recordMetric({
+      name: 'initial-render',
+      duration: performance.now() - renderStart,
+      timestamp: Date.now(),
+      type: 'render',
+    });
+  }, 0);
+});
 
 // Register service worker for caching and offline support
 registerSW({
-  onSuccess: (registration) => {
+  onSuccess: (_registration) => {
       },
-  onUpdate: (registration) => {
+  onUpdate: (_registration) => {
         // Show update notification to user
     if (confirm('新しいバージョンが利用可能です。更新しますか？')) {
       window.location.reload();

@@ -63,7 +63,7 @@ const equipmentTypes = {
 };
 
 // Plant hierarchy structure
-const plantHierarchy = {
+const plantHierarchy: Record<string, Record<string, string[]>> = {
   '第一製油所': {
     'Aエリア': ['原油蒸留ユニット', '接触改質ユニット', '水素化脱硫ユニット'],
     'Bエリア': ['流動接触分解ユニット', 'アルキル化ユニット', '重質油分解ユニット'],
@@ -92,16 +92,19 @@ const generateTimeHeaders = (scale: 'year' | 'month' | 'week' | 'day', count: nu
         headers.push((2023 + i).toString());
         break;
       case 'month':
+        // eslint-disable-next-line no-case-declarations
         const monthDate = new Date(baseDate);
         monthDate.setMonth(i);
         headers.push(`${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`);
         break;
       case 'week':
+        // eslint-disable-next-line no-case-declarations
         const weekDate = new Date(baseDate);
         weekDate.setDate(baseDate.getDate() + (i * 7));
         headers.push(`${weekDate.getFullYear()}-W${String(Math.ceil(weekDate.getDate() / 7)).padStart(2, '0')}`);
         break;
       case 'day':
+        // eslint-disable-next-line no-case-declarations
         const dayDate = new Date(baseDate);
         dayDate.setDate(baseDate.getDate() + i);
         headers.push(dayDate.toISOString().split('T')[0]);
@@ -113,8 +116,15 @@ const generateTimeHeaders = (scale: 'year' | 'month' | 'week' | 'day', count: nu
 };
 
 // Generate maintenance data
-const generateMaintenanceData = (timeHeaders: string[]): { [key: string]: any } => {
-  const maintenances: { [key: string]: any } = {};
+interface MaintenanceEntry {
+  planned: boolean;
+  actual: boolean;
+  cost: number | null;
+  planCost: number | null;
+  actualCost: number | null;
+}
+const generateMaintenanceData = (timeHeaders: string[]): { [key: string]: MaintenanceEntry } => {
+  const maintenances: { [key: string]: MaintenanceEntry } = {};
   
   timeHeaders.forEach((header) => {
     // Generate realistic maintenance patterns
@@ -309,9 +319,9 @@ function generatePerformanceDemoData(): { [id: string]: RawEquipment } {
   while (equipmentCounter <= 1000) {
     const plantKeys = Object.keys(plantHierarchy);
     const plant = plantKeys[equipmentCounter % plantKeys.length];
-    const areaKeys = Object.keys((plantHierarchy as any)[plant]);
+    const areaKeys = Object.keys(plantHierarchy[plant]);
     const area = areaKeys[equipmentCounter % areaKeys.length];
-    const units = (plantHierarchy as any)[plant][area];
+    const units = plantHierarchy[plant][area];
     const unit = units[equipmentCounter % units.length];
     
     const typeKeys = Object.keys(equipmentTypes) as (keyof typeof equipmentTypes)[];

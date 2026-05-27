@@ -10,6 +10,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
+  DialogContentText,
   IconButton,
   Tabs,
   Tab,
@@ -24,7 +26,6 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  Extension as ExtensionIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,
@@ -59,10 +60,11 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
   const [tab, setTab] = useState<TabKey>('installed');
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [registry, setRegistry] = useState<RegistryPlugin[]>([]);
-  const [license, setLicense] = useState<LicenseInfo | null>(null);
+  const [, setLicense] = useState<LicenseInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [uninstallTarget, setUninstallTarget] = useState<PluginInfo | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -84,7 +86,7 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
         }),
       ]);
       setPlugins(pluginList || []);
-      setRegistry((registryData as any).plugins || []);
+      setRegistry(registryData.plugins || []);
       if (licenseData) setLicense(licenseData);
     } finally {
       setLoading(false);
@@ -106,8 +108,8 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
   };
 
   const handleUninstall = async (id: string) => {
-    if (!window.confirm(`プラグイン「${id}」をアンインストールしますか？`)) return;
     setActionLoading(id);
+    setUninstallTarget(null);
     try {
       await uninstallPlugin(id);
       await loadData();
@@ -122,7 +124,7 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
       case 'stopped': return '停止';
       case 'error': return 'エラー';
       case 'installing': return 'インストール中';
-      default: return status;
+      default: return '不明';
     }
   };
 
@@ -141,7 +143,7 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 2 }}>
         プラグイン管理
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" aria-label="閉じる">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -171,7 +173,7 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
             <Tab label={`インストール済み (${plugins.length})`} value="installed" />
             <Tab label={`利用可能 (${registry.filter(r => !r.installed).length})`} value="available" />
           </Tabs>
-          <IconButton onClick={loadData} size="small" title="更新">
+          <IconButton onClick={loadData} size="small" title="更新" aria-label="一覧を更新">
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -229,11 +231,12 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
                         </Box>
                       </Box>
                       <Box sx={{ display: 'flex', ml: 2 }}>
-                        <IconButton 
-                          color="error" 
-                          onClick={() => handleUninstall(plugin.id)}
+                        <IconButton
+                          color="error"
+                          onClick={() => setUninstallTarget(plugin)}
                           disabled={actionLoading === plugin.id}
                           title="アンインストール"
+                          aria-label={`${plugin.name} をアンインストール`}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -298,6 +301,43 @@ export const PluginManager: React.FC<PluginManagerProps> = ({ open, onClose }) =
           </List>
         )}
       </DialogContent>
+
+      {/* アンインストール確認ダイアログ (docs/10 §6.3、可逆操作なので 1 段階) */}
+      <Dialog
+        open={uninstallTarget !== null}
+        onClose={() => {
+          if (!actionLoading) setUninstallTarget(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>アンインストールの確認</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            プラグイン「{uninstallTarget?.name ?? ''}」をアンインストールします。
+            再インストールはいつでも可能です。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setUninstallTarget(null)}
+            disabled={actionLoading !== null}
+          >
+            キャンセル
+          </Button>
+          <Button
+            color="error"
+            onClick={() => uninstallTarget && handleUninstall(uninstallTarget.id)}
+            disabled={actionLoading !== null}
+            startIcon={
+              actionLoading ? <CircularProgress size={14} color="inherit" /> : null
+            }
+            data-testid="plugin-uninstall-confirm"
+          >
+            {actionLoading ? '削除中…' : 'アンインストール'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };

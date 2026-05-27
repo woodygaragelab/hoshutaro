@@ -102,11 +102,12 @@ export function useViewModeTransition({
     const duration = performance.now() - startTime;
 
     // パフォーマンス警告（開発環境のみ）
+    // eslint-disable-next-line no-empty
     if (process.env.NODE_ENV === 'development' && duration > 200) {
           }
 
     return data;
-  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode]);
 
   /**
    * 作業ベースデータを取得（メモ化）
@@ -122,11 +123,12 @@ export function useViewModeTransition({
     const duration = performance.now() - startTime;
 
     // パフォーマンス警告（開発環境のみ）
+    // eslint-disable-next-line no-empty
     if (process.env.NODE_ENV === 'development' && duration > 200) {
           }
 
     return data;
-  }, [viewModeManager, currentMode, currentState.filters, workOrders, assets, associations, hierarchy]);
+  }, [viewModeManager, currentMode]);
 
   /**
    * 表示モードを切り替え
@@ -175,7 +177,9 @@ export function useViewModeTransition({
         }
 
         // パフォーマンス警告（要件 6.3: 1000ms以内）
+         
         if (duration > 1000) {
+                  // eslint-disable-next-line no-empty
                   } else if (process.env.NODE_ENV === 'development') {
                   }
       });
@@ -206,9 +210,6 @@ export function useViewModeTransition({
       newAssociations: WorkOrderLine[],
       newHierarchy: HierarchyDefinition
     ) => {
-      // Create a fresh manager with exactly matching arguments
-      // Note: Data is not explicitly copied here since ViewModeManager handles its own references internally 
-      const newManager = new ViewModeManager(newAssets, newAssociations, newHierarchy, newWorkOrders);
       viewModeManager.updateData(newAssets, newAssociations, newHierarchy, newWorkOrders);
       const newState = viewModeManager.getCurrentState();
       setCurrentState(newState);

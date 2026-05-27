@@ -19,8 +19,11 @@ import {
   Snackbar,
   Alert,
   Autocomplete,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
+import { CloudLLMSettingsSection } from './CloudLLMSettingsSection';
 import {
   LLMSettings,
   TestConnectionResult,
@@ -29,8 +32,6 @@ import {
   testLLMConnection,
   startLLMAdapter,
   getLLMModels,
-  getLocalModels,
-  LocalModelInfo,
   getInstalledPlugins,
   PluginInfo,
   callLLMTool
@@ -49,7 +50,7 @@ const DEFAULT_SETTINGS: LLMSettings = {
 
 export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onClose }) => {
   const [settings, setSettings] = useState<LLMSettings>(DEFAULT_SETTINGS);
-  const [pluginConfigs, setPluginConfigs] = useState<Record<string, Record<string, any>>>({});
+  const [pluginConfigs, setPluginConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -66,6 +67,9 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
 
   // Hugging Face Downloader States
   const [hfRepoId, setHfRepoId] = useState('OpenVINO/gpt-oss-20b-int4-ov');
+
+  // Sprint 7 LD-1: ローカル/クラウド設定の概念分離 (docs/10 §6.10.1 pill tab)
+  const [activeTab, setActiveTab] = useState<'cloud' | 'local'>('cloud');
   const [hfDownloadState, setHfDownloadState] = useState<{status: string, error?: string, downloaded_mb?: number}>({status: 'idle'});
 
   const hfTimerRef = useRef<number | null>(null);
@@ -74,15 +78,15 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     if (!hfRepoId) return;
     try {
       const pconf = pluginConfigs['openvino-adapter'] || {};
-      const res = await callLLMTool('openvino-adapter', pconf, 'download_hf_model', { repo_id: hfRepoId });
+      const res = await callLLMTool('openvino-adapter', pconf, 'download_hf_model', { repo_id: hfRepoId }) as { ok?: boolean; error?: string } | null;
       if (res && res.ok) {
         setHfDownloadState({ status: 'downloading' });
         startPollingStatus();
       } else {
         setHfDownloadState({ status: 'error', error: res?.error || 'Unknown error' });
       }
-    } catch (e: any) {
-      setHfDownloadState({ status: 'error', error: e.message });
+    } catch (e) {
+      setHfDownloadState({ status: 'error', error: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -91,9 +95,14 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     hfTimerRef.current = window.setInterval(async () => {
       try {
         const pconf = pluginConfigs['openvino-adapter'] || {};
-        const state = await callLLMTool('openvino-adapter', pconf, 'get_download_status', {});
+        const state = await callLLMTool('openvino-adapter', pconf, 'get_download_status', {}) as {
+          active?: boolean;
+          status?: 'idle' | 'downloading' | 'completed' | 'error';
+          downloaded_mb?: number;
+          error?: string;
+        } | null;
         if (!state) return;
-        
+
         // サーバー再起動などで状態がロストした場合の中断検知
         if (!state.active && (state.status === 'idle' || !state.status)) {
           if (hfTimerRef.current) clearInterval(hfTimerRef.current);
@@ -112,7 +121,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
              handleFetchModels();
           }
         }
-      } catch (e) {
+      } catch (_e) {
         // network polling drop
       }
     }, 3000);
@@ -143,12 +152,12 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
            }
            
            const llmAdapters = pluginsData.filter((p: PluginInfo) => p.category === 'llm-adapter');
-           const configs: Record<string, any> = {};
-           
+           const configs: Record<string, Record<string, unknown>> = {};
+
            for (const adapter of llmAdapters) {
              try {
                const conf = await getPluginConfig(adapter.id);
-               
+
                // 後方互換性
                if (adapter.id === 'ollama-adapter') {
                  if (conf.LLM_BASE_URL === undefined && conf.OLLAMA_BASE_URL !== undefined) conf.LLM_BASE_URL = conf.OLLAMA_BASE_URL;
@@ -156,15 +165,16 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
                  if (conf.LLM_API_KEY === undefined && conf.OLLAMA_API_KEY !== undefined) conf.LLM_API_KEY = conf.OLLAMA_API_KEY;
                }
 
-               if (adapter.configSchema) {
-                 for (const [key, prop] of Object.entries(adapter.configSchema)) {
+               const schema = adapter.configSchema;
+               if (schema) {
+                 for (const key of Object.keys(schema)) {
                    if (conf[key] === undefined) {
-                     conf[key] = (prop as any).default || '';
+                     conf[key] = schema[key].default ?? '';
                    }
                  }
                }
                configs[adapter.id] = conf;
-             } catch (e) {
+             } catch (_e) {
                configs[adapter.id] = {};
              }
            }
@@ -188,12 +198,12 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     setAdapterStarted(newAdapter === 'gemini');
   };
 
-  const handleGlobalChange = (field: keyof LLMSettings, value: any) => {
+  const handleGlobalChange = (field: keyof LLMSettings, value: unknown) => {
     setSettings(prev => ({ ...prev, [field]: value }));
     setTestResult(null);
   };
 
-  const handlePluginChange = (pluginId: string, field: string, value: any) => {
+  const handlePluginChange = (pluginId: string, field: string, value: unknown) => {
     setPluginConfigs(prev => ({
       ...prev,
       [pluginId]: {
@@ -219,8 +229,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
       } else {
         setStartResult({ ok: false, message: res.error || '起動に失敗しました。' });
       }
-    } catch (e: any) {
-      setStartResult({ ok: false, message: e.message });
+    } catch (e) {
+      setStartResult({ ok: false, message: e instanceof Error ? e.message : String(e) });
     } finally {
       setStarting(false);
     }
@@ -235,8 +245,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
       if (models.length > 0) {
         setModelDropdownOpen(true);
       }
-    } catch (e: any) {
-      alert('モデル一覧の取得に失敗しました: ' + e.message);
+    } catch (e) {
+      alert('モデル一覧の取得に失敗しました: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setFetchingModels(false);
     }
@@ -257,8 +267,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
       const pconf = pluginConfigs[settings.llm_adapter] || {};
       const res = await testLLMConnection(settings.llm_adapter, pconf);
       setTestResult(res);
-    } catch (e: any) {
-      setTestResult({ ok: false, latency_ms: 0, error: e.message });
+    } catch (e) {
+      setTestResult({ ok: false, latency_ms: 0, error: e instanceof Error ? e.message : String(e) });
     } finally {
       setTesting(false);
     }
@@ -269,8 +279,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     try {
       await doSaveParams();
       onClose();
-    } catch (e: any) {
-      alert('保存に失敗しました: ' + e.message);
+    } catch (e) {
+      alert('保存に失敗しました: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
@@ -284,8 +294,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     
     const pconf = pluginConfigs[settings.llm_adapter] || {};
 
-    return Object.entries(activePlugin.configSchema).map(([key, schemaDef]: [string, any]) => {
-      const val = pconf[key] !== undefined ? pconf[key] : (schemaDef.default || '');
+    return Object.entries(activePlugin.configSchema).map(([key, schemaDef]) => {
+      const val = pconf[key] !== undefined ? pconf[key] : (schemaDef.default ?? '');
       
       if (key === 'LLM_MODEL') {
         return (
@@ -335,7 +345,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
           type={key.includes('KEY') ? 'password' : 'text'}
           value={val}
           onChange={(e) => handlePluginChange(settings.llm_adapter, key, e.target.value)}
-          placeholder={schemaDef.default || ''}
+          placeholder={typeof schemaDef.default === 'string' ? schemaDef.default : ''}
         />
       );
     });
@@ -353,140 +363,180 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 2 }}>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 0 }}>
         LLM設定
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" aria-label="閉じる">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, minHeight: '380px', pb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>プロバイダー (Adapter)</InputLabel>
-            <Select
-              label="プロバイダー (Adapter)"
-              value={settings.llm_adapter}
-              onChange={(e) => handleAdapterChange(e.target.value)}
-            >
-              <MenuItem value="gemini">HOSHUTAROエージェント（Gemini）</MenuItem>
-              {plugins.filter(p => p.category === 'llm-adapter').map(p => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          {settings.llm_adapter !== 'gemini' && (
-            <Button 
-              variant={adapterStarted && !pluginDirty ? "outlined" : "contained"} 
-              color={adapterStarted && pluginDirty ? "warning" : "primary"}
-              onClick={handleStartAdapter}
-              disabled={starting || (adapterStarted && !pluginDirty)}
-              sx={{ whiteSpace: 'nowrap' }}
-            >
-              {starting ? '処理中...' : (
-                adapterStarted ? (pluginDirty ? '再起動して適用' : '起動済み') : '起動'
-              )}
-            </Button>
-          )}
-        </Box>
-
-        {settings.llm_adapter === 'gemini' && (
-          <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
-            <Typography variant="body2" color="text.primary">
-              HOSHUTAROエージェント（Gemini）の設定です。
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              ※ 内部で最適化されたパラメータを使用するため、詳細設定は必要ありません。<br/>
-              ※ サブスクリプション化を見据え、APIキーの表示・編集は行えません。
-            </Typography>
-          </Box>
-        )}
-
-        {!adapterStarted && settings.llm_adapter !== 'gemini' && (
-          <Alert severity="warning" sx={{ width: '100%' }}>
-            アダプターが起動していません。「起動」ボタンを押して初期化してください。
-          </Alert>
-        )}
-
-        {adapterStarted && renderPluginSettings()}
-
-        {adapterStarted && settings.llm_adapter !== 'gemini' && (
+      <Box sx={{ px: 3, pt: 1 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, v: 'cloud' | 'local') => setActiveTab(v)}
+          aria-label="LLM 設定のセクション"
+          TabIndicatorProps={{ style: { display: 'none' } }}
+          sx={{
+            minHeight: 36,
+            '& .MuiTab-root': {
+              minHeight: 36,
+              py: 0.5,
+              px: 2,
+              mr: 1,
+              borderRadius: 9999,
+              textTransform: 'none',
+              color: 'text.secondary',
+            },
+            '& .Mui-selected': {
+              bgcolor: 'action.selected',
+              color: 'text.primary',
+              fontWeight: 'bold',
+            },
+          }}
+        >
+          <Tab label="クラウド設定" value="cloud" />
+          <Tab label="ローカル設定" value="local" />
+        </Tabs>
+      </Box>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, minHeight: '380px', pb: 3, pt: 2 }}>
+        {activeTab === 'cloud' && (
           <>
-            <Box>
-              <Typography gutterBottom variant="caption">Temperature: {settings.llm_temperature}</Typography>
-              <Slider
-                size="small"
-                value={settings.llm_temperature}
-                onChange={(_, v) => handleGlobalChange('llm_temperature', v as number)}
-                min={0} max={2} step={0.1}
-              />
-            </Box>
-            <Box>
-              <Typography gutterBottom variant="caption">Max Tokens: {settings.llm_max_tokens}</Typography>
-              <Slider
-                size="small"
-                value={settings.llm_max_tokens}
-                onChange={(_, v) => handleGlobalChange('llm_max_tokens', v as number)}
-                min={256} max={8192} step={256}
-              />
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              ログイン中のアカウントに紐づく設定。複数デバイス間で同期されます。
+            </Typography>
+            <CloudLLMSettingsSection />
           </>
         )}
 
-        {adapterStarted && settings.llm_adapter === 'openvino-adapter' && (
-          <Box sx={{ p: 2, mt: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Hugging Face からモデルをダウンロード
+        {activeTab === 'local' && (
+          <>
+            <Typography variant="body2" color="text.secondary">
+              このデバイス専用の設定。バックエンド (FastAPI) 経由でローカルに保存されます。
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-              Hugging Faceのリポジトリ名（例: OpenVINO/gpt-oss-20b-int4-ov）を入力してダウンロードします。大きなモデルの場合、数十分かかることがあります。
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <TextField
-                size="small"
-                fullWidth
-                label="Hugging Face Repo ID"
-                value={hfRepoId}
-                onChange={(e) => setHfRepoId(e.target.value)}
-                disabled={hfDownloadState.status === 'downloading'}
-                placeholder="OpenVINO/gpt-oss-20b-int4-ov"
-              />
-              <Button 
-                variant="contained" 
-                color="secondary" 
-                onClick={startHfDownload}
-                disabled={!hfRepoId || hfDownloadState.status === 'downloading'}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                ダウンロード
-              </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>プロバイダー (Adapter)</InputLabel>
+                <Select
+                  label="プロバイダー (Adapter)"
+                  value={settings.llm_adapter}
+                  onChange={(e) => handleAdapterChange(e.target.value)}
+                >
+                  <MenuItem value="gemini">HOSHUTAROエージェント（Gemini）</MenuItem>
+                  {plugins.filter(p => p.category === 'llm-adapter').map(p => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {settings.llm_adapter !== 'gemini' && (
+                <Button
+                  variant={adapterStarted && !pluginDirty ? "outlined" : "contained"}
+                  color={adapterStarted && pluginDirty ? "warning" : "primary"}
+                  onClick={handleStartAdapter}
+                  disabled={starting || (adapterStarted && !pluginDirty)}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  {starting ? '処理中...' : (
+                    adapterStarted ? (pluginDirty ? '再起動して適用' : '起動済み') : '起動'
+                  )}
+                </Button>
+              )}
             </Box>
-            
-            {hfDownloadState.status !== 'idle' && (
-              <Box sx={{ mt: 2 }}>
-                {hfDownloadState.status === 'downloading' && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CircularProgress size={16} />
-                    <Typography variant="caption">
-                      ダウンロード中... {hfDownloadState.downloaded_mb !== undefined ? `${hfDownloadState.downloaded_mb} MB ダウンロード済` : '（バックグラウンドで処理しています）'}
-                    </Typography>
+
+            {settings.llm_adapter === 'gemini' && (
+              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                <Typography variant="body2" color="text.secondary">
+                  HOSHUTAROエージェントは追加設定不要で利用できます。
+                </Typography>
+              </Box>
+            )}
+
+            {!adapterStarted && settings.llm_adapter !== 'gemini' && (
+              <Alert severity="warning" sx={{ width: '100%' }}>
+                アダプターが起動していません。「起動」ボタンを押して初期化してください。
+              </Alert>
+            )}
+
+            {adapterStarted && renderPluginSettings()}
+
+            {adapterStarted && settings.llm_adapter !== 'gemini' && (
+              <>
+                <Box>
+                  <Typography gutterBottom variant="caption">Temperature: {settings.llm_temperature}</Typography>
+                  <Slider
+                    size="small"
+                    value={settings.llm_temperature}
+                    onChange={(_, v) => handleGlobalChange('llm_temperature', v as number)}
+                    min={0} max={2} step={0.1}
+                  />
+                </Box>
+                <Box>
+                  <Typography gutterBottom variant="caption">Max Tokens: {settings.llm_max_tokens}</Typography>
+                  <Slider
+                    size="small"
+                    value={settings.llm_max_tokens}
+                    onChange={(_, v) => handleGlobalChange('llm_max_tokens', v as number)}
+                    min={256} max={8192} step={256}
+                  />
+                </Box>
+              </>
+            )}
+
+            {adapterStarted && settings.llm_adapter === 'openvino-adapter' && (
+              <Box sx={{ p: 2, mt: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Hugging Face からモデルをダウンロード
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                  Hugging Faceのリポジトリ名（例: OpenVINO/gpt-oss-20b-int4-ov）を入力してダウンロードします。大きなモデルの場合、数十分かかることがあります。
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Hugging Face Repo ID"
+                    value={hfRepoId}
+                    onChange={(e) => setHfRepoId(e.target.value)}
+                    disabled={hfDownloadState.status === 'downloading'}
+                    placeholder="OpenVINO/gpt-oss-20b-int4-ov"
+                  />
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={startHfDownload}
+                    disabled={!hfRepoId || hfDownloadState.status === 'downloading'}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    ダウンロード
+                  </Button>
+                </Box>
+
+                {hfDownloadState.status !== 'idle' && (
+                  <Box sx={{ mt: 2 }}>
+                    {hfDownloadState.status === 'downloading' && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress size={16} />
+                        <Typography variant="caption">
+                          ダウンロード中... {hfDownloadState.downloaded_mb !== undefined ? `${hfDownloadState.downloaded_mb} MB ダウンロード済` : '（バックグラウンドで処理しています）'}
+                        </Typography>
+                      </Box>
+                    )}
+                    {hfDownloadState.status === 'completed' && (
+                      <Alert severity="success" sx={{ py: 0 }}>
+                        ダウンロード完了！上部のModel一覧から選択できます。
+                      </Alert>
+                    )}
+                    {hfDownloadState.status === 'error' && (
+                      <Alert severity="error" sx={{ py: 0 }}>
+                        エラーが発生しました: {hfDownloadState.error}
+                      </Alert>
+                    )}
                   </Box>
-                )}
-                {hfDownloadState.status === 'completed' && (
-                  <Alert severity="success" size="small" sx={{ py: 0 }}>
-                    ダウンロード完了！上部のModel一覧から選択できます。
-                  </Alert>
-                )}
-                {hfDownloadState.status === 'error' && (
-                  <Alert severity="error" size="small" sx={{ py: 0 }}>
-                    エラーが発生しました: {hfDownloadState.error}
-                  </Alert>
                 )}
               </Box>
             )}
-          </Box>
+          </>
         )}
 
       </DialogContent>

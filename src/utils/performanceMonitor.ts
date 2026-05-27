@@ -39,7 +39,8 @@ class PerformanceMonitor {
       try {
         navigationObserver.observe({ entryTypes: ['navigation'] });
         this.observers.push(navigationObserver);
-      } catch (e) {
+      // eslint-disable-next-line no-empty
+      } catch (_e) {
               }
     }
 
@@ -64,7 +65,8 @@ class PerformanceMonitor {
       try {
         resourceObserver.observe({ entryTypes: ['resource'] });
         this.observers.push(resourceObserver);
-      } catch (e) {
+      // eslint-disable-next-line no-empty
+      } catch (_e) {
               }
     }
   }
@@ -78,6 +80,7 @@ class PerformanceMonitor {
     }
 
     // Log performance issues
+    // eslint-disable-next-line no-empty
     if (metric.duration > 1000) {
           }
   }

@@ -10,7 +10,7 @@ import { useAccessibility } from './utils/accessibility';
 
 
 // Import memoization utilities for performance optimization - Requirements 10.1, 10.2, 10.3
-import { memoize, memoizeArray, createMemoizedSelector } from './utils/memoization';
+import { memoizeArray, createMemoizedSelector } from './utils/memoization';
 
 // Import all service managers
 import { AssetManager } from './services/AssetManager';
@@ -27,26 +27,41 @@ import { EditHandlers } from './services/EditHandlers';
 import { dataIndexManager } from './utils/dataIndexing';
 
 // Import hooks
-import { useViewModeTransition } from './hooks/useViewModeTransition';
 import { extractIdsFromRowId } from './components/EnhancedMaintenanceGrid/utils/gridIdUtils';
 
 import EnhancedMaintenanceGrid from './components/EnhancedMaintenanceGrid/EnhancedMaintenanceGrid';
 import { AgentBar } from './components/AgentBar/AgentBar';
+import { useUIContextStore } from './state/uiContextStore';
+import { SetupScreen } from './components/SetupScreen/SetupScreen';
+import { useSetupStatus } from './components/KnowledgeBase/hooks';
 import { EmptyState } from './components/EmptyState';
 import { CostTrendGraph } from './components/CostTrendGraph';
 import { AnimatePresence } from 'framer-motion';
 import WorkOrderLineDialog from './components/WorkOrderLineDialog/WorkOrderLineDialog';
 import { TreeClassificationEditDialog } from './components/TreeClassificationEditDialog';
 import { WorkOrderClassificationEditDialog } from './components/WorkOrderClassificationEditDialog';
-import { AssetReassignDialog } from './components/AssetReassignDialog/AssetReassignDialog';
 import { PluginManager } from './components/PluginManager/PluginManager';
 import { SkillRunner } from './components/SkillRunner/SkillRunner';
 import { UpdateNotification } from './components/UpdateNotification/UpdateNotification';
-import { getISOWeek, getISOWeeksInYear, getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
-import { transformData } from './utils/dataTransformer';
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Select, Snackbar, Alert, SelectChangeEvent, FormControl, Button, TextField, ThemeProvider, CssBaseline } from '@mui/material';
+import { KnowledgeBasePage } from './components/KnowledgeBase';
+import { getTimeKey, generateTimeRange, parseTimeKey, shiftDateByTimeScale } from './utils/dateUtils';
+import { transformData, type FilterTreeNode } from './utils/dataTransformer';
+import { AppBar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Snackbar, Toolbar, Alert, SelectChangeEvent, Button, ThemeProvider, Typography, CssBaseline } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { darkTheme } from './theme/darkTheme';
-import type { ViewMode, Asset, WorkOrder, WorkOrderLine, WorkOrderLineUpdate, SpecificationChange } from './types/maintenanceTask';
+import type {
+  WorkOrderLineUpdate,
+  SpecificationChange,
+  Asset,
+  WorkOrder,
+  WorkOrderLine,
+  HierarchyDefinition,
+  HierarchyPath,
+  AssetBasedRow,
+  DataModel,
+  ViewMode,
+  ViewModeState,
+} from './types/maintenanceTask';
 
 const rawData = {
   version: '3.0.0',
@@ -89,7 +104,7 @@ const App: React.FC = () => {
     const currentYear = new Date().getFullYear();
     return [currentYear.toString(), (currentYear + 1).toString(), (currentYear + 2).toString()];
   });
-  const [hierarchyFilterTree, setHierarchyFilterTree] = useState<any>(null);
+  const [hierarchyFilterTree, setHierarchyFilterTree] = useState<FilterTreeNode | null>(null);
   const [isServicesInitialized, setIsServicesInitialized] = useState(false);
 
   // Control states
@@ -122,21 +137,22 @@ const App: React.FC = () => {
     setEditScope(scope);
   }, []);
 
-  // Temporarily disabled useViewModeTransition to fix infinite loops
+  // Temporarily disabled useViewModeTransition to fix infinite loops.
   // Use the useViewModeTransition hook for managing view mode transitions
   // Requirements 6.1, 6.2, 6.3, 6.5
-  const hookCurrentMode = dataViewMode;
-  const hookEquipmentData: any[] = [];
-  const hookTaskData: any[] = [];
-  const isTransitioning = false;
-  const transitionDuration = 0;
-  const hookSwitchMode = (mode: any, preserveState?: boolean) => {
+  const hookEquipmentData: AssetBasedRow[] = [];
+  const hookSwitchMode = (_mode: ViewMode, _preserveState?: boolean) => {
     // Don't call setDataViewMode here to prevent infinite loops
     // The mode change will be handled by the handleDataViewModeChange function
   };
-  const hookApplyFilters = (filters: any) => {
+  const hookApplyFilters = (_filters: ViewModeState['filters']) => {
   };
-  const hookUpdateData = (tasks: any, assets: any, associations: any, hierarchy: any) => {
+  const hookUpdateData = (
+    _tasks: unknown[],
+    _assets: Asset[],
+    _associations: WorkOrderLine[],
+    _hierarchy: HierarchyDefinition,
+  ) => {
   };
 
   // Original hook disabled:
@@ -177,14 +193,25 @@ const App: React.FC = () => {
   const [woClassificationFilter, setWoClassificationFilter] = useState<string>('all');
 
   // UI component states (dialogs only)
-  const [addYearDialogOpen, setAddYearDialogOpen] = useState(false);
+  const [_addYearDialogOpen, setAddYearDialogOpen] = useState(false);
   const [newYearInput, setNewYearInput] = useState<string>('');
-  const [addYearError, setAddYearError] = useState<string>('');
-  const [deleteYearDialogOpen, setDeleteYearDialogOpen] = useState(false);
+  const [_addYearError, setAddYearError] = useState<string>('');
+  const [_deleteYearDialogOpen, setDeleteYearDialogOpen] = useState(false);
   const [yearToDelete, setYearToDelete] = useState<number | string>('');
-  const [deleteYearError, setDeleteYearError] = useState<string>('');
+  const [_deleteYearError, setDeleteYearError] = useState<string>('');
   const [importConfirmDialogOpen, setImportConfirmDialogOpen] = useState(false);
-  const [importedFileData, setImportedFileData] = useState<any>(null);
+  // インポートファイル一時保持。v3 (DataModel) と legacy (timeHeaders / maintenanceData / timeScale)
+  // のどちらか + 派生 metadata (_format / _fileName) を持つ可能性があるため広めの型に。
+  const [importedFileData, setImportedFileData] = useState<
+    | ((Partial<DataModel> & {
+        _format?: 'v3' | 'legacy';
+        _fileName?: string;
+        timeHeaders?: string[];
+        // legacy 形式の maintenanceData は廃止予定 (unknown のまま受け、ハンドラ側で必要に応じて narrow)
+        maintenanceData?: unknown;
+        timeScale?: 'year' | 'month' | 'week' | 'day';
+      }) | null)
+  >(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const [resetConfirmDialogOpen, setResetConfirmDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -196,6 +223,18 @@ const App: React.FC = () => {
   const [isWorkOrderClassificationEditOpen, setIsWorkOrderClassificationEditOpen] = useState(false);
   const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
   const [isSkillRunnerOpen, setIsSkillRunnerOpen] = useState(false);
+  const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
+  // プラン WS1-6: 初回モデル取得画面の表示制御
+  const [isSetupDismissed, setIsSetupDismissed] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('hoshutaro_setup_dismissed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setupStatusQuery = useSetupStatus();
+  const setupNeeded =
+    !isSetupDismissed && !!setupStatusQuery.data && !setupStatusQuery.data.target_done;
 
   // Display toggles
   const [showBomCode, setShowBomCode] = useState(true);
@@ -203,43 +242,13 @@ const App: React.FC = () => {
   // Display area mode for EnhancedMaintenanceGrid
   const [displayMode, setDisplayMode] = useState<'specifications' | 'maintenance' | 'both'>('maintenance');
 
-  // Handle cell double click - proper dialog routing based on view mode
-  const handleCellDoubleClick = (item: any, header: string, event: React.MouseEvent<HTMLElement>) => {
-
-    // Route to appropriate dialog based on view mode
-    // Both modes use TaskEditDialog, but with different context
-    if (dataViewMode === 'asset-based') {
-      // Equipment-based mode: Use TaskEditDialog for comprehensive task management
-      const assetId = item.assetId || item.bomCode;
-      if (assetId) {
-        handleOpenTaskEditDialog(assetId, header);
-      } else {
-        showSnackbar('機器IDが見つかりません', 'error');
-      }
-    } else {
-      // Task-based mode: Also use TaskEditDialog, but focused on individual task editing
-      const assetId = item.assetId || item.bomCode;
-      if (assetId) {
-        // In task-based mode, TaskEditDialog will show task-specific interface
-        handleOpenTaskEditDialog(assetId, header);
-      } else {
-        showSnackbar('機器IDが見つかりません', 'error');
-      }
-    }
-  };
-
   // TaskEditDialog states - Requirements 4.2, 4.3
   const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
   const [taskEditAssetId, setTaskEditAssetId] = useState<string>('');
   const [taskEditDateKey, setTaskEditDateKey] = useState<string>('');
   const [taskEditTaskId, setTaskEditTaskId] = useState<string | undefined>(undefined);
 
-  // AssetReassignDialog states - Requirements 3.2, 3.6
-  const [assetReassignDialogOpen, setAssetReassignDialogOpen] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
-
-  // HierarchyEditDialog state
-  const [hierarchyEditDialogOpen, setHierarchyEditDialogOpen] = useState(false);
 
 
   // Initialize all services on mount
@@ -267,9 +276,9 @@ const App: React.FC = () => {
 
         // --- Debug: expose managers to browser console for data integrity testing ---
         if (import.meta.env.DEV) {
-          (window as any).__wolManager = workOrderLineManagerRef.current;
-          (window as any).__assetManager = assetManagerRef.current;
-          (window as any).__woManager = workOrderManagerRef.current;
+          window.__wolManager = workOrderLineManagerRef.current ?? undefined;
+          window.__assetManager = assetManagerRef.current ?? undefined;
+          window.__woManager = workOrderManagerRef.current ?? undefined;
         }
 
         // Initialize ViewModeManager with empty data (will be populated after loading)
@@ -283,7 +292,7 @@ const App: React.FC = () => {
         // Requirements 9.1: Check version and handle legacy data
         try {
           // Step 1: Check data version before attempting to load
-          const dataVersion = (rawData as any).version;
+          const dataVersion = rawData.version;
 
 
           if (dataVersion === '3.0.0') {
@@ -311,7 +320,7 @@ const App: React.FC = () => {
               // Load workOrders - create new manager and populate
               workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
               const existingWorkOrders = Object.values(loadedData.workOrders || {});
-              existingWorkOrders.forEach((wo: any) => {
+              existingWorkOrders.forEach(wo => {
                 workOrderManagerRef.current!.createWorkOrder(wo);
               });
 
@@ -320,17 +329,17 @@ const App: React.FC = () => {
               const existingWorkOrderLines = Object.values(loadedData.workOrderLines || {});
               let wolSuccessCount = 0;
               let wolErrorCount = 0;
-              existingWorkOrderLines.forEach((wol: any) => {
+              existingWorkOrderLines.forEach(wol => {
                 try {
                   workOrderLineManagerRef.current!.createWorkOrderLine(wol);
                   wolSuccessCount++;
-                } catch (e: any) {
+                } catch (e) {
                   wolErrorCount++;
-                  console.error('[App] DEBUG: createWorkOrderLine error for', wol?.id, ':', e.message);
+                  console.error('[App] DEBUG: createWorkOrderLine error for', wol?.id, ':', e instanceof Error ? e.message : String(e));
                 }
               });
               const postCreationLines = workOrderLineManagerRef.current.getAllWorkOrderLines();
-              (window as any).__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
+              window.__debug_wol = { existingWorkOrderLines, postCreationLines, wolSuccessCount, wolErrorCount };
 
               // Reinitialize EditHandlers with the new WorkOrderLineManager
               editHandlersRef.current = new EditHandlers(workOrderLineManagerRef.current);
@@ -345,13 +354,19 @@ const App: React.FC = () => {
               // Load hierarchy - 日本語キーをそのまま使用（変換しない）
               if (loadedData.hierarchy) {
                 // 階層定義をそのまま使用（日本語キーを保持）
-                const hierarchyDefinition = {
-                  levels: loadedData.hierarchy.levels.map((level: any) => ({
-                    key: level.key, // 日本語キーをそのまま使用
-                    name: level.key, // 日本語名を保持
-                    order: level.order, // 1ベースのまま維持
-                    values: level.values.map((v: any) => typeof v === 'string' ? { value: v } : v) // 互換性: string[] -> TreeLevelValue[] に変換
-                  }))
+                // values は旧 JSON 形式で string[] のことがあるため、TreeLevelValue[] に互換変換。
+                type LegacyHierarchyLevel = {
+                  key: string;
+                  order?: number;
+                  values: Array<string | { value: string; parentValue?: string }>;
+                };
+                const legacyLevels = loadedData.hierarchy.levels as unknown as LegacyHierarchyLevel[];
+                const hierarchyDefinition: HierarchyDefinition = {
+                  levels: legacyLevels.map(level => ({
+                    key: level.key,
+                    order: level.order,
+                    values: level.values.map(v => (typeof v === 'string' ? { value: v } : v)),
+                  })),
                 };
 
                 hierarchyManagerRef.current?.setHierarchyDefinition(hierarchyDefinition);
@@ -373,7 +388,7 @@ const App: React.FC = () => {
                 associations: existingWorkOrderLines
               });
 
-              const indexStats = dataIndexManagerRef.current.getStats();
+              dataIndexManagerRef.current.getStats();
 
               // Update time headers based on data range
               // Requirements 6.4: Auto-scale time range based on data
@@ -383,7 +398,7 @@ const App: React.FC = () => {
               years.add(currentYear + 1);
               years.add(currentYear + 2);
 
-              existingWorkOrderLines.forEach((wol: any) => {
+              existingWorkOrderLines.forEach(wol => {
                 if (wol.schedule) {
                   Object.keys(wol.schedule).forEach(dateKey => {
                     const year = parseInt(dateKey.slice(0, 4), 10);
@@ -469,7 +484,10 @@ const App: React.FC = () => {
     };
 
     measureAsync('service-initialization', 'render', initializeServices);
-  }, []); // Only run once on mount
+    // マウント時に 1 度だけサービスを初期化する。announce / measureAsync / timeScale を deps に
+    // 入れると初期化処理が再実行されて初期 state が壊れるため意図的に空配列。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Listen for date jumps to update the dynamic time window
   useEffect(() => {
@@ -493,13 +511,16 @@ const App: React.FC = () => {
       loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
     };
     measureAsync('data-transformation', 'render', loadData);
-  }, [timeScale, focusDateKey, isServicesInitialized]); // Remove measureAsync and announce from dependencies
+    // dataViewMode の変更時はそれ専用の loader が呼ばれるため、ここでは含めない。
+    // measureAsync / loadDataFromViewModeManagerWithMode は ref を介しており再 effect 不要。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeScale, focusDateKey, isServicesInitialized]);
 
   // Helper function to build hierarchy filter tree
   // Memoized for performance - Requirements 10.1, 10.2, 10.3
   const buildHierarchyFilterTree = useMemo(() => {
-    return memoizeArray((data: HierarchicalData[]) => {
-      const tree: any = { children: {} };
+    return memoizeArray((data: HierarchicalData[]): FilterTreeNode => {
+      const tree: FilterTreeNode = { name: 'root', children: {} };
 
       data.forEach(item => {
         if (item.hierarchyPath) {
@@ -508,7 +529,7 @@ const App: React.FC = () => {
 
           pathParts.forEach((part) => {
             if (!currentNode.children[part]) {
-              currentNode.children[part] = { children: {} };
+              currentNode.children[part] = { name: part, children: {} };
             }
             currentNode = currentNode.children[part];
           });
@@ -531,11 +552,53 @@ const App: React.FC = () => {
     }
   }, [isServicesInitialized]); // Remove hookUpdateData to prevent infinite loops
 
+  // プラン WS1-10: 散在するダイアログ open 状態を uiContextStore に同期。
+  // AgentBar はこの store を読んで `/api/chat/completions` の `ui_context` に含める。
+  // ダイアログを起動する各ボタンの状態を集約し、開いているダイアログ種別を 1 つに正規化。
+  useEffect(() => {
+    const setDialog = useUIContextStore.getState().setCurrentDialog;
+    const closeDialog = useUIContextStore.getState().closeDialog;
+    if (isHierarchyManagerOpen) {
+      setDialog('hierarchy', { selectedAssetIds: selectedAssets });
+    } else if (isAssetClassificationEditOpen) {
+      setDialog('assetClassification', { selectedAssetIds: selectedAssets });
+    } else if (isWorkOrderClassificationEditOpen) {
+      setDialog('workOrderClassification', {});
+    } else if (taskEditDialogOpen) {
+      setDialog('workOrderLine', {
+        assetId: taskEditAssetId,
+        dateKey: taskEditDateKey,
+        workOrderId: taskEditTaskId,
+      });
+    } else {
+      closeDialog();
+    }
+  }, [
+    isHierarchyManagerOpen,
+    isAssetClassificationEditOpen,
+    isWorkOrderClassificationEditOpen,
+    taskEditDialogOpen,
+    taskEditAssetId,
+    taskEditDateKey,
+    taskEditTaskId,
+    selectedAssets,
+  ]);
+
+  // グリッド状態（viewMode / timeScale / displayMode / editScope）も store に同期。
+  useEffect(() => {
+    useUIContextStore.getState().patchGridState({
+      viewMode: dataViewMode,
+      timeScale,
+      displayMode,
+      selectedAssetIds: selectedAssets,
+    });
+  }, [dataViewMode, timeScale, displayMode, selectedAssets]);
+
   // Memoized data transformation functions - Requirements 10.1, 10.2, 10.3
   const transformEquipmentData = useMemo(() => {
-    return createMemoizedSelector((equipmentData: any[]) => {
+    return createMemoizedSelector((equipmentData: AssetBasedRow[]): HierarchicalData[] => {
 
-      return equipmentData.map(row => {
+      return equipmentData.map((row): HierarchicalData => {
         if (row.type === 'hierarchy') {
           // Hierarchy header row (帯部分)
           return {
@@ -551,16 +614,19 @@ const App: React.FC = () => {
           };
         } else if (row.type === 'asset') {
           // Asset row with aggregated task data
-          const results: any = {};
+          const results: HierarchicalData['results'] = {};
 
           // Aggregate schedule data by time scale
           if (row.workOrderLines) {
+            // AssetBasedRow.workOrderLines は WorkOrderLine とは別 shape (UI 用 mapped 構造)。
+            // aggregateEventsByTimeScaleInternal は WorkOrderLine 互換オブジェクトを期待するので
+            // 必要 field を満たす形にキャストして渡す。
             const aggregated = viewModeManagerRef.current!.aggregateEventsByTimeScaleInternal(
-              row.workOrderLines,
+              row.workOrderLines as unknown as WorkOrderLine[],
               timeScale
             );
 
-            Object.entries(aggregated).forEach(([timeKey, status]: [string, any]) => {
+            Object.entries(aggregated).forEach(([timeKey, status]) => {
               if (!results[timeKey]) {
                 results[timeKey] = {
                   planned: false,
@@ -592,9 +658,11 @@ const App: React.FC = () => {
             rolledUpResults: {}
           };
         } else {
-          // Fallback for unknown row types
+          // Fallback for unknown row types — TS exhaustiveness 対策
+          // (`row.type` は AssetBasedRow 上は 'hierarchy' | 'asset' なので通常は到達しない)
+          const fallback = row as AssetBasedRow & { id?: string };
           return {
-            id: `unknown_${row.id || 'no-id'}`,
+            id: `unknown_${fallback.id || 'no-id'}`,
             task: row.hierarchyValue || row.assetName || 'Unknown',
             bomCode: '',
             specifications: [],
@@ -662,8 +730,8 @@ const App: React.FC = () => {
           const transformedData = transformEquipmentData(equipmentData);
 
           // DEBUG: Expose data to window for headless inspection
-          (window as any).__DEBUG_EQUIPMENT = equipmentData;
-          (window as any).__DEBUG_TRANS = transformedData;
+          window.__DEBUG_EQUIPMENT = equipmentData;
+          window.__DEBUG_TRANS = transformedData;
 
           const newActiveHeaders = new Set<string>();
           transformedData.forEach(item => {
@@ -709,12 +777,12 @@ const App: React.FC = () => {
           const taskBasedData = viewModeManagerRef.current.getWorkOrderBasedData(effectiveTimeScale);
 
 
-          // Transform task-based data to legacy format for grid compatibility
-          const transformedData = taskBasedData.map(row => {
+          // Transform task-based data to legacy format for grid compatibility.
+          // ...row spread は HierarchyPath (object) と HierarchicalData.hierarchyPath (string)
+          // が衝突するため使わず、必要 field のみを明示的にコピーする。
+          const transformedData: HierarchicalData[] = taskBasedData.map((row): HierarchicalData => {
             if (row.type === 'workOrder') {
               return {
-                ...row,
-                type: row.type,
                 id: row.id,
                 task: row.workOrderName || '',
                 bomCode: '',
@@ -723,14 +791,29 @@ const App: React.FC = () => {
                 rolledUpResults: {},
                 isGroupHeader: false, // In task mode, work order acts as parent but it has its own schedule
                 level: row.level,
-                children: []
+                children: [],
+                type: row.type,
+                workOrderId: row.workOrderId,
+                aggregatedSchedule: row.aggregatedSchedule,
               };
             } else if (row.type === 'assetChild') {
-              const results: any = row.aggregatedSchedule || {};
-              const rolledUpResults: any = row.aggregatedSchedule || {};
+              // AggregatedStatus ({ totalPlanCost, totalActualCost, ... }) を
+              // HierarchicalData.results の shape ({ planCost, actualCost, ... }) に変換。
+              const results: HierarchicalData['results'] = {};
+              const rolledUpResults: HierarchicalData['rolledUpResults'] = {};
+              if (row.aggregatedSchedule) {
+                Object.entries(row.aggregatedSchedule).forEach(([timeKey, status]) => {
+                  const cell = {
+                    planned: status.planned,
+                    actual: status.actual,
+                    planCost: status.totalPlanCost,
+                    actualCost: status.totalActualCost,
+                  };
+                  results[timeKey] = cell;
+                  rolledUpResults[timeKey] = cell;
+                });
+              }
               return {
-                ...row,
-                type: row.type,
                 id: row.id,
                 task: row.assetName || '',
                 bomCode: row.assetId || '',
@@ -742,11 +825,15 @@ const App: React.FC = () => {
                 level: row.level,
                 assetId: row.assetId,
                 taskId: row.workOrderId,
-                ClassificationId: row.ClassificationId,
-                children: []
+                workOrderId: row.workOrderId,
+                children: [],
+                type: row.type,
+                aggregatedSchedule: row.aggregatedSchedule,
               };
             } else {
-              return row as any;
+              // canonical な WorkOrderBasedRow.type は 'workOrder' | 'assetChild' のみ。
+              // ここに来るのは想定外だが将来の拡張に備えて safe-cast で素通し。
+              return row as unknown as HierarchicalData;
             }
           });
 
@@ -794,6 +881,10 @@ const App: React.FC = () => {
       // Doing so would wipe out the task hierarchies (causing the ghost UI bug).
       // We rely strictly on ViewModeManager, and if it fails, we show the ErrorHandler UI.
     }
+    // buildHierarchyFilterTree / generateTimeHeadersFromData / hookEquipmentData / transformEquipmentData は
+    // 同一 hooks スコープ内の関数 / ref。 deps に入れると親再レンダーごとに loader が再生成され
+    // 上位の useEffect が無限ループする。 (ref 経由で安定化済みのため意図的に除外)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isServicesInitialized, timeScale, focusDateKey]);
 
   const loadDataFromViewModeManager = useCallback((timeScaleOverride?: 'year' | 'month' | 'week' | 'day') => {
@@ -924,7 +1015,7 @@ const App: React.FC = () => {
       (level1Filter !== 'all' || level2Filter !== 'all' || level3Filter !== 'all')) {
 
       // Build partial hierarchy path from filters
-      const hierarchyPath: any = {};
+      const hierarchyPath: HierarchyPath = {};
       const hierarchyDef = hierarchyManagerRef.current.getHierarchyDefinition();
 
       if (hierarchyDef && hierarchyDef.levels.length > 0) {
@@ -1125,19 +1216,6 @@ const App: React.FC = () => {
     return filteredData;
   }, [maintenanceData, searchTerm, level1Filter, level2Filter, level3Filter, isServicesInitialized, selectedTasks, selectedBomCodes, classificationFilter, woClassificationFilter, dataViewMode]);
 
-  // Group data for rendering
-  const groupedData = useMemo(() => {
-    return displayedMaintenanceData.reduce((acc, item) => {
-      const path = item.hierarchyPath || 'Uncategorized';
-      if (!acc[path]) {
-        acc[path] = [];
-      }
-      acc[path].push(item);
-      return acc;
-    }, {} as { [key: string]: HierarchicalData[] });
-  }, [displayedMaintenanceData]);
-
-
   // --- UI Handlers ---
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setSnackbarMessage(message);
@@ -1159,10 +1237,6 @@ const App: React.FC = () => {
     }
   }, [isServicesInitialized]);
 
-  const handleViewModeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setViewMode(event.target.checked ? 'cost' : 'status');
-  };
-
   // Handle data view mode change - Requirements 6.1, 6.2, 6.5
   // Updated to use useViewModeTransition hook
   const handleDataViewModeChange = (mode: 'asset-based' | 'workorder-based') => {
@@ -1179,8 +1253,8 @@ const App: React.FC = () => {
       measureAsync('view-mode-switch', 'render', async () => {
         // Preserve current filter state before switching
         // Requirements 6.2: フィルターと選択状態の保持
-        const currentFilters = {
-          hierarchyPath: {} as any,
+        const currentFilters: { hierarchyPath: HierarchyPath; searchTerm: string } = {
+          hierarchyPath: {},
           searchTerm: searchTerm,
         };
 
@@ -1439,8 +1513,8 @@ const App: React.FC = () => {
 
         try {
           assetManagerRef.current?.updateSpecifications(asset.id, reorderedSpecs);
-        } catch (e) {
-        }
+        // eslint-disable-next-line no-empty
+        } catch (_e) {}
       });
     }
 
@@ -1451,18 +1525,15 @@ const App: React.FC = () => {
 
   // Handle cell editing for EnhancedMaintenanceGrid
   // Requirements 4.2, 4.8, 5.7: Use EditHandlers for schedule editing with view mode awareness
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
+  // value は dispatch 先 (cell type) によって string / boolean / { planCost, actualCost } 等に変わるため
+  // ここでは unknown を受け、各分岐内で適切に narrow / convert する。
+  const handleCellEdit = (rowId: string, columnId: string, value: unknown) => {
 
     // If services are initialized, use EditHandlers
     if (isServicesInitialized && editHandlersRef.current && workOrderLineManagerRef.current && undoRedoManagerRef.current) {
       try {
-        // Save current state for undo
-        const currentState = {
-          maintenanceData: [...maintenanceData]
-        };
-
         // Parse rowId to get the actual IDs
-        const { assetId: actualAssetId, taskId: associatedTaskId, wolId: associatedWolId } = extractIdsFromRowId(rowId);
+        const { assetId: actualAssetId, taskId: associatedTaskId } = extractIdsFromRowId(rowId);
 
         // Deal with specification editing which was missing completely
         if (columnId.startsWith('spec_')) {
@@ -1543,14 +1614,14 @@ const App: React.FC = () => {
     const sortedHeaders = Array.from(timeHeadersSet).sort();
     if (sortedHeaders.length > 0) {
       try {
-        let startBoundStr = sortedHeaders[0];
-        let endBoundStr = sortedHeaders[sortedHeaders.length - 1];
+        const startBoundStr = sortedHeaders[0];
+        const endBoundStr = sortedHeaders[sortedHeaders.length - 1];
 
         // We no longer truncate the time window here. The grid uses virtual scrolling, 
         // so generating 5000+ columns (e.g., 10 years of days) is cheap in React.
         // Truncating this array was breaking the DateJumpDialog min/max limits.
         return generateFullTimeRange(startBoundStr, endBoundStr, timeScale);
-      } catch (error) {
+      } catch (_error) {
         return sortedHeaders;
       }
     } else {
@@ -1597,7 +1668,7 @@ const App: React.FC = () => {
     return [startPeriod, endPeriod]; // Return minimum
   };
 
-  const handleAddYearConfirm = () => {
+  const _handleAddYearConfirm = () => {
     const input = newYearInput.trim();
     if (!input) {
       setAddYearError('年度を入力してください。');
@@ -1639,7 +1710,7 @@ const App: React.FC = () => {
     setDeleteYearError('');
   };
 
-  const handleDeleteYearConfirm = () => {
+  const _handleDeleteYearConfirm = () => {
     if (!yearToDelete) {
       setDeleteYearError('削除する年度を選択してください。');
       return;
@@ -1671,7 +1742,7 @@ const App: React.FC = () => {
   };
 
   // --- Data Operations ---
-  const handleSaveData = async () => {
+  const handleSaveData = useCallback(async () => {
     if (!dataStoreRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -1684,20 +1755,20 @@ const App: React.FC = () => {
       const workOrderLines = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
       const hierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
 
-      const assetsObj = assets.reduce((acc, asset) => {
+      const assetsObj = assets.reduce<{ [id: string]: Asset }>((acc, asset) => {
         acc[asset.id] = asset;
         return acc;
-      }, {} as any);
+      }, {});
 
-      const workOrdersObj = workOrders.reduce((acc, wo) => {
+      const workOrdersObj = workOrders.reduce<{ [id: string]: typeof workOrders[number] }>((acc, wo) => {
         acc[wo.id] = wo;
         return acc;
-      }, {} as any);
+      }, {});
 
-      const workOrderLinesObj = workOrderLines.reduce((acc, wol) => {
+      const workOrderLinesObj = workOrderLines.reduce<{ [id: string]: WorkOrderLine }>((acc, wol) => {
         acc[wol.id] = wol;
         return acc;
-      }, {} as any);
+      }, {});
 
       await dataStoreRef.current.saveData({
         version: '3.0.0',
@@ -1715,7 +1786,7 @@ const App: React.FC = () => {
 
       showSnackbar('データを保存しました', 'success');
       announce('データが保存されました');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save data:', error);
 
       // Use ErrorHandler with proper error type detection
@@ -1726,7 +1797,7 @@ const App: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
       showSnackbar(`保存エラー: ${errorMessage}`, 'error');
     }
-  };
+  }, [isServicesInitialized, projectName, announce]);
 
   const handleExportData = () => {
     if (!isServicesInitialized || !dataStoreRef.current) {
@@ -1755,24 +1826,25 @@ const App: React.FC = () => {
       const workOrderLines = workOrderLineManagerRef.current?.getAllWorkOrderLines() || [];
       const hierarchy = hierarchyManagerRef.current?.getHierarchyDefinition();
 
-      const assetsObj = assets.reduce((acc, asset) => {
+      const assetsObj = assets.reduce<{ [id: string]: Asset }>((acc, asset) => {
         acc[asset.id] = asset;
         return acc;
-      }, {} as any);
+      }, {});
 
-      const workOrdersObj = workOrders.reduce((acc, wo) => {
+      const workOrdersObj = workOrders.reduce<{ [id: string]: typeof workOrders[number] }>((acc, wo) => {
         acc[wo.id] = wo;
         return acc;
-      }, {} as any);
+      }, {});
 
-      const workOrderLinesObj = workOrderLines.reduce((acc, wol) => {
-        const cleanWol = { ...wol };
-        // Strip V3 nested properties to strictly adhere to flat equipments.json format
-        delete cleanWol.schedule;
-        delete (cleanWol as any).__workOrderDraft;
+      const workOrderLinesObj = workOrderLines.reduce<{ [id: string]: WorkOrderLine }>((acc, wol) => {
+        // Strip V3 nested properties + draft 用一時フィールド (__workOrderDraft) を除去し、
+        // 旧 equipments.json の flat 形式にそろえる。
+        const { schedule: _schedule, ...rest } = wol;
+        const cleanWol = rest as WorkOrderLine & { __workOrderDraft?: unknown };
+        delete cleanWol.__workOrderDraft;
         acc[wol.id] = cleanWol;
         return acc;
-      }, {} as any);
+      }, {});
 
       // Include workOrderClassifications and assetClassification from DataStore
       const sourceWorkOrderClassifications = dataStoreRef.current?.getWorkOrderClassifications() || [];
@@ -1806,7 +1878,7 @@ const App: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showSnackbar('データをエクスポートしました。', 'success');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Export failed:', error);
 
       // Use ErrorHandler with proper error type detection
@@ -1839,8 +1911,8 @@ const App: React.FC = () => {
           if (dataStoreRef.current) {
             try {
               dataStoreRef.current.loadData(imported);
-            } catch (validationError: any) {
-              throw new Error(`v3.0.0バリデーションエラー: ${validationError.message}`);
+            } catch (validationError) {
+              throw new Error(`v3.0.0バリデーションエラー: ${validationError instanceof Error ? validationError.message : String(validationError)}`);
             }
           }
 
@@ -1853,7 +1925,7 @@ const App: React.FC = () => {
         } else {
           throw new Error('サポートされていないファイル形式です。v3.0.0またはレガシー形式のJSONファイルを選択してください。');
         }
-      } catch (error: any) {
+      } catch (error) {
         if (errorHandlerRef.current) {
           handleGenericError(error, 'dataImport', errorHandlerRef.current);
         }
@@ -1881,7 +1953,7 @@ const App: React.FC = () => {
         delete importData._format;
 
         // Reload assets
-        const existingAssets = Object.values(importData.assets || {}) as any[];
+        const existingAssets = Object.values(importData.assets || {}) as Asset[];
         if (assetManagerRef.current) {
           assetManagerRef.current = new AssetManager(undoRedoManagerRef.current!);
           existingAssets.forEach(asset => {
@@ -1890,19 +1962,19 @@ const App: React.FC = () => {
         }
 
         // Reload workOrders
-        const existingWorkOrders = Object.values(importData.workOrders || {}) as any[];
+        const existingWorkOrders = Object.values(importData.workOrders || {}) as WorkOrder[];
         if (workOrderManagerRef.current) {
           workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current!);
-          existingWorkOrders.forEach((wo: any) => {
+          existingWorkOrders.forEach(wo => {
             workOrderManagerRef.current!.createWorkOrder(wo);
           });
         }
 
         // Reload workOrderLines
-        const existingWorkOrderLines = Object.values(importData.workOrderLines || {}) as any[];
+        const existingWorkOrderLines = Object.values(importData.workOrderLines || {}) as WorkOrderLine[];
         if (workOrderLineManagerRef.current) {
           workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current!);
-          existingWorkOrderLines.forEach((wol: any) => {
+          existingWorkOrderLines.forEach(wol => {
             workOrderLineManagerRef.current!.createWorkOrderLine(wol);
           });
         }
@@ -1910,8 +1982,8 @@ const App: React.FC = () => {
         // Update project name from imported metadata or filename
         if (importData.metadata?.projectName) {
           setProjectName(importData.metadata.projectName);
-        } else if ((importedFileData as any)._fileName) {
-          setProjectName((importedFileData as any)._fileName);
+        } else if (importedFileData._fileName) {
+          setProjectName(importedFileData._fileName);
         }
 
         // Reinitialize EditHandlers
@@ -1960,7 +2032,7 @@ const App: React.FC = () => {
         years.add(currentYear);
         years.add(currentYear + 1);
         years.add(currentYear + 2);
-        existingWorkOrderLines.forEach((wol: any) => {
+        existingWorkOrderLines.forEach(wol => {
           if (wol.schedule) {
             Object.keys(wol.schedule).forEach(dateKey => {
               const year = parseInt(dateKey.slice(0, 4), 10);
@@ -1977,14 +2049,15 @@ const App: React.FC = () => {
       } else {
         // Legacy import
         setTimeHeaders(importedFileData.timeHeaders);
-        setMaintenanceData(importedFileData.maintenanceData);
+        // legacy 形式の maintenanceData は runtime shape が HierarchicalData[] 互換である前提
+        setMaintenanceData(importedFileData.maintenanceData as HierarchicalData[]);
         setTimeScale(importedFileData.timeScale || 'year');
         if (importedFileData._fileName) {
           setProjectName(importedFileData._fileName);
         }
         showSnackbar('レガシーデータをインポートしました。', 'success');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('[App] Import failed:', error);
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
       showSnackbar(`インポートエラー: ${errorMessage}`, 'error');
@@ -2012,11 +2085,11 @@ const App: React.FC = () => {
 
 
   // AI Assistant handlers
-  const handleAIAssistantToggle = () => {
+  const _handleAIAssistantToggle = () => {
     setIsAIAssistantOpen(!isAIAssistantOpen);
   };
 
-  const handleAIAssistantClose = () => {
+  const _handleAIAssistantClose = () => {
     setIsAIAssistantOpen(false);
   };
 
@@ -2061,11 +2134,22 @@ const App: React.FC = () => {
 
       const newWoIdMap = new Map<string, string>(); // Maps NEW_xx draft IDs to actual created WO IDs
 
+      // WorkOrderLineUpdate.data に WorkOrderLineDialog から付加される一時 field
+      // (WorkOrderDraft) を表すローカル型。永続化前に必ず削除される。
+      type WorkOrderDraft = {
+        id: string;
+        isNew: boolean;
+        name?: string;
+        classificationId?: string;
+      };
+      type DataWithDraft = NonNullable<WorkOrderLineUpdate['data']> & { __workOrderDraft?: WorkOrderDraft };
+
       // Process each update
       updates.forEach(update => {
 
         if (update.action === 'create' && update.data) {
-          const draft = (update.data as any).__workOrderDraft;
+          const dataWithDraft = update.data as DataWithDraft;
+          const draft = dataWithDraft.__workOrderDraft;
           let workOrderId = update.data.WorkOrderId;
 
           if (draft && draft.isNew) {
@@ -2090,11 +2174,14 @@ const App: React.FC = () => {
           }
 
           update.data.WorkOrderId = workOrderId;
-          delete (update.data as any).__workOrderDraft;
-          workOrderLineManagerRef.current!.createWorkOrderLine(update.data as any);
+          delete dataWithDraft.__workOrderDraft;
+          // update.data は Partial<WorkOrderLine>。createWorkOrderLine は必須 field を要求するが
+          // ここでは Dialog から組み立て済の前提 (実機検証で担保) として cast で素通し。
+          workOrderLineManagerRef.current!.createWorkOrderLine(update.data as Parameters<typeof workOrderLineManagerRef.current.createWorkOrderLine>[0]);
           totalUpdated++;
         } else if (update.action === 'update' && update.data) {
-          const draft = (update.data as any).__workOrderDraft;
+          const dataWithDraft = update.data as DataWithDraft;
+          const draft = dataWithDraft.__workOrderDraft;
           const workOrderId = update.data.WorkOrderId;
           if (draft && !draft.isNew && workOrderId) {
             const existingWo = workOrderManagerRef.current!.getWorkOrder(workOrderId);
@@ -2105,7 +2192,7 @@ const App: React.FC = () => {
               });
             }
           }
-          delete (update.data as any).__workOrderDraft;
+          delete dataWithDraft.__workOrderDraft;
 
           // Direct update for the flat WorkOrderLine record
           workOrderLineManagerRef.current!.updateWorkOrderLine(update.lineId, update.data);
@@ -2154,11 +2241,12 @@ const App: React.FC = () => {
       handleCloseTaskEditDialog();
     } catch (error) {
       console.error('[App] Error saving task edits:', error);
+      const errAsError = error instanceof Error ? error : null;
       console.error('[App] Error details:', {
-        message: (error as any)?.message,
-        stack: (error as any)?.stack,
-        name: (error as any)?.name,
-        errorObject: JSON.stringify(error, Object.getOwnPropertyNames(error as any || {}))
+        message: errAsError?.message,
+        stack: errAsError?.stack,
+        name: errAsError?.name,
+        errorObject: errAsError ? JSON.stringify(error, Object.getOwnPropertyNames(errAsError)) : String(error),
       });
 
       // Use ErrorHandler with proper error type detection
@@ -2170,7 +2258,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateWorkOrder = (workOrderId: string, updates: Partial<any>) => {
+  const handleUpdateWorkOrder = (workOrderId: string, updates: Partial<WorkOrder>) => {
     if (!workOrderManagerRef.current || !undoRedoManagerRef.current || !isServicesInitialized) {
       showSnackbar('サービスが初期化されていません', 'error');
       return;
@@ -2216,7 +2304,7 @@ const App: React.FC = () => {
   };
 
   // Hierarchy management handlers - Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.8
-  const handleHierarchyEdit = (newHierarchy: any) => {
+  const handleHierarchyEdit = (newHierarchy: HierarchyDefinition) => {
     if (!hierarchyManagerRef.current || !isServicesInitialized) {
       showSnackbar('階層管理サービスが初期化されていません', 'error');
       return;
@@ -2245,7 +2333,14 @@ const App: React.FC = () => {
   };
 
   // Handle full asset edits from AssetDetailsDialog
-  const handleAssetEdit = useCallback((assetId: string, updates: any) => {
+  // updates は UI 寄りの field 名 (assetName / bomCode) を含むため Asset 直接ではなく
+  // 専用 shape として受け取り、内部で Asset 形式に変換する。
+  const handleAssetEdit = useCallback((assetId: string, updates: {
+    assetName?: string;
+    bomCode?: string;
+    hierarchyPath?: Asset['hierarchyPath'];
+    specifications?: Asset['specifications'];
+  }) => {
 
     if (!isServicesInitialized || !assetManagerRef.current) {
       showSnackbar('サービスが初期化されていません', 'error');
@@ -2265,6 +2360,7 @@ const App: React.FC = () => {
       if (updates.hierarchyPath !== undefined) assetUpdates.hierarchyPath = updates.hierarchyPath;
       if (updates.specifications !== undefined) assetUpdates.specifications = updates.specifications;
 
+      // eslint-disable-next-line no-empty
       if (updates.bomCode !== undefined && updates.bomCode !== assetId) {
       }
 
@@ -2282,7 +2378,7 @@ const App: React.FC = () => {
       }
       showSnackbar(`機器情報の更新に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
-  }, [isServicesInitialized, dataViewMode]);
+  }, [isServicesInitialized, dataViewMode, loadDataFromViewModeManagerWithMode]);
 
   // --- Deep Copy & Paste Handlers ---
   const [internalClipboard, setInternalClipboard] = useState<{
@@ -2295,7 +2391,7 @@ const App: React.FC = () => {
     setInternalClipboard({ rowId, columnId, viewMode });
   }, []);
 
-  const handleCellPaste = useCallback((rowId: string, columnId: string, viewMode: 'status' | 'cost') => {
+  const handleCellPaste = useCallback((rowId: string, columnId: string, _viewMode: 'status' | 'cost') => {
     if (!internalClipboard) {
       showSnackbar('クリップボードにデータがありません', 'warning');
       return;
@@ -2361,18 +2457,20 @@ const App: React.FC = () => {
           shiftedActualEnd = shiftDateByTimeScale(new Date(line.ActualScheduleEnd), sourceTimeKey, targetTimeKey, timeScale);
         }
 
-        const newLine = {
+        // WorkOrderLine の Plan/ActualSchedule* は Date 型。toISOString は不要 (旧コードは
+        // any cast でズレを吸収していた)。
+        const newLine: Omit<WorkOrderLine, 'id' | 'CreatedAt' | 'UpdatedAt'> & { id?: string } = {
           ...line,
-          id: undefined, // Manager will assign fresh UUID
+          id: undefined,
           AssetId: target.assetId,
           WorkOrderId: target.taskId || line.WorkOrderId,
-          PlanScheduleStart: shiftedStart.toISOString(),
-          PlanScheduleEnd: shiftedEnd ? shiftedEnd.toISOString() : undefined,
-          ActualScheduleStart: shiftedActualStart ? shiftedActualStart.toISOString() : undefined,
-          ActualScheduleEnd: shiftedActualEnd ? shiftedActualEnd.toISOString() : undefined
+          PlanScheduleStart: shiftedStart,
+          PlanScheduleEnd: shiftedEnd ?? line.PlanScheduleEnd,
+          ActualScheduleStart: shiftedActualStart ?? line.ActualScheduleStart,
+          ActualScheduleEnd: shiftedActualEnd ?? line.ActualScheduleEnd,
         };
 
-        workOrderLineManagerRef.current?.createWorkOrderLine(newLine as any);
+        workOrderLineManagerRef.current?.createWorkOrderLine(newLine);
         successCount++;
       });
 
@@ -2386,7 +2484,7 @@ const App: React.FC = () => {
       console.error('Deep copy paste failed:', error);
       showSnackbar('ペースト処理中にエラーが発生しました', 'error');
     }
-  }, [internalClipboard, isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, handleSaveData]);
+  }, [internalClipboard, isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode]);
 
   const handleTimeCellsDelete = useCallback((cells: {rowId: string, columnId: string}[]) => {
     if (!isServicesInitialized || !workOrderLineManagerRef.current) {
@@ -2494,10 +2592,31 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode]);
+  }, [isServicesInitialized, timeScale, dataViewMode, loadDataFromViewModeManagerWithMode, announce, handleSaveData]);
 
   // History state applier
-  const applyHistoryState = useCallback((state: any, isUndo: boolean) => {
+  // state.data の shape は HistoryAction ごとに異なる union だが、各分岐で必要な field のみを
+  // 参照する性質のため、共通の包括型 (HistoryStateData) で受けて分岐内で narrow する。
+  type WorkOrderLineLike = WorkOrderLine & { id: string };
+  type WorkOrderLike = WorkOrder & { id: string };
+  type AssetLike = Asset & { id: string };
+  type HistoryStateData = {
+    line?: WorkOrderLineLike;
+    previousLine?: WorkOrderLineLike;
+    updatedLine?: WorkOrderLineLike;
+    previousState?: { workOrderLines?: WorkOrderLine[]; workOrders?: WorkOrder[] };
+    updatedState?: { workOrderLines?: WorkOrderLine[]; workOrders?: WorkOrder[] };
+    wo?: WorkOrderLike;
+    previousWo?: WorkOrderLike;
+    updatedWo?: WorkOrderLike;
+    isCreate?: boolean;
+    asset?: AssetLike;
+    previousAsset?: AssetLike;
+    updatedAsset?: AssetLike;
+    previousHierarchy?: HierarchyDefinition;
+    updatedHierarchy?: HierarchyDefinition;
+  };
+  const applyHistoryState = useCallback((state: { action: string; data: HistoryStateData }, isUndo: boolean) => {
     if (!assetManagerRef.current || !workOrderManagerRef.current || !workOrderLineManagerRef.current || !hierarchyManagerRef.current || !undoRedoManagerRef.current) return;
 
     undoRedoManagerRef.current.mute();
@@ -2505,17 +2624,17 @@ const App: React.FC = () => {
       const { action, data } = state;
       switch (action) {
         case 'CREATE_WORK_ORDER_LINE':
-          if (isUndo) workOrderLineManagerRef.current.deleteLine(data.line.id);
-          else workOrderLineManagerRef.current.createLine(data.line);
+          if (isUndo) workOrderLineManagerRef.current.deleteLine(data.line!.id);
+          else workOrderLineManagerRef.current.createLine(data.line!);
           break;
         case 'DELETE_WORK_ORDER_LINE':
-          if (isUndo) workOrderLineManagerRef.current.createLine(data.line);
-          else workOrderLineManagerRef.current.deleteLine(data.line.id);
+          if (isUndo) workOrderLineManagerRef.current.createLine(data.line!);
+          else workOrderLineManagerRef.current.deleteLine(data.line!.id);
           break;
         case 'UPDATE_WORK_ORDER_LINE':
           if (data.previousLine && data.updatedLine) {
             workOrderLineManagerRef.current.updateLine(
-               isUndo ? data.previousLine.id : data.updatedLine.id, 
+               isUndo ? data.previousLine.id : data.updatedLine.id,
                isUndo ? data.previousLine : data.updatedLine
             );
           } else if (data.previousState) {
@@ -2526,14 +2645,14 @@ const App: React.FC = () => {
               // Simple loadWorkOrders isn't available, but we can do it manually
               if (targetState.workOrders) {
                 // Clear and recreate since WorkOrderManager doesn't have loadWorkOrders
-                targetState.workOrders.forEach((wo: any) => {
+                targetState.workOrders.forEach(wo => {
                    try {
                      if (workOrderManagerRef.current!.getWorkOrder(wo.id)) {
                         workOrderManagerRef.current!.updateWorkOrder(wo.id, wo);
                      } else {
                         workOrderManagerRef.current!.createWorkOrder(wo);
                      }
-                   } catch (e) {
+                   } catch (_e) {
                       // fallback
                    }
                 });
@@ -2550,17 +2669,17 @@ const App: React.FC = () => {
           }
           break;
         case 'CREATE_WORK_ORDER':
-          if (isUndo) workOrderManagerRef.current.deleteWorkOrder(data.wo.id);
-          else workOrderManagerRef.current.createWorkOrder(data.wo);
+          if (isUndo) workOrderManagerRef.current.deleteWorkOrder(data.wo!.id);
+          else workOrderManagerRef.current.createWorkOrder(data.wo!);
           break;
         case 'DELETE_WORK_ORDER':
-          if (isUndo) workOrderManagerRef.current.createWorkOrder(data.wo);
-          else workOrderManagerRef.current.deleteWorkOrder(data.wo.id);
+          if (isUndo) workOrderManagerRef.current.createWorkOrder(data.wo!);
+          else workOrderManagerRef.current.deleteWorkOrder(data.wo!.id);
           break;
         case 'UPDATE_ASSET':
           if (data.isCreate) {
-             if (isUndo) assetManagerRef.current.deleteAsset(data.asset.id);
-             else assetManagerRef.current.createAsset(data.asset);
+             if (isUndo) assetManagerRef.current.deleteAsset(data.asset!.id);
+             else assetManagerRef.current.createAsset(data.asset!);
           } else if (data.previousAsset && data.updatedAsset) {
              assetManagerRef.current.updateAsset(
                isUndo ? data.previousAsset.id : data.updatedAsset.id,
@@ -2569,7 +2688,7 @@ const App: React.FC = () => {
           }
           break;
         case 'UPDATE_HIERARCHY':
-          hierarchyManagerRef.current.setHierarchyDefinition(isUndo ? data.previousHierarchy : data.updatedHierarchy);
+          hierarchyManagerRef.current.setHierarchyDefinition(isUndo ? data.previousHierarchy! : data.updatedHierarchy!);
           break;
       }
 
@@ -2597,7 +2716,7 @@ const App: React.FC = () => {
          announce('操作を元に戻しました');
       }
     }
-  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
+  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState, announce]);
 
   // Handle explicit Redo from UI
   const handleRedo = useCallback(() => {
@@ -2610,7 +2729,7 @@ const App: React.FC = () => {
          announce('操作をやり直しました');
       }
     }
-  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState]);
+  }, [dataViewMode, timeScale, loadDataFromViewModeManagerWithMode, applyHistoryState, announce]);
 
   // Handle grid scroll state sync
   const handleGridScroll = useCallback((dateKey: string) => {
@@ -2725,7 +2844,10 @@ const App: React.FC = () => {
                 onLevel1FilterChange={handleLevel1FilterChange}
                 onLevel2FilterChange={handleLevel2FilterChange}
                 onLevel3FilterChange={(value) => {
-                  const val = typeof value === 'string' ? value : (value as any).target?.value;
+                  // value は string か MUI SelectChangeEvent のいずれかが渡る
+                  const val = typeof value === 'string'
+                    ? value
+                    : (value as { target?: { value?: string } }).target?.value;
                   setLevel3Filter(val);
                 }}
                 hierarchyFilterTree={hierarchyFilterTree}
@@ -2800,10 +2922,10 @@ const App: React.FC = () => {
                 assetManagerRef.current = new AssetManager(undoRedoManagerRef.current);
                 Object.values(loadedData.assets).forEach(a => assetManagerRef.current!.createAsset(a));
                 workOrderManagerRef.current = new WorkOrderManager(undoRedoManagerRef.current);
-                Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w as any));
+                Object.values(loadedData.workOrders || {}).forEach(w => workOrderManagerRef.current!.createWorkOrder(w));
                 workOrderLineManagerRef.current = new WorkOrderLineManager(undoRedoManagerRef.current);
                 Object.values(loadedData.workOrderLines || {}).forEach(l => {
-                  try { workOrderLineManagerRef.current!.createWorkOrderLine(l as any); } catch (e) { console.error('Import Line Error:', e); }
+                  try { workOrderLineManagerRef.current!.createWorkOrderLine(l); } catch (e) { console.error('Import Line Error:', e); }
                 });
                 hierarchyManagerRef.current?.setHierarchyDefinition(loadedData.hierarchy || { levels: [] });
                 viewModeManagerRef.current?.updateData(
@@ -2819,8 +2941,8 @@ const App: React.FC = () => {
                 loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
                 showSnackbar('データの取り込みが完了し、画面を更新しました', 'success');
               }
-            } catch (err: any) {
-              showSnackbar(`インポートしたデータの反映に失敗しました: ${err.message}`, 'error');
+            } catch (err) {
+              showSnackbar(`インポートしたデータの反映に失敗しました: ${err instanceof Error ? err.message : String(err)}`, 'error');
             }
           }}
           dataContext={{
@@ -2830,6 +2952,7 @@ const App: React.FC = () => {
           }}
           onPluginManager={() => setIsPluginManagerOpen(true)}
           onSkillRunner={() => setIsSkillRunnerOpen(true)}
+          onKnowledgeBase={() => setIsKnowledgeBaseOpen(true)}
         />
 
         {/* Import File Input */}
@@ -2906,7 +3029,7 @@ const App: React.FC = () => {
             onClose={() => setIsHierarchyManagerOpen(false)}
             onSave={(newHierarchy) => {
               if (hierarchyManagerRef.current) {
-                hierarchyManagerRef.current.setHierarchyDefinition({ levels: newHierarchy.levels });
+                hierarchyManagerRef.current.setHierarchyDefinition(newHierarchy);
                 loadDataFromViewModeManagerWithMode(dataViewMode, timeScale);
                 showSnackbar('階層構造情報を更新しました', 'success');
               }
@@ -2992,10 +3115,59 @@ const App: React.FC = () => {
           onClose={() => setIsSkillRunnerOpen(false)}
         />
 
+        {/* Knowledge Base (Project Mu) Full-Screen Dialog */}
+        <Dialog
+          open={isKnowledgeBaseOpen}
+          onClose={() => setIsKnowledgeBaseOpen(false)}
+          fullScreen
+          aria-labelledby="kb-dialog-title"
+        >
+          <AppBar
+            position="sticky"
+            color="default"
+            elevation={0}
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Toolbar variant="dense" sx={{ minHeight: 48 }}>
+              <Typography
+                id="kb-dialog-title"
+                variant="subtitle1"
+                sx={{ flex: 1, fontWeight: 600 }}
+              >
+                ナレッジベース
+              </Typography>
+              <IconButton
+                edge="end"
+                onClick={() => setIsKnowledgeBaseOpen(false)}
+                aria-label="ナレッジベースを閉じる"
+                size="small"
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Toolbar>
+          </AppBar>
+          {isKnowledgeBaseOpen && <KnowledgeBasePage />}
+        </Dialog>
+
         {/* Update Notification */}
         <UpdateNotification
           onOpenPluginManager={() => setIsPluginManagerOpen(true)}
         />
+
+        {/* Setup Screen — 初回モデル取得（プラン WS1-6） */}
+        {setupNeeded && (
+          <SetupScreen
+            onComplete={() => {
+              setIsSetupDismissed(true);
+              try { sessionStorage.setItem('hoshutaro_setup_dismissed', '1'); } catch { /* noop */ }
+              setupStatusQuery.refetch();
+            }}
+            onSkip={() => {
+              setIsSetupDismissed(true);
+              try { sessionStorage.setItem('hoshutaro_setup_dismissed', '1'); } catch { /* noop */ }
+            }}
+          />
+        )}
 
         {/* Snackbar */}
         <Snackbar

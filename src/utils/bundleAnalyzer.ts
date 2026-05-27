@@ -39,7 +39,8 @@ class BundleAnalyzer {
 
       try {
         observer.observe({ entryTypes: ['resource'] });
-      } catch (e) {
+      // eslint-disable-next-line no-empty
+      } catch (_e) {
               }
     }
   }
@@ -79,7 +80,6 @@ class BundleAnalyzer {
   }
 
   generateReport(): string {
-    const bundles = this.getBundleInfo();
     const totalSize = this.getTotalBundleSize();
     const compressionRatio = this.getCompressionRatio();
     

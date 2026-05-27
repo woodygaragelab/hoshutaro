@@ -31,8 +31,19 @@ node_modules
 amplify_outputs*
 amplifyconfiguration*
 
-# Backend environment
-backend/.env
+# Core engine environment
+core/.env
 __pycache__
 *.pyc
-backend/.npucache/
+core/.npucache/
+
+# Track B benchmark outputs
+bench-out/
+
+# PyInstaller (core sidecar bundle)
+core/build/
+core/dist/
+
+# Tauri 同梱 core 成果物（ビルド時に生成、README のみ追跡）
+src-tauri/resources/core/bin/
+src-tauri/resources/core/home-template/

@@ -1,4 +1,5 @@
 import { ErrorHandlingConfiguration, RecoveryStrategy, ErrorContext, OfflineData } from './types';
+import { apiUrl } from '../../services/apiBase';
 
 /**
  * エラーリカバリマネージャー
@@ -36,7 +37,7 @@ export class ErrorRecoveryManager {
 
         // 接続テスト
         try {
-          await fetch('/api/health', { method: 'HEAD' });
+          await fetch(apiUrl('/api/health'), { method: 'HEAD' });
           return true;
         } catch {
           throw new Error('ネットワーク接続に失敗しました');
@@ -48,10 +49,11 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('MemoryError', {
       name: 'Memory Recovery',
       canRecover: (error: Error) => error.message.includes('Memory') || error.message.includes('out of memory'),
-      recover: async (error: Error, context: ErrorContext) => {
+      recover: async (_error: Error, _context: ErrorContext) => {
         // ガベージコレクションを強制実行
-        if ('gc' in window && typeof (window as any).gc === 'function') {
-          (window as any).gc();
+        type WindowWithGC = Window & { gc?: () => void };
+        if ('gc' in window && typeof (window as WindowWithGC).gc === 'function') {
+          (window as WindowWithGC).gc?.();
         }
 
         // キャッシュをクリア
@@ -59,8 +61,9 @@ export class ErrorRecoveryManager {
 
         // メモリ使用量をチェック
         if ('memory' in performance) {
-          const memInfo = (performance as any).memory;
-          if (memInfo.usedJSHeapSize > memInfo.jsHeapSizeLimit * 0.9) {
+          type PerformanceWithMemory = Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } };
+          const memInfo = (performance as PerformanceWithMemory).memory;
+          if (memInfo && memInfo.usedJSHeapSize > memInfo.jsHeapSizeLimit * 0.9) {
             throw new Error('メモリ不足が解消されませんでした');
           }
         }
@@ -73,7 +76,7 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('RenderError', {
       name: 'Render Recovery',
       canRecover: (error: Error) => error.message.includes('render') || error.stack?.includes('render'),
-      recover: async (error: Error, context: ErrorContext) => {
+      recover: async (_error: Error, _context: ErrorContext) => {
         // DOM状態をリセット
         this.resetDOMState();
 
@@ -105,7 +108,7 @@ export class ErrorRecoveryManager {
     this.recoveryStrategies.set('SyncError', {
       name: 'Sync Recovery',
       canRecover: (error: Error) => error.message.includes('sync') || error.message.includes('conflict'),
-      recover: async (error: Error, context: ErrorContext) => {
+      recover: async (_error: Error, _context: ErrorContext) => {
         // オフラインデータがある場合は保存
         if (this.hasOfflineData()) {
           await this.saveOfflineData();
@@ -158,8 +161,7 @@ export class ErrorRecoveryManager {
       throw new Error(`最大リトライ回数(${this.config.retryAttempts})に達しました`);
     }
 
-    // 適用可能なリカバリ戦略を検索
-    for (const [key, strategy] of this.recoveryStrategies) {
+    for (const strategy of this.recoveryStrategies.values()) {
       if (strategy.canRecover(error)) {
         try {
                     const success = await strategy.recover(error, context);
@@ -167,7 +169,7 @@ export class ErrorRecoveryManager {
           if (success) {
                         return true;
           }
-        } catch (recoveryError) {
+        } catch (_recoveryError) {
                     continue;
         }
       }
@@ -184,7 +186,7 @@ export class ErrorRecoveryManager {
   /**
    * オフラインデータを保存
    */
-  saveOfflineData(key: string, data: any): void {
+  saveOfflineData(key: string, data: Record<string, unknown>): void {
     if (!this.config.enableOfflineMode) return;
 
     const offlineData: OfflineData = {
@@ -250,7 +252,7 @@ export class ErrorRecoveryManager {
   /**
    * オフラインデータを同期
    */
-  private async syncOfflineData(key: string, data: OfflineData): Promise<void> {
+  private async syncOfflineData(_key: string, _data: OfflineData): Promise<void> {
     // 実際の実装では、サーバーAPIを呼び出してデータを同期
         
     // シミュレーション
@@ -303,7 +305,7 @@ export class ErrorRecoveryManager {
   /**
    * グレースフルフォールバック
    */
-  private async gracefulFallback(error: Error, context: ErrorContext): Promise<boolean> {
+  private async gracefulFallback(_error: Error, _context: ErrorContext): Promise<boolean> {
     
     // 基本的なクリーンアップ
     this.clearCaches();

@@ -52,11 +52,6 @@ export class DataStore {
         throw new ValidationError(`データ整合性エラー:\n${errorMessages}`);
       }
 
-      if (integrityResult.warnings.length > 0) {
-                integrityResult.warnings.forEach(w => {
-                  });
-      }
-
       this.data = normalizedData;
       return normalizedData;
     } catch (error) {
@@ -79,11 +74,6 @@ export class DataStore {
       if (!integrityResult.isValid) {
         const errorMessages = integrityResult.errors.map(e => e.message).join('\n');
         throw new ValidationError(`データ整合性エラー:\n${errorMessages}`);
-      }
-
-      if (integrityResult.warnings.length > 0) {
-                integrityResult.warnings.forEach(w => {
-                  });
       }
 
       const dataToSave: DataModel = {
@@ -134,82 +124,87 @@ export class DataStore {
   /**
    * データモデルのバリデーション
    */
-  private validateDataModel(data: any): asserts data is DataModel {
+  private validateDataModel(data: unknown): asserts data is DataModel {
     if (!data || typeof data !== 'object') {
       throw new ValidationError('データが無効です');
     }
 
-    if (!data.version) {
+    const d = data as Record<string, unknown>;
+
+    if (!d.version) {
       throw new ValidationError('バージョン情報が必要です');
     }
 
-    if (data.version !== '3.0.0') {
-      throw new ValidationError(`サポートされていないバージョンです: ${data.version}。v3.0.0が必要です。`);
+    if (d.version !== '3.0.0') {
+      throw new ValidationError(`サポートされていないバージョンです: ${String(d.version)}。v3.0.0が必要です。`);
     }
 
-    if (!data.assets || typeof data.assets !== 'object') {
+    if (!d.assets || typeof d.assets !== 'object') {
       throw new ValidationError('assetsフィールドが必要です');
     }
 
-    if (!data.workOrders || typeof data.workOrders !== 'object') {
+    if (!d.workOrders || typeof d.workOrders !== 'object') {
       throw new ValidationError('workOrdersフィールドが必要です');
     }
 
-    if (!data.workOrderLines || typeof data.workOrderLines !== 'object') {
+    if (!d.workOrderLines || typeof d.workOrderLines !== 'object') {
       throw new ValidationError('workOrderLinesフィールドが必要です');
     }
 
-    if (!data.hierarchy || typeof data.hierarchy !== 'object') {
+    if (!d.hierarchy || typeof d.hierarchy !== 'object') {
       throw new ValidationError('hierarchyフィールドが必要です');
     }
 
-    if (!data.metadata || typeof data.metadata !== 'object') {
+    if (!d.metadata || typeof d.metadata !== 'object') {
       throw new ValidationError('metadataフィールドが必要です');
     }
 
-    // workOrderClassifications is optional but validate if present
-    if (data.workOrderClassifications && !Array.isArray(data.workOrderClassifications)) {
+    if (d.workOrderClassifications && !Array.isArray(d.workOrderClassifications)) {
       throw new ValidationError('workOrderClassificationsは配列である必要があります');
     }
 
-    // Validate each entity type
-    this.validateAssets(data.assets);
-    this.validateWorkOrders(data.workOrders);
-    this.validateWorkOrderLines(data.workOrderLines, data.workOrders, data.assets);
-    this.validateHierarchy(data.hierarchy);
+    this.validateAssets(d.assets);
+    this.validateWorkOrders(d.workOrders);
+    this.validateWorkOrderLines(d.workOrderLines, d.workOrders as { [id: string]: WorkOrder }, d.assets as { [id: string]: Asset });
+    this.validateHierarchy(d.hierarchy);
 
-    if (data.workOrderClassifications) {
-      this.validateWorkOrderClassifications(data.workOrderClassifications);
+    if (d.workOrderClassifications) {
+      this.validateWorkOrderClassifications(d.workOrderClassifications);
     }
-    if (data.assetClassification) {
-      this.validateAssetClassification(data.assetClassification);
+    if (d.assetClassification) {
+      this.validateAssetClassification(d.assetClassification);
     }
   }
 
   /**
    * 機器分類マスタのバリデーション
    */
-  private validateAssetClassification(classification: any): asserts classification is AssetClassificationDefinition {
-    if (!classification.levels || !Array.isArray(classification.levels)) {
+  private validateAssetClassification(classification: unknown): asserts classification is AssetClassificationDefinition {
+    if (!classification || typeof classification !== 'object') {
+      throw new ValidationError('機器分類が無効です');
+    }
+    const c = classification as Record<string, unknown>;
+    if (!c.levels || !Array.isArray(c.levels)) {
       throw new ValidationError('機器分類のlevelsが必要です');
     }
-    if (classification.levels.length > 10) {
-      throw new ValidationError(`機器分類のレベル数は10以下の範囲である必要があります: ${classification.levels.length}`);
+    if (c.levels.length > 10) {
+      throw new ValidationError(`機器分類のレベル数は10以下の範囲である必要があります: ${c.levels.length}`);
     }
     const seenKeys = new Set<string>();
-    for (const level of classification.levels) {
+    for (const level of c.levels as unknown[]) {
       if (!level || typeof level !== 'object') {
         throw new ValidationError('機器分類のレベルが無効です');
       }
-      if (!level.key || typeof level.key !== 'string') {
+      const lv = level as Record<string, unknown>;
+      if (!lv.key || typeof lv.key !== 'string') {
         throw new ValidationError('機器分類レベルのキーが必要です');
       }
-      if (seenKeys.has(level.key)) {
-        throw new ValidationError(`重複した機器分類レベルキー: ${level.key}`);
+      if (seenKeys.has(lv.key)) {
+        throw new ValidationError(`重複した機器分類レベルキー: ${lv.key}`);
       }
-      seenKeys.add(level.key);
-      if (!Array.isArray(level.values)) {
-        throw new ValidationError(`機器分類レベル ${level.key} の値が配列である必要があります`);
+      seenKeys.add(lv.key);
+      if (!Array.isArray(lv.values)) {
+        throw new ValidationError(`機器分類レベル ${lv.key} の値が配列である必要があります`);
       }
     }
   }
@@ -217,13 +212,16 @@ export class DataStore {
   /**
    * 機器のバリデーション
    */
-  private validateAssets(assets: any): asserts assets is { [id: string]: Asset } {
-    for (const [assetId, asset] of Object.entries(assets)) {
+  private validateAssets(assets: unknown): asserts assets is { [id: string]: Asset } {
+    if (!assets || typeof assets !== 'object') {
+      throw new ValidationError('assetsが無効です');
+    }
+    for (const [assetId, asset] of Object.entries(assets as Record<string, unknown>)) {
       if (!asset || typeof asset !== 'object') {
         throw new ValidationError(`機器 ${assetId} が無効です`);
       }
 
-      const a = asset as any;
+      const a = asset as Record<string, unknown>;
 
       if (!a.id || typeof a.id !== 'string') {
         throw new ValidationError(`機器 ${assetId} のIDが無効です`);
@@ -241,7 +239,7 @@ export class DataStore {
         throw new ValidationError(`機器 ${assetId} の階層パスが必要です`);
       }
 
-      if (Object.keys(a.hierarchyPath).length === 0) {
+      if (Object.keys(a.hierarchyPath as object).length === 0) {
         throw new ValidationError(`機器 ${assetId} の階層パスが空です`);
       }
     }
@@ -250,13 +248,16 @@ export class DataStore {
   /**
    * WorkOrderのバリデーション
    */
-  private validateWorkOrders(workOrders: any): asserts workOrders is { [id: string]: WorkOrder } {
-    for (const [woId, wo] of Object.entries(workOrders)) {
+  private validateWorkOrders(workOrders: unknown): asserts workOrders is { [id: string]: WorkOrder } {
+    if (!workOrders || typeof workOrders !== 'object') {
+      throw new ValidationError('workOrdersが無効です');
+    }
+    for (const [woId, wo] of Object.entries(workOrders as Record<string, unknown>)) {
       if (!wo || typeof wo !== 'object') {
         throw new ValidationError(`WorkOrder ${woId} が無効です`);
       }
 
-      const w = wo as any;
+      const w = wo as Record<string, unknown>;
 
       if (!w.id || typeof w.id !== 'string') {
         throw new ValidationError(`WorkOrder ${woId} のIDが無効です`);
@@ -270,14 +271,13 @@ export class DataStore {
         throw new ValidationError(`WorkOrder ${woId} の名前が必要です`);
       }
 
-      // Allow multiple variations for compatibility
+      // 互換性のため複数のキー形式を許容
       const classId = w.ClassificationId || w.classificationId || w.classificationID || w.Classification || w.classification || w.taskClassificationId || w.TaskClassificationId;
-      
+
       if (!classId || typeof classId !== 'string') {
         throw new ValidationError(`WorkOrder ${woId} の作業分類IDが必要です (見つかったキー: ${Object.keys(w).join(', ')})`);
       }
-      
-      // Normalize to upper case standard if not present
+
       if (!w.ClassificationId && classId) {
         w.ClassificationId = classId;
       }
@@ -288,16 +288,19 @@ export class DataStore {
    * WorkOrderLineのバリデーション（参照整合性を含む）
    */
   private validateWorkOrderLines(
-    lines: any,
+    lines: unknown,
     workOrders: { [id: string]: WorkOrder },
     assets: { [id: string]: Asset }
   ): asserts lines is { [id: string]: WorkOrderLine } {
-    for (const [lineId, line] of Object.entries(lines)) {
+    if (!lines || typeof lines !== 'object') {
+      throw new ValidationError('workOrderLinesが無効です');
+    }
+    for (const [lineId, line] of Object.entries(lines as Record<string, unknown>)) {
       if (!line || typeof line !== 'object') {
         throw new ValidationError(`WorkOrderLine ${lineId} が無効です`);
       }
 
-      const l = line as any;
+      const l = line as Record<string, unknown>;
 
       if (!l.id || typeof l.id !== 'string') {
         throw new ValidationError(`WorkOrderLine ${lineId} のIDが無効です`);
@@ -307,38 +310,36 @@ export class DataStore {
         throw new ValidationError(`WorkOrderLineのIDがキーと一致しません: ${lineId} !== ${l.id}`);
       }
 
-      // Allow both WorkOrderId and workOrderId
-      const woId = l.WorkOrderId || l.workOrderId || l.workOrderID;
-      if (!woId || typeof woId !== 'string') {
+      // 互換性のため複数のキー形式を許容
+      const rawWoId = l.WorkOrderId || l.workOrderId || l.workOrderID;
+      if (!rawWoId || typeof rawWoId !== 'string') {
         throw new ValidationError(`WorkOrderLine ${lineId} のWorkOrder IDが必要です (見つかったキー: ${Object.keys(l).join(', ')})`);
       }
-      if (!l.WorkOrderId && woId) {
+      const woId: string = rawWoId;
+      if (!l.WorkOrderId) {
         l.WorkOrderId = woId;
       }
 
-      // Allow both AssetId and assetId
-      const astId = l.AssetId || l.assetId || l.assetID;
-      if (!astId || typeof astId !== 'string') {
+      const rawAstId = l.AssetId || l.assetId || l.assetID;
+      if (!rawAstId || typeof rawAstId !== 'string') {
         throw new ValidationError(`WorkOrderLine ${lineId} の機器IDが必要です (見つかったキー: ${Object.keys(l).join(', ')})`);
       }
-      if (!l.AssetId && astId) {
+      const astId: string = rawAstId;
+      if (!l.AssetId) {
         l.AssetId = astId;
       }
 
-      // 参照整合性チェック
-      if (!workOrders[l.WorkOrderId]) {
-        throw new ValidationError(`WorkOrderLine ${lineId} が存在しないWorkOrderを参照しています: ${l.WorkOrderId}`);
+      if (!workOrders[woId]) {
+        throw new ValidationError(`WorkOrderLine ${lineId} が存在しないWorkOrderを参照しています: ${woId}`);
       }
 
-      if (!assets[l.AssetId]) {
-        throw new ValidationError(`WorkOrderLine ${lineId} が存在しない機器を参照しています: ${l.AssetId}`);
+      if (!assets[astId]) {
+        throw new ValidationError(`WorkOrderLine ${lineId} が存在しない機器を参照しています: ${astId}`);
       }
 
-      // Normalize Planned to boolean
       const plannedValue = typeof l.Planned !== 'undefined' ? l.Planned : l.planned;
       l.Planned = plannedValue === true || plannedValue === 'true' || plannedValue === 1;
 
-      // Normalize Actual to boolean
       const actualValue = typeof l.Actual !== 'undefined' ? l.Actual : l.actual;
       l.Actual = actualValue === true || actualValue === 'true' || actualValue === 1;
     }
@@ -348,29 +349,30 @@ export class DataStore {
    * 作業分類マスターのバリデーション
    */
   private validateWorkOrderClassifications(
-    classifications: any
+    classifications: unknown
   ): asserts classifications is WorkOrderClassification[] {
     if (!Array.isArray(classifications)) {
       throw new ValidationError('workOrderClassificationsは配列である必要があります');
     }
 
     const seenIds = new Set<string>();
-    for (const cls of classifications) {
+    for (const cls of classifications as unknown[]) {
       if (!cls || typeof cls !== 'object') {
         throw new ValidationError('作業分類が無効です');
       }
-      if (!cls.id || typeof cls.id !== 'string') {
+      const c = cls as Record<string, unknown>;
+      if (!c.id || typeof c.id !== 'string') {
         throw new ValidationError('作業分類のIDが必要です');
       }
-      if (seenIds.has(cls.id)) {
-        throw new ValidationError(`重複した作業分類ID: ${cls.id}`);
+      if (seenIds.has(c.id)) {
+        throw new ValidationError(`重複した作業分類ID: ${c.id}`);
       }
-      seenIds.add(cls.id);
-      if (!cls.name || typeof cls.name !== 'string') {
-        throw new ValidationError(`作業分類 ${cls.id} の名前が必要です`);
+      seenIds.add(c.id);
+      if (!c.name || typeof c.name !== 'string') {
+        throw new ValidationError(`作業分類 ${c.id} の名前が必要です`);
       }
-      if (typeof cls.order !== 'number') {
-        throw new ValidationError(`作業分類 ${cls.id} の順序が必要です`);
+      if (typeof c.order !== 'number') {
+        throw new ValidationError(`作業分類 ${c.id} の順序が必要です`);
       }
     }
   }
@@ -378,87 +380,88 @@ export class DataStore {
   /**
    * 階層のバリデーション
    */
-  private validateHierarchy(hierarchy: any): asserts hierarchy is HierarchyDefinition {
-    if (!hierarchy.levels || !Array.isArray(hierarchy.levels)) {
+  private validateHierarchy(hierarchy: unknown): asserts hierarchy is HierarchyDefinition {
+    if (!hierarchy || typeof hierarchy !== 'object') {
+      throw new ValidationError('hierarchyが無効です');
+    }
+    const h = hierarchy as Record<string, unknown>;
+    if (!h.levels || !Array.isArray(h.levels)) {
       throw new ValidationError('階層のlevelsが必要です');
     }
 
-    if (hierarchy.levels.length > 10) {
-      throw new ValidationError(`階層レベル数は10以下の範囲である必要があります: ${hierarchy.levels.length}`);
+    if (h.levels.length > 10) {
+      throw new ValidationError(`階層レベル数は10以下の範囲である必要があります: ${h.levels.length}`);
     }
 
     const seenKeys = new Set<string>();
 
-    for (const level of hierarchy.levels) {
+    for (const level of h.levels as unknown[]) {
       if (!level || typeof level !== 'object') {
         throw new ValidationError('階層レベルが無効です');
       }
 
-      if (!level.key || typeof level.key !== 'string') {
+      const lv = level as Record<string, unknown>;
+      if (!lv.key || typeof lv.key !== 'string') {
         throw new ValidationError('階層レベルのキーが必要です');
       }
 
-      if (seenKeys.has(level.key)) {
-        throw new ValidationError(`重複した階層レベルキー: ${level.key}`);
+      if (seenKeys.has(lv.key)) {
+        throw new ValidationError(`重複した階層レベルキー: ${lv.key}`);
       }
-      seenKeys.add(level.key);
+      seenKeys.add(lv.key);
 
-      if (!Array.isArray(level.values)) {
-        throw new ValidationError(`階層レベル ${level.key} の値が配列である必要があります`);
+      if (!Array.isArray(lv.values)) {
+        throw new ValidationError(`階層レベル ${lv.key} の値が配列である必要があります`);
       }
     }
   }
 
   /**
    * 日付文字列をDateオブジェクトに変換
+   *
+   * JSON.parse 直後は Date フィールドが string のままなので、
+   * 構造が DataModel として検証済みでも実値の型は不一致。
+   * ここでは unknown 経由で string を Date に詰め替える。
    */
-  private normalizeDates(data: any): DataModel {
+  private normalizeDates(data: DataModel): DataModel {
+    const toDate = (value: unknown): Date | undefined =>
+      typeof value === 'string' ? new Date(value) : undefined;
+
     const normalized = { ...data };
 
-    // 機器の日付を変換
     if (normalized.assets) {
       for (const assetId in normalized.assets) {
         const asset = normalized.assets[assetId];
-        if (asset.createdAt && typeof asset.createdAt === 'string') {
-          asset.createdAt = new Date(asset.createdAt);
-        }
-        if (asset.updatedAt && typeof asset.updatedAt === 'string') {
-          asset.updatedAt = new Date(asset.updatedAt);
-        }
+        const created = toDate(asset.createdAt as unknown);
+        if (created) asset.createdAt = created;
+        const updated = toDate(asset.updatedAt as unknown);
+        if (updated) asset.updatedAt = updated;
       }
     }
 
-    // WorkOrderの日付を変換
     if (normalized.workOrders) {
       for (const woId in normalized.workOrders) {
         const wo = normalized.workOrders[woId];
-        if (wo.createdAt && typeof wo.createdAt === 'string') {
-          wo.createdAt = new Date(wo.createdAt);
-        }
-        if (wo.updatedAt && typeof wo.updatedAt === 'string') {
-          wo.updatedAt = new Date(wo.updatedAt);
-        }
+        const created = toDate(wo.CreatedAt as unknown);
+        if (created) wo.CreatedAt = created;
+        const updated = toDate(wo.UpdatedAt as unknown);
+        if (updated) wo.UpdatedAt = updated;
       }
     }
 
-    // WorkOrderLineの日付を変換
     if (normalized.workOrderLines) {
       for (const lineId in normalized.workOrderLines) {
         const line = normalized.workOrderLines[lineId];
-        if (line.createdAt && typeof line.createdAt === 'string') {
-          line.createdAt = new Date(line.createdAt);
-        }
-        if (line.updatedAt && typeof line.updatedAt === 'string') {
-          line.updatedAt = new Date(line.updatedAt);
-        }
+        const created = toDate(line.CreatedAt as unknown);
+        if (created) line.CreatedAt = created;
+        const updated = toDate(line.UpdatedAt as unknown);
+        if (updated) line.UpdatedAt = updated;
       }
     }
 
-    // メタデータの日付を変換
     if (normalized.metadata) {
-      if (normalized.metadata.lastModified && typeof normalized.metadata.lastModified === 'string') {
-        normalized.metadata.lastModified = new Date(normalized.metadata.lastModified);
-      }
+      const lastModified = toDate(normalized.metadata.lastModified as unknown);
+      if (lastModified) normalized.metadata.lastModified = lastModified;
     }
 
     return normalized;

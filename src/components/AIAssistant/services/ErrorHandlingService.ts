@@ -12,7 +12,8 @@ export enum AIErrorType {
 export interface AIError {
   type: AIErrorType;
   message: string;
-  details?: any;
+  // details は元エラーの message / stack / toString 等 (任意形状)
+  details?: unknown;
   recoverable: boolean;
   suggestedActions?: string[];
 }
@@ -78,7 +79,7 @@ export class ErrorHandlingService {
   createErrorMessage(error: AIError): ChatMessage {
     const errorInfo = this.errorMessages[error.type];
     
-    let content = `❌ ${errorInfo.title}\n\n${error.message}`;
+    let content = `❌ ${errorInfo.title}\n\n${e.message}`;
     
     if (error.details) {
       content += `\n\n詳細: ${typeof error.details === 'string' ? error.details : JSON.stringify(error.details)}`;
@@ -93,7 +94,7 @@ export class ErrorHandlingService {
 
     if (error.suggestedActions && error.suggestedActions.length > 0) {
       content += '\n\n💡 推奨アクション:';
-      error.suggestedActions.forEach((action, index) => {
+      error.suggestedActions.forEach((action) => {
         content += `\n• ${action}`;
       });
     }
@@ -106,23 +107,25 @@ export class ErrorHandlingService {
     };
   }
 
-  handleError(error: any): AIError {
+  handleError(error: unknown): AIError {
+    // 任意の入力を Error-like に正規化してから property アクセス
+    const e = (error instanceof Error ? error : new Error(String(error ?? ''))) as Error & { toString(): string };
     // ネットワークエラーの検出
-    if (error.name === 'NetworkError' || error.message?.includes('fetch')) {
+    if (e.name === 'NetworkError' || e.message?.includes('fetch')) {
       return {
         type: AIErrorType.NETWORK_ERROR,
         message: 'AIサービスとの通信に失敗しました。',
-        details: error.message,
+        details: e.message,
         recoverable: true
       };
     }
 
     // ファイル処理エラーの検出
-    if (error.message?.includes('file') || error.message?.includes('Excel')) {
+    if (e.message?.includes('file') || e.message?.includes('Excel')) {
       return {
         type: AIErrorType.FILE_PROCESSING_ERROR,
         message: 'ファイル処理中にエラーが発生しました。',
-        details: error.message,
+        details: e.message,
         recoverable: true,
         suggestedActions: [
           'ファイル形式を確認してください',
@@ -132,11 +135,11 @@ export class ErrorHandlingService {
     }
 
     // 統合エラーの検出
-    if (error.message?.includes('integration') || error.message?.includes('grid')) {
+    if (e.message?.includes('integration') || e.message?.includes('grid')) {
       return {
         type: AIErrorType.INTEGRATION_ERROR,
         message: '星取表との統合でエラーが発生しました。',
-        details: error.message,
+        details: e.message,
         recoverable: true,
         suggestedActions: [
           '設備IDを確認してください',
@@ -146,11 +149,11 @@ export class ErrorHandlingService {
     }
 
     // バリデーションエラーの検出
-    if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+    if (e.message?.includes('validation') || e.message?.includes('invalid')) {
       return {
         type: AIErrorType.VALIDATION_ERROR,
         message: 'データの検証でエラーが発生しました。',
-        details: error.message,
+        details: e.message,
         recoverable: true,
         suggestedActions: [
           '入力データを確認してください',
@@ -160,11 +163,11 @@ export class ErrorHandlingService {
     }
 
     // 提案適用エラーの検出
-    if (error.message?.includes('suggestion') || error.message?.includes('apply')) {
+    if (e.message?.includes('suggestion') || e.message?.includes('apply')) {
       return {
         type: AIErrorType.SUGGESTION_APPLICATION_ERROR,
         message: 'AI提案の適用でエラーが発生しました。',
-        details: error.message,
+        details: e.message,
         recoverable: true,
         suggestedActions: [
           '提案内容を確認してください',
@@ -176,8 +179,8 @@ export class ErrorHandlingService {
     // デフォルトエラー
     return {
       type: AIErrorType.UNKNOWN_ERROR,
-      message: error.message || '予期しないエラーが発生しました。',
-      details: error.stack || error.toString(),
+      message: e.message || '予期しないエラーが発生しました。',
+      details: e.stack || e.toString(),
       recoverable: true,
       suggestedActions: [
         'ページを再読み込みしてください',
@@ -186,7 +189,7 @@ export class ErrorHandlingService {
     };
   }
 
-  createRetryMessage(originalError: AIError, retryAction: () => void): ChatMessage {
+  createRetryMessage(originalError: AIError, _retryAction: () => void): ChatMessage {
     return {
       id: Date.now().toString(),
       type: 'system',
@@ -204,7 +207,7 @@ export class ErrorHandlingService {
     };
   }
 
-  logError(error: AIError, context?: any): void {
+  logError(error: AIError, context?: unknown): void {
     console.error('AI Assistant Error:', {
       type: error.type,
       message: error.message,
@@ -214,17 +217,11 @@ export class ErrorHandlingService {
       timestamp: new Date().toISOString()
     });
 
-    // 実際のアプリケーションでは、ここでエラーログをサーバーに送信
-    // this.sendErrorToServer(error, context);
-  }
-
-  private sendErrorToServer(error: AIError, context?: any): void {
-    // エラーログをサーバーに送信する実装
-    // fetch('/api/errors', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ error, context, timestamp: new Date().toISOString() })
-    // });
+    // 実際のアプリケーションでは、ここでエラーログをサーバーに送信する。
+    // 旧コードに stub 関数 `sendErrorToServer` が定義されていたが、本体はコメント
+    // アウトのみで呼び出しも無く unused-vars / no-explicit-any 2 重 disable で
+    // 隠蔽されていた死コードのため削除した。実装時には fetch('/api/errors', ...) を
+    // ここに直接追加するか、新たに stub を起こす。
   }
 }
 

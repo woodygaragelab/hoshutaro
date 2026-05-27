@@ -46,14 +46,14 @@ const ResponsiveDemo: React.FC = () => {
     );
   };
 
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-    setMaintenanceData(prevData => 
+  const handleCellEdit = (rowId: string, columnId: string, value: unknown) => {
+    setMaintenanceData(prevData =>
       prevData.map(item => {
         if (item.id === rowId) {
           if (columnId.startsWith('time_')) {
             const timeHeader = columnId.replace('time_', '');
             const updatedResults = { ...item.results };
-            updatedResults[timeHeader] = value;
+            updatedResults[timeHeader] = value as HierarchicalData['results'][string];
             return { ...item, results: updatedResults };
           }
         }

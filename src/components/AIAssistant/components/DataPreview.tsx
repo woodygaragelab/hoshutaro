@@ -20,10 +20,10 @@ import {
 import { DataMappingSuggestion } from '../types';
 
 interface DataPreviewProps {
-  data: any[];
+  data: Record<string, unknown>[];
   mappings: DataMappingSuggestion[];
   onApplyMappings?: (mappings: DataMappingSuggestion[]) => void;
-  onExportData?: (data: any[]) => void;
+  onExportData?: (data: Record<string, unknown>[]) => void;
 }
 
 const DataPreview: React.FC<DataPreviewProps> = ({
@@ -44,7 +44,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({
   const columns = Object.keys(data[0] || {});
   
   // マッピングされた列名を取得
-  const getMappedColumnName = (originalColumn: string) => {
+  const _getMappedColumnName = (originalColumn: string) => {
     const mapping = mappings.find(m => m.sourceColumn === originalColumn);
     return mapping ? mapping.targetField : originalColumn;
   };

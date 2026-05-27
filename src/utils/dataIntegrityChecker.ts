@@ -9,7 +9,6 @@ import {
   WorkOrder,
   WorkOrderLine,
   HierarchyDefinition,
-  HierarchyPath,
 } from '../types/maintenanceTask';
 
 /**
@@ -38,7 +37,7 @@ export interface IntegrityError {
   message: string;
   entityType: 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
   entityId?: string;
-  details?: any;
+  details?: unknown;
 }
 
 /**
@@ -49,7 +48,7 @@ export interface IntegrityWarning {
   message: string;
   entityType: 'asset' | 'workOrder' | 'workOrderLine' | 'hierarchy';
   entityId?: string;
-  details?: any;
+  details?: unknown;
 }
 
 /**
@@ -193,33 +192,32 @@ export class DataIntegrityChecker {
         });
       }
 
-      // 予定などの形式チェック
-      // Relax strict typeof check to handle cases where it was natively a string or number, 
-      // but gracefully normalize it behind the scenes
+      // JSON 入力時に boolean ではなく文字列・数値で来るケースを暗黙正規化する。
+      const lineRecord = line as unknown as Record<string, unknown>;
       if (typeof line.Planned !== 'boolean') {
-        const pval = (line as any).Planned;
+        const pval = lineRecord.Planned;
         if (pval === 'true' || pval === 'false' || pval === 1 || pval === 0 || pval === undefined) {
-           (line as any).Planned = pval === 'true' || pval === 1;
+          lineRecord.Planned = pval === 'true' || pval === 1;
         } else {
-           errors.push({
-             type: 'INVALID_REFERENCE',
-             message: `WorkOrderLine ${id} のPlannedがbooleanではありません (値: ${pval})`,
-             entityType: 'workOrderLine',
-             entityId: id,
-           });
+          errors.push({
+            type: 'INVALID_REFERENCE',
+            message: `WorkOrderLine ${id} のPlannedがbooleanではありません (値: ${String(pval)})`,
+            entityType: 'workOrderLine',
+            entityId: id,
+          });
         }
       }
       if (typeof line.Actual !== 'boolean') {
-        const aval = (line as any).Actual;
+        const aval = lineRecord.Actual;
         if (aval === 'true' || aval === 'false' || aval === 1 || aval === 0 || aval === undefined) {
-           (line as any).Actual = aval === 'true' || aval === 1;
+          lineRecord.Actual = aval === 'true' || aval === 1;
         } else {
-           errors.push({
-             type: 'INVALID_REFERENCE',
-             message: `WorkOrderLine ${id} のActualがbooleanではありません (値: ${aval})`,
-             entityType: 'workOrderLine',
-             entityId: id,
-           });
+          errors.push({
+            type: 'INVALID_REFERENCE',
+            message: `WorkOrderLine ${id} のActualがbooleanではありません (値: ${String(aval)})`,
+            entityType: 'workOrderLine',
+            entityId: id,
+          });
         }
       }
     }
@@ -238,8 +236,7 @@ export class DataIntegrityChecker {
     const errors: IntegrityError[] = [];
     const allIds = new Map<string, { type: string; id: string }[]>();
 
-    // Collect all IDs
-    const addIds = (items: Record<string, any>, type: string) => {
+    const addIds = (items: Record<string, unknown>, type: string) => {
       for (const id of Object.keys(items)) {
         const existing = allIds.get(id) || [];
         existing.push({ type, id });
@@ -251,14 +248,13 @@ export class DataIntegrityChecker {
     addIds(workOrders, 'workOrder');
     addIds(workOrderLines, 'workOrderLine');
 
-    // Check for duplicates across entity types
     for (const [id, entries] of allIds.entries()) {
       if (entries.length > 1) {
         const types = entries.map(e => e.type).join(', ');
         errors.push({
           type: 'DUPLICATE_ID',
           message: `ID ${id} が複数のエンティティタイプで使用されています: ${types}`,
-          entityType: entries[0].type as any,
+          entityType: entries[0].type as IntegrityError['entityType'],
           entityId: id,
           details: { types: entries.map(e => e.type) },
         });
@@ -277,12 +273,10 @@ export class DataIntegrityChecker {
   ): IntegrityError[] {
     const errors: IntegrityError[] = [];
 
-    // Build lookup map from hierarchy definition
+    // Build lookup map from hierarchy definition (TreeLevelValue[] → Set<string>)
     const hierarchyLevels = new Map<string, Set<string>>();
     for (const level of hierarchy.levels) {
-      // level.values is now an array of TreeLevelValue objects: { value: string, parentValue?: string }
-      const strings = level.values.map(v => typeof v === 'string' ? v : v.value);
-      hierarchyLevels.set(level.key, new Set(strings));
+      hierarchyLevels.set(level.key, new Set(level.values.map(v => v.value)));
     }
 
     // Check each asset's hierarchy path

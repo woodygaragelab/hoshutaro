@@ -70,14 +70,14 @@ class MemoCache<K, V> {
 /**
  * Memoize a function with custom cache key generation
  */
-export function memoize<Args extends any[], Result>(
+export function memoize<Args extends unknown[], Result>(
   fn: (...args: Args) => Result,
   options: {
     maxSize?: number;
-    keyGenerator?: (...args: Args) => any;
+    keyGenerator?: (...args: Args) => unknown;
   } = {}
 ): (...args: Args) => Result {
-  const cache = new MemoCache<any, Result>(options.maxSize);
+  const cache = new MemoCache<unknown, Result>(options.maxSize);
   const keyGenerator = options.keyGenerator || ((...args: Args) => args);
 
   return (...args: Args): Result => {
@@ -97,7 +97,7 @@ export function memoize<Args extends any[], Result>(
 /**
  * Memoize with shallow equality check for object arguments
  */
-export function memoizeShallow<Args extends any[], Result>(
+export function memoizeShallow<Args extends unknown[], Result>(
   fn: (...args: Args) => Result,
   maxSize: number = 100
 ): (...args: Args) => Result {
@@ -125,7 +125,7 @@ export function memoizeShallow<Args extends any[], Result>(
 /**
  * Memoize with deep equality check (slower but more accurate)
  */
-export function memoizeDeep<Args extends any[], Result>(
+export function memoizeDeep<Args extends unknown[], Result>(
   fn: (...args: Args) => Result,
   maxSize: number = 50
 ): (...args: Args) => Result {
@@ -156,7 +156,7 @@ export function createMemoizedSelector<Input, Output>(
     
     if (keysA.length !== keysB.length) return false;
     
-    return keysA.every(key => (a as any)[key] === (b as any)[key]);
+    return keysA.every(key => (a as Record<string, unknown>)[key] === (b as Record<string, unknown>)[key]);
   };
   
   const equality = equalityFn || defaultEqualityFn;
@@ -194,13 +194,13 @@ export function memoizeArray<T, R>(
  * Batch memoization - memoize multiple related functions together
  */
 export class MemoizationBatch {
-  private caches: Map<string, MemoCache<any, any>>;
+  private caches: Map<string, MemoCache<unknown, unknown>>;
 
   constructor() {
     this.caches = new Map();
   }
 
-  memoize<Args extends any[], Result>(
+  memoize<Args extends unknown[], Result>(
     name: string,
     fn: (...args: Args) => Result,
     maxSize: number = 100
@@ -213,11 +213,11 @@ export class MemoizationBatch {
     
     return (...args: Args): Result => {
       const cached = cache.get(args);
-      
+
       if (cached !== undefined) {
-        return cached;
+        return cached as Result;
       }
-      
+
       const result = fn(...args);
       cache.set(args, result);
       return result;
@@ -240,7 +240,7 @@ export class MemoizationBatch {
 /**
  * Memoize with time-based expiration
  */
-export function memoizeWithTTL<Args extends any[], Result>(
+export function memoizeWithTTL<Args extends unknown[], Result>(
   fn: (...args: Args) => Result,
   ttlMs: number = 5000,
   maxSize: number = 100

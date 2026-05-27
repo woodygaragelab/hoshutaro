@@ -138,10 +138,14 @@ export interface WorkOrderLine {
 
 /**
  * HierarchyLevel — one level in the location hierarchy
+ *
+ * values は parentValue を持つ TreeLevelValue[] (parentValue は省略可)。
+ * 親子関係を持たない平坦な location でも `values: [{ value: 'foo' }]` の形で表す。
  */
 export interface HierarchyLevel {
   key: string;       // e.g. "製油所", "エリア", "ユニット"
   values: TreeLevelValue[];
+  order?: number;    // Display order for sorting (used by ViewModeManager / dialogs)
 }
 
 /**
@@ -221,6 +225,10 @@ export interface AssetBasedRow {
 /**
  * WorkOrderBasedRow — row data for workorder-based view
  * Structure: WorkOrder (level 0) → AssetChild (level 1)
+ *
+ * type は ViewModeManager が出力する canonical な 2 値のみ。
+ * Grid レンダリング層で扱う派生行型 (`'hierarchy' | 'asset' | 'workOrderLine'`)
+ * は `EnhancedMaintenanceGrid/types.ts` の `GridDerivedRow` を参照。
  */
 export interface WorkOrderBasedRow {
   id: string;
@@ -274,6 +282,7 @@ export interface DataModel {
   assetClassification: AssetClassificationDefinition;
   metadata: {
     lastModified: Date;
+    projectName?: string;
   };
 }
 
@@ -291,12 +300,13 @@ export type HistoryAction =
   | 'UPDATE_HIERARCHY'
   | 'REASSIGN_HIERARCHY'
   | 'UPDATE_ASSET'
-  | 'UPDATE_SPECIFICATION';
+  | 'UPDATE_SPECIFICATION'
+  | 'UPDATE_SPECIFICATIONS_BATCH';
 
 export interface HistoryState {
   timestamp: Date;
   action: HistoryAction;
-  data: any;
+  data: unknown;
 }
 
 // ============================================================================
@@ -320,7 +330,7 @@ export interface ValidationError {
   type: 'VALIDATION_ERROR';
   field: string;
   message: string;
-  value: any;
+  value: unknown;
 }
 
 export interface ReferenceError {
@@ -335,7 +345,7 @@ export interface MigrationError {
   type: 'MIGRATION_ERROR';
   source: string;
   message: string;
-  data: any;
+  data: unknown;
 }
 
 export interface PerformanceError {

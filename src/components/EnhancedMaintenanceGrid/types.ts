@@ -4,6 +4,7 @@
  */
 
 import { HierarchicalData } from '../../types';
+import type { WorkOrderBasedRow, AggregatedStatus, HierarchyPath } from '../../types/maintenanceTask';
 
 /**
  * Grid Column Definition
@@ -19,7 +20,7 @@ export interface GridColumn {
   type: 'text' | 'number' | 'date' | 'status' | 'cost';
   editable: boolean;
   fixed?: boolean;
-  accessor?: string | ((row: any) => any);
+  accessor?: string | ((row: HierarchicalData) => unknown);
 }
 
 /**
@@ -37,7 +38,7 @@ export interface GridState {
   sortColumn: string | null;
   sortDirection: 'asc' | 'desc' | null;
   scrollPosition: { x: number; y: number };
-  clipboardData?: any;
+  clipboardData?: ClipboardData;
 }
 
 /**
@@ -66,8 +67,8 @@ export interface DisplayAreaConfig {
 export interface CellEditContext {
   rowId: string;
   columnId: string;
-  value: any;
-  previousValue: any;
+  value: unknown;
+  previousValue: unknown;
   isValid: boolean;
   errorMessage?: string;
 }
@@ -87,9 +88,9 @@ export interface ClipboardData {
 export interface EnhancedMaintenanceGridProps {
   data: HierarchicalData[];
   columns: GridColumn[];
-  timeHeaders: any[];
+  timeHeaders: string[];
   viewMode: 'status' | 'cost';
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
   onTimeCellsDelete?: (cells: {rowId: string, columnId: string}[]) => void;
   virtualScrolling?: boolean;
@@ -105,6 +106,29 @@ export interface EnhancedMaintenanceGridProps {
 export interface GridSelection {
   rowId: string;
   columnId: string;
+}
+
+/**
+ * Grid 内部で扱う派生行型。
+ *
+ * `WorkOrderBasedRow.type` は ViewModeManager が出力する canonical な
+ * `'workOrder' | 'assetChild'` 2 値のみだが、Grid のレンダリング層では
+ * `'hierarchy'` (グループヘッダ) / `'asset'` / `'workOrderLine'` (タスク行)
+ * といった派生行も同じ row として扱う。
+ *
+ * これらの派生型を canonical 型 (`maintenanceTask.ts`) に混ぜると
+ * ViewModeManager 側の type narrow が壊れるため、Grid ローカルに分離する。
+ */
+export type GridRowType = 'workOrder' | 'assetChild' | 'hierarchy' | 'asset' | 'workOrderLine';
+
+export interface GridDerivedRow extends Omit<WorkOrderBasedRow, 'type'> {
+  type: GridRowType;
+  isGroupHeader?: boolean;
+  taskId?: string;
+  schedule?: { [timeKey: string]: AggregatedStatus };
+  hierarchyKey?: string;
+  hierarchyValue?: string;
+  hierarchyPath?: HierarchyPath;
 }
 
 /**

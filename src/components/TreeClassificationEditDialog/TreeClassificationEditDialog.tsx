@@ -11,6 +11,7 @@ import {
   IconButton,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   Divider,
   Alert,
@@ -19,10 +20,7 @@ import {
   Tabs,
   Tab,
   Checkbox,
-  Table,
-  TableBody,
   TableCell,
-  TableHead,
   TableRow,
   Select,
   MenuItem,
@@ -34,17 +32,14 @@ import {
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
   Add as AddIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
   Download as DownloadIcon,
   Upload as UploadIcon,
   FilterList as FilterListIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-import { Asset, TreeLevelValue, AssetClassificationPath, HierarchyPath } from '../../types/maintenanceTask';
-import { Virtuoso } from 'react-virtuoso';
+import type { Asset, TreeLevelValue, HierarchyDefinition, HierarchyPath, AssetClassificationPath } from '../../types/maintenanceTask';
 import { TableVirtuoso } from 'react-virtuoso';
 
 const FilterPopper: React.FC<{
@@ -162,23 +157,20 @@ const FilterPopper: React.FC<{
   );
 };
 
-export interface TreeDefinition {
-  levels: {
-    key: string;
-
-    values: TreeLevelValue[];
-  }[];
-}
-
+/**
+ * 旧称 `TreeDefinition` は `HierarchyDefinition` (`AssetClassificationDefinition` も構造同型) に統合済。
+ * pathKey で hierarchyPath / classificationPath のどちらを更新対象とするか切り替える。
+ */
 export interface TreeClassificationEditDialogProps {
   open: boolean;
   title: string;
-  definition: TreeDefinition;
+  definition: HierarchyDefinition;
   assetCount: number;
   assets: Asset[];
-  pathKey: 'classificationPath' | 'hierarchyPath'; // どちらのプロパティを更新対象とするか
-  onSave: (definition: TreeDefinition) => void;
-  onSaveLinkedAssets?: (updatedAssets: { id: string; path: any }[]) => void;
+  pathKey: 'classificationPath' | 'hierarchyPath';
+  onSave: (definition: HierarchyDefinition) => void;
+  // path は pathKey ('hierarchyPath' | 'classificationPath') に応じて両 path 型のいずれかを取りうる。
+  onSaveLinkedAssets?: (updatedAssets: { id: string; path: HierarchyPath | AssetClassificationPath }[]) => void;
   onExportJSON?: () => void;
   onImportJSON?: (file: File) => void;
   onClose: () => void;
@@ -211,8 +203,8 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
   pathKey,
   onSave,
   onSaveLinkedAssets,
-  onExportJSON,
-  onImportJSON,
+  onExportJSON: _onExportJSON,
+  onImportJSON: _onImportJSON,
   onClose,
   readOnly = false,
 }) => {
@@ -228,7 +220,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
   const [newLevelKey, setNewLevelKey] = useState('');
   
   // Tab 1 value editing state
-  const [bulkInputValue, setBulkInputValue] = useState('');
+  const [_bulkInputValue, setBulkInputValue] = useState('');
   const [filterValStr, setFilterValStr] = useState('');
   const [filterParentStr, setFilterParentStr] = useState('');
   const [hiddenVals, setHiddenVals] = useState<Set<string>>(new Set());
@@ -272,7 +264,8 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
       const states = assets.map(a => ({
         id: a.id,
         name: a.name,
-        path: { ...(a[pathKey as keyof Asset] as any || {}) },
+        // a[pathKey] は HierarchyPath か AssetClassificationPath。どちらも object 形なので spread して clone。
+        path: { ...((a[pathKey as keyof Asset] as HierarchyPath | AssetClassificationPath | undefined) ?? {}) } as HierarchyPath | AssetClassificationPath,
         isModified: false,
         selected: false,
       }));
@@ -516,7 +509,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
     // Basic validation
     if (activeLevels.length < 1) { setValidationError('最低1つのレベルが必要です'); return; }
     
-    const newDef: TreeDefinition = {
+    const newDef: HierarchyDefinition = {
       levels: activeLevels.map(l => ({ key: l.key, values: [...l.values] }))
     };
 
@@ -539,7 +532,9 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.levels && Array.isArray(json.levels)) {
-          const importedLevels = json.levels.map((l: any, i: number) => ({
+          // 外部 JSON 由来。期待 shape: { key?: string; values?: string[] }
+          type ImportedLevelInput = { key?: string; values?: unknown };
+          const importedLevels = (json.levels as ImportedLevelInput[]).map((l) => ({
             key: l.key,
             values: Array.isArray(l.values) ? l.values : [],
             isNew: false,
@@ -563,7 +558,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
 
   const handleDownloadJSON = () => {
     const dataToExport = {
-      levels: activeLevels.map((l, i) => ({
+      levels: activeLevels.map((l) => ({
         key: l.key,
         values: [...l.values]
       }))
@@ -587,14 +582,13 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
           <Typography variant="subtitle2" fontWeight="bold">階層レベル</Typography>
         </Box>
         <List sx={{ flexGrow: 1, overflowY: 'auto', p: 0 }}>
-          {activeLevels.map((l, i) => (
-             <ListItem 
-               key={l.key} 
-               button 
-               selected={selectedLevelKey === l.key} 
+          {activeLevels.map((l) => (
+             <ListItemButton
+               key={l.key}
+               selected={selectedLevelKey === l.key}
                onClick={() => setSelectedLevelKey(l.key)}
-               sx={{ 
-                 borderBottom: 1, borderColor: 'divider', 
+               sx={{
+                 borderBottom: 1, borderColor: 'divider',
                  borderLeft: selectedLevelKey === l.key ? '4px solid #1976d2' : '4px solid transparent',
                  px: 2, py: 1.5
                }}
@@ -631,7 +625,7 @@ export const TreeClassificationEditDialog: React.FC<TreeClassificationEditDialog
                     <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDeleteLevel(l.key); }} color="error" disabled={activeLevels.length<=1} sx={{ p: 0.5 }}><DeleteIcon sx={{ fontSize: 16 }}/></IconButton>
                  </Box>
                )}
-             </ListItem>
+             </ListItemButton>
           ))}
           {!readOnly && (
             <ListItem sx={{ pt: 2, pb: 2, display: 'flex', gap: 1 }}>

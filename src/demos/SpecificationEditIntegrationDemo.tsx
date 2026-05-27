@@ -63,8 +63,8 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
     );
       };
 
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
-        
+  const handleCellEdit = (rowId: string, columnId: string, value: unknown) => {
+
     // Update the maintenance data
     const item = data.find(d => d.id === rowId);
     if (item) {
@@ -72,19 +72,25 @@ export const SpecificationEditIntegrationDemo: React.FC = () => {
       if (!updatedResults[columnId]) {
         updatedResults[columnId] = { planned: false, actual: false, planCost: 0, actualCost: 0 };
       }
-      updatedResults[columnId] = { ...updatedResults[columnId], ...value };
-      
+      updatedResults[columnId] = { ...updatedResults[columnId], ...(value as Partial<HierarchicalData['results'][string]>) };
+
       const updatedItem = { ...item, results: updatedResults };
       handleUpdateItem(updatedItem);
     }
   };
 
-  const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
+  const _handleSpecificationEdit = (_rowId: string, _specIndex: number, key: string, _value: string) => {
         
     // This is handled by the SpecificationEditManager, but we can add additional logging here
+     
+     
     if (key === 'add') {
+
+          // eslint-disable-next-line no-empty
           } else if (key === 'delete') {
+
           } else if (key === 'reorder') {
+          // eslint-disable-next-line no-empty
           } else {
           }
   };

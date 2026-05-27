@@ -28,7 +28,6 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  AutoFixHigh as SkillIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material';
 import type { SkillDefinition, SkillExecutionProgress, SkillExecutionLog } from '../../services/integration/types';
@@ -161,7 +160,7 @@ export const SkillRunner: React.FC<SkillRunnerProps> = ({ open, onClose }) => {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 2 }}>
         スキル実行
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" aria-label="閉じる">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -358,7 +357,19 @@ export const SkillRunner: React.FC<SkillRunnerProps> = ({ open, onClose }) => {
                 <LinearProgress variant="determinate" value={executionProgress.progress} sx={{ height: 6, borderRadius: 3, mb: 2 }} />
                 
                 {executionProgress.logs && executionProgress.logs.length > 0 && (
-                  <Box sx={{ bgcolor: '#0a0a0a', p: 1.5, borderRadius: 1, border: 1, borderColor: '#1a1a1a', maxHeight: 200, overflowY: 'auto' }}>
+                  <Box
+                    role="log"
+                    aria-live="polite"
+                    sx={{
+                      bgcolor: 'grey.900',
+                      p: 1.5,
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: 'divider',
+                      maxHeight: 200,
+                      overflowY: 'auto',
+                    }}
+                  >
                     {executionProgress.logs.map((log: SkillExecutionLog, i: number) => (
                       <Box key={i} sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
                         <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>

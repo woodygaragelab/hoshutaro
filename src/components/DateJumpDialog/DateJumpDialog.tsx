@@ -10,14 +10,15 @@ import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { PickersDay, PickersDayProps } from '@mui/x-date-pickers/PickersDay';
 import dayjs, { Dayjs } from 'dayjs';
 import { getTimeKey, parseTimeKey } from '../../utils/dateUtils';
+import { TimeScale } from '../../types/maintenanceTask';
 
-function CustomDay(props: PickersDayProps & { activeTimeHeaders?: string[], timeScale?: string }) {
+function CustomDay(props: PickersDayProps & { activeTimeHeaders?: string[], timeScale?: TimeScale }) {
   const { activeTimeHeaders, timeScale, day, outsideCurrentMonth, ...other } = props;
 
   const isDataPresent = useMemo(() => {
     if (!activeTimeHeaders || outsideCurrentMonth) return false;
     const utcDate = new Date(Date.UTC(day.year(), day.month(), day.date()));
-    const dateStr = getTimeKey(utcDate, (timeScale as any) || 'day');
+    const dateStr = getTimeKey(utcDate, timeScale ?? 'day');
     return activeTimeHeaders.includes(dateStr);
   }, [activeTimeHeaders, day, timeScale, outsideCurrentMonth]);
 
@@ -70,10 +71,10 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
       return { minDate: undefined, maxDate: undefined };
     }
     const sortedHeaders = safeHeaders.sort();
-    
+
     // Parse oldest and newest time key bounds
-    const minParsed = parseTimeKey(sortedHeaders[0], timeScale as any);
-    const maxParsed = parseTimeKey(sortedHeaders[sortedHeaders.length - 1], timeScale as any);
+    const minParsed = parseTimeKey(sortedHeaders[0], timeScale);
+    const maxParsed = parseTimeKey(sortedHeaders[sortedHeaders.length - 1], timeScale);
 
     return { 
       minDate: minParsed ? dayjs(minParsed) : undefined, 
@@ -88,7 +89,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
     const targetKey = currentDate || domTimeKey;
 
     if (targetKey) {
-      const parsed = parseTimeKey(targetKey, timeScale as any);
+      const parsed = parseTimeKey(targetKey, timeScale);
       if (parsed) return dayjs(parsed);
     }
     return minDate || dayjs();
@@ -113,7 +114,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
   }
 
   // Track the current calendar view to prevent jumping prematurely during drill-down
-  const [currentView, setCurrentView] = useState<any>(openTo);
+  const [currentView, setCurrentView] = useState<'year' | 'month' | 'day'>(openTo);
 
   React.useEffect(() => {
     setCurrentView(openTo);
@@ -200,11 +201,11 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
           '& .MuiPickersLayout-root': { backgroundColor: 'transparent', borderRadius: 0 },
           '& .MuiPaper-root': { backgroundColor: 'transparent', borderRadius: 0, backgroundImage: 'none' },
         }}>
-          <DateCalendar 
-            value={selectedDate} 
+          <DateCalendar
+            value={selectedDate}
             onChange={handleJump}
             onViewChange={(newView) => setCurrentView(newView)}
-            views={views as any}
+            views={views}
             openTo={openTo}
             minDate={minDate}
             maxDate={maxDate}
@@ -213,7 +214,7 @@ const DateJumpDialog: React.FC<DateJumpDialogProps> = ({
               day: {
                 activeTimeHeaders,
                 timeScale,
-              } as any
+              } as Partial<PickersDayProps & { activeTimeHeaders?: string[]; timeScale?: TimeScale }>
             }}
           />
         </Box>

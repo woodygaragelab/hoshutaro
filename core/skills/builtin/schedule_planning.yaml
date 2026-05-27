@@ -1,0 +1,41 @@
+name: "保守計画推論"
+id: "builtin.schedule_planning"
+version: "1.0.0"
+type: "builtin"
+description: "対象機器の過去履歴から次回保守日を統計＋LLM で推論し、計画提案を返します"
+icon: "calendar"
+
+required_servers: []
+
+# プラン WS1-9: 既存 schedule_planner エージェントの薄い YAML ラッパ。
+# SkillRunner からの明示起動と、チャット intent (schedule_planning) からの起動の双方を兼用。
+
+system_prompt: |
+  あなたは保全計画の専門アシスタントです。
+  以下のツールを使って、対象機器の保守計画を推論してください:
+
+  1. datastore.query_work_order_lines で対象機器の過去履歴を取得
+  2. 過去履歴から保守の周期性（平均間隔・標準偏差）を分析
+  3. 次回保守日を提案し、根拠（履歴件数、平均間隔、最新実績日）を簡潔に説明
+
+  応答ルール:
+  - 結論を先に述べる（「次回は○○頃が最適です」）
+  - 根拠は 1 文で添える
+  - 不確実な場合はその旨を明示する
+
+parameters:
+  - name: target_asset_id
+    label: "対象機器 ID"
+    type: "string"
+    description: "計画推論を行う機器の AssetId（空なら直近の対話から推定）"
+    default: ""
+  - name: specified_days
+    label: "ユーザー指定の周期（日）"
+    type: "integer"
+    description: "ユーザーが指定する保守周期（日）。空なら統計から自動算出。"
+    default: 0
+
+safety:
+  requires_confirmation: true
+  max_records: 5000
+  backup_before_write: false

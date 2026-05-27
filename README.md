@@ -29,17 +29,18 @@ npm install
 ### 3. バックエンド依存パッケージのインストール
 
 ```bash
-cd backend
+cd core
 pip install -r requirements.txt
 cd ..
 ```
 
-> **注:** OpenVINO 関連パッケージ (`openvino`, `openvino-genai`, `openvino-tokenizers`) はオプションです。
-> ローカルLLM を使わない場合は、`requirements.txt` から該当行をコメントアウトしてください。
+> **注:** OpenVINO 関連パッケージ (`openvino`, `openvino-genai`, `openvino-tokenizers`) は
+> ML 重依存として `requirements-ml.txt` に分離されています。ローカル LLM を使う場合のみ
+> `pip install -r requirements-ml.txt` を追加で実行してください。
 
 ### 4. 環境変数の設定
 
-`backend/.env` を編集して、最低限以下を設定します。
+`core/.env` を編集して、最低限以下を設定します。
 
 ```env
 # Gemini API Key (必須 — AI アシスタント機能に必要)
@@ -100,7 +101,7 @@ hoshutaro/
 │   │   └── EnhancedMaintenanceGrid/  # メインテナンスグリッド
 │   └── services/                 # API クライアント・データ管理
 │       └── integration/          # プラグイン API サービス
-├── backend/                      # バックエンド (FastAPI + Python)
+├── core/                      # バックエンド (FastAPI + Python)
 │   ├── app/
 │   │   ├── routers/              # REST API エンドポイント
 │   │   ├── services/             # ビジネスロジック
@@ -109,8 +110,6 @@ hoshutaro/
 │   ├── .env                      # 環境変数
 │   └── requirements.txt
 ├── docs/                         # 開発者ドキュメント
-├── launcher/                     # System Tray ランチャー (スタブ)
-├── build/                        # ビルドスクリプト (スタブ)
 └── plugin-registry.json          # プラグインレジストリ
 ```
 

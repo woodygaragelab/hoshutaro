@@ -223,8 +223,14 @@ const createModernTheme = (mode: 'light' | 'dark' = 'light'): ThemeOptions => ({
           borderRadius: borderRadius.lg,
           padding: '0.5rem 1rem',
           boxShadow: 'none',
+          transition: 'transform 100ms ease-out, box-shadow 150ms ease-in-out, background-color 150ms ease-in-out',
           '&:hover': {
             boxShadow: shadows.sm,
+          },
+          // 押下感 (docs/10 §7.7): わずかな scale で物理的フィードバック。
+          // disabled 時は適用しないように `&:not(.Mui-disabled)` で限定。
+          '&:not(.Mui-disabled):active': {
+            transform: 'scale(0.98)',
           },
         },
         contained: {

@@ -1,8 +1,37 @@
+import type { Asset, WorkOrder, WorkOrderLine } from '../types/maintenanceTask';
+import type { UIContextSnapshot } from '../state/uiContextStore';
+import { apiUrl } from './apiBase';
+
 export interface SSEEvent {
-  type: 'status' | 'text_delta' | 'suggestion' | 'error' | 'workbook_update' | 'dashboard_update' | 'document_update' | 'op_summary';
+  type:
+    | 'status'
+    | 'text_delta'
+    | 'suggestion'
+    | 'error'
+    | 'workbook_update'
+    | 'dashboard_update'
+    | 'document_update'
+    | 'op_summary'
+    // プラン WS1-9 で追加した orchestrator イベント
+    | 'intent_classified'
+    | 'tool_call'
+    | 'tool_result'
+    | 'proposal_pending'
+    | 'proposal_executed'
+    | 'dialog_open_request';
   message?: string;
   delta?: string;
-  suggestion?: any;
+  suggestion?: unknown;
+  // orchestrator イベント用フィールド（任意）
+  intent?: string;
+  confidence?: number;
+  parameters?: Record<string, unknown>;
+  out_of_scope_reason?: string | null;
+  final_response?: string;
+  operations?: unknown[];
+  pending_operations?: unknown[];
+  // dialog_open_request 用: 開くべきダイアログ種別
+  dialog?: string;
 }
 
 export function startChatStream(
@@ -11,7 +40,8 @@ export function startChatStream(
   onEvent: (event: SSEEvent) => void,
   onDone: () => void,
   onError: (err: string) => void,
-  dataContext?: { assets: any[]; workOrders: any[]; workOrderLines: any[] }
+  dataContext?: { assets: Asset[]; workOrders: WorkOrder[]; workOrderLines: WorkOrderLine[] },
+  uiContext?: UIContextSnapshot
 ): () => void {
   const controller = new AbortController()
   let doneEmitted = false
@@ -25,7 +55,7 @@ export function startChatStream(
 
   async function run() {
     try {
-      const res = await fetch('/api/chat/completions', {
+      const res = await fetch(apiUrl('/api/chat/completions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -33,6 +63,7 @@ export function startChatStream(
           session_id: sessionId,
           messages,
           data_context: dataContext || undefined,
+          ui_context: uiContext || undefined,
         }),
       })
 
@@ -75,16 +106,20 @@ export function startChatStream(
             try {
               const chunk = JSON.parse(raw)
               onEvent(chunk as SSEEvent)
-            } catch (e) {
+            } catch (_e) {
               // ignore parse error for incomplete chunks
             }
           }
         }
       }
       emitDone()
-    } catch (e: any) {
-      if (e?.name !== 'AbortError') {
-        onError(e?.message ?? '接続エラー')
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        if (e.name !== 'AbortError') {
+          onError(e.message || '接続エラー')
+        }
+      } else {
+        onError('接続エラー')
       }
       emitDone()
     }

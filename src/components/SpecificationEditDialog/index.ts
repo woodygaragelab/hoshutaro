@@ -5,7 +5,7 @@ export type {
   SpecificationEditItem,
 } from './SpecificationEditDialog';
 
-// データモデルアダプターのエクスポート
+// データモデルマッパー（旧名 dataModelAdapter — Adapter は LLM 接続専用に統一、CONCEPTS.md 参照）
 export {
   specificationToValue,
   valueToSpecification,
@@ -15,7 +15,7 @@ export {
   validateSpecifications as validateSpecificationValues,
   sortSpecificationsByOrder,
   reorderSpecifications,
-} from './dataModelAdapter';
+} from './dataModelMapper';
 
 export {
   validateSpecificationKey,

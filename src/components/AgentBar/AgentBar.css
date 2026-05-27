@@ -1,4 +1,68 @@
-/* Floating Agent Bar CSS based on LoopOne */
+/* Floating Agent Bar CSS based on LoopOne
+ *
+ * V-2 (Sprint 7): CSS custom properties で tokenize し、`[data-theme="light"]` override で
+ * light theme でも frost glass surface / hover menu が浮かないようにする。
+ * docs/10 §4.5 / §6.12 準拠。signature motion (cubic-bezier) は維持。
+ */
+
+/* ─── Design Tokens (default = dark mode、index.css の !important を index.css 自身が
+ *     V-1 でクリーンになったので、ここの !important は MUI 内部スタイルとの戦いのみに残す) ─── */
+:root,
+[data-theme="dark"] {
+  --ab-surface: rgba(30, 30, 30, 0.85);
+  --ab-surface-border: rgba(255, 255, 255, 0.1);
+  --ab-surface-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --ab-text-idle: #999;
+  --ab-text-strong: #ffffff;
+  --ab-text-disabled: #666666;
+  --ab-text-muted: #cccccc;
+  --ab-text-placeholder: #666666;
+  --ab-hover-bg: rgba(255, 255, 255, 0.15);
+  --ab-hover-bg-subtle: rgba(255, 255, 255, 0.05);
+  --ab-divider: rgba(255, 255, 255, 0.1);
+  --ab-divider-faint: rgba(255, 255, 255, 0.05);
+  --ab-input-bg: rgba(0, 0, 0, 0.4);
+  --ab-input-border: rgba(255, 255, 255, 0.05);
+  --ab-menu-bg: #222222;
+  --ab-menu-border: #444444;
+  --ab-menu-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --ab-msg-bg: rgba(0, 0, 0, 0.3);
+  --ab-user-msg-bg: rgba(33, 150, 243, 0.15);
+  --ab-scrollbar: rgba(255, 255, 255, 0.2);
+  --ab-accent: #2196f3;
+  --ab-accent-bg: rgba(33, 150, 243, 0.1);
+  --ab-accent-bg-hover: rgba(33, 150, 243, 0.2);
+  --ab-accent-disabled: #444444;
+}
+
+[data-theme="light"] {
+  --ab-surface: rgba(255, 255, 255, 0.85);
+  --ab-surface-border: rgba(0, 0, 0, 0.12);
+  --ab-surface-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --ab-text-idle: #525252;
+  --ab-text-strong: #171717;
+  --ab-text-disabled: #a3a3a3;
+  --ab-text-muted: #525252;
+  --ab-text-placeholder: #a3a3a3;
+  --ab-hover-bg: rgba(0, 0, 0, 0.08);
+  --ab-hover-bg-subtle: rgba(0, 0, 0, 0.04);
+  --ab-divider: rgba(0, 0, 0, 0.12);
+  --ab-divider-faint: rgba(0, 0, 0, 0.06);
+  --ab-input-bg: rgba(255, 255, 255, 0.6);
+  --ab-input-border: rgba(0, 0, 0, 0.12);
+  --ab-menu-bg: #ffffff;
+  --ab-menu-border: rgba(0, 0, 0, 0.12);
+  --ab-menu-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --ab-msg-bg: rgba(0, 0, 0, 0.04);
+  --ab-user-msg-bg: rgba(33, 150, 243, 0.1);
+  --ab-scrollbar: rgba(0, 0, 0, 0.2);
+  --ab-accent: #1976d2;
+  --ab-accent-bg: rgba(25, 118, 210, 0.08);
+  --ab-accent-bg-hover: rgba(25, 118, 210, 0.16);
+  --ab-accent-disabled: #cccccc;
+}
+
+/* ─── Layout ─── */
 
 .agent-bar-container {
   position: fixed;
@@ -14,9 +78,9 @@
 }
 
 .agent-bar-surface {
-  background-color: rgba(30, 30, 30, 0.85); /* Frost glass effect */
+  background-color: var(--ab-surface);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ab-surface-border);
   border-radius: 20px;
   padding: 8px 16px;
   display: flex;
@@ -24,12 +88,12 @@
   align-items: stretch;
   justify-content: space-between;
   width: 100%;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--ab-surface-shadow);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .shadow-bar {
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .agent-bar-grid-row {
@@ -70,7 +134,7 @@
   align-items: center;
   width: 100%;
   gap: 12px;
-  
+
   max-height: 0;
   opacity: 0;
   overflow: hidden;
@@ -82,7 +146,7 @@
   max-height: 50px;
   opacity: 1;
   margin-bottom: 12px;
-  overflow: visible; 
+  overflow: visible;
 }
 
 .favicon-toggle img {
@@ -91,57 +155,67 @@
 
 .favicon-toggle:hover img {
   transform: scale(1.15);
-  filter: none !important;
 }
 
+/* ─── Toolbar Icons ─── */
+
 .tb-icon {
-  color: #999 !important;
+  color: var(--ab-text-idle) !important;
   transition: all 0.2s ease !important;
 }
 
-.tb-icon:hover, .tb-icon.active {
-  color: #fff !important;
-  background-color: rgba(255, 255, 255, 0.15) !important;
+.tb-icon:hover,
+.tb-icon.active {
+  color: var(--ab-text-strong) !important;
+  background-color: var(--ab-hover-bg) !important;
 }
 
-.tb-icon:disabled, .tb-icon.Mui-disabled, .tb-icon[disabled] {
-  color: #666 !important;
+.tb-icon:disabled,
+.tb-icon.Mui-disabled,
+.tb-icon[disabled] {
+  color: var(--ab-text-disabled) !important;
   pointer-events: none !important;
 }
 
-.tb-icon:disabled *, .tb-icon.Mui-disabled *, .tb-icon[disabled] *,
-.tb-icon:disabled svg, .tb-icon.Mui-disabled svg, .tb-icon[disabled] svg {
-  color: #666 !important;
-  fill: #666 !important;
+.tb-icon:disabled *,
+.tb-icon.Mui-disabled *,
+.tb-icon[disabled] *,
+.tb-icon:disabled svg,
+.tb-icon.Mui-disabled svg,
+.tb-icon[disabled] svg {
+  color: var(--ab-text-disabled) !important;
+  fill: var(--ab-text-disabled) !important;
 }
 
 .divider {
   width: 1px;
   height: 24px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--ab-divider);
 }
+
+/* ─── Input Row ─── */
 
 .agent-input-wrapper {
   flex-grow: 1;
   display: flex;
   align-items: center;
-  background-color: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: var(--ab-input-bg);
+  border: 1px solid var(--ab-input-border);
   border-radius: 20px;
   padding: 4px 8px;
   transition: all 0.2s;
 }
 
 .agent-input-wrapper:focus-within {
-  border-color: #2196f3;
-  box-shadow: 0 0 0 1px #2196f3;
+  border-color: var(--ab-accent);
+  box-shadow: 0 0 0 1px var(--ab-accent);
 }
 
 .agent-text-input {
   flex-grow: 1;
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--ab-text-strong);
   font-size: 14px;
   outline: none;
   padding: 0 8px;
@@ -149,22 +223,22 @@
 }
 
 .agent-text-input::placeholder {
-  color: #666;
+  color: var(--ab-text-placeholder);
 }
 
 .send-btn {
-  color: #2196f3 !important;
-  background-color: rgba(33, 150, 243, 0.1) !important;
+  color: var(--ab-accent) !important;
+  background-color: var(--ab-accent-bg) !important;
   width: 32px !important;
   height: 32px !important;
   margin-left: 4px !important;
 }
 .send-btn:disabled {
-  color: #444 !important;
+  color: var(--ab-accent-disabled) !important;
   background-color: transparent !important;
 }
 .send-btn:not(:disabled):hover {
-  background-color: rgba(33, 150, 243, 0.2) !important;
+  background-color: var(--ab-accent-bg-hover) !important;
 }
 
 .agent-bar-right {
@@ -173,7 +247,8 @@
   gap: 8px;
 }
 
-/* Hover Menus */
+/* ─── Hover Menus (signature pattern、docs/10 §6.12) ─── */
+
 .control-hover-group {
   position: relative;
 }
@@ -184,13 +259,13 @@
   left: 50%;
   transform: translateX(-50%);
   margin-bottom: 8px;
-  background-color: #222;
-  border: 1px solid #444;
+  background-color: var(--ab-menu-bg);
+  border: 1px solid var(--ab-menu-border);
   border-radius: 8px;
   padding: 8px 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  box-shadow: var(--ab-menu-shadow);
   min-width: 120px;
   z-index: 1010;
   animation: slide-up 0.2s ease-out forwards;
@@ -204,12 +279,12 @@
   margin-left: -6px;
   border-width: 6px;
   border-style: solid;
-  border-color: #444 transparent transparent transparent;
+  border-color: var(--ab-menu-border) transparent transparent transparent;
 }
 
 .menu-item {
   padding: 8px 16px;
-  color: #ccc;
+  color: var(--ab-text-muted);
   font-size: 13px;
   cursor: pointer;
   text-align: center;
@@ -218,14 +293,46 @@
 }
 
 .menu-item:hover {
-  background-color: rgba(255,255,255,0.05);
-  color: #fff;
+  background-color: var(--ab-hover-bg-subtle);
+  color: var(--ab-text-strong);
 }
 
 .menu-item.selected {
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--ab-text-strong);
+  background-color: var(--ab-hover-bg);
   font-weight: bold;
+}
+
+.menu-separator {
+  height: 1px;
+  background-color: var(--ab-divider);
+  margin: 4px 8px;
+}
+
+/* 動作モード表示（ローカル / クラウド） */
+.menu-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  color: var(--ab-text-idle);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.menu-mode-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.menu-mode-dot.cloud {
+  background-color: var(--ab-accent);
+}
+
+.menu-mode-dot.local {
+  background-color: var(--ab-text-disabled);
 }
 
 @keyframes slide-up {
@@ -238,7 +345,8 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Agent Chat Window (Expanding Box) */
+/* ─── Agent Chat Window (Expanding Box) ─── */
+
 .agent-chat-window {
   width: 100%;
   display: flex;
@@ -253,20 +361,20 @@
   max-height: 400px;
   opacity: 1;
   margin-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid var(--ab-divider);
   padding-bottom: 8px;
 }
 
 .agent-chat-header {
   padding: 8px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--ab-divider-faint);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .agent-chat-title {
-  color: #fff;
+  color: var(--ab-text-strong);
   font-size: 13px;
   font-weight: 600;
   display: flex;
@@ -286,7 +394,7 @@
   width: 6px;
 }
 .agent-chat-messages::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.2);
+  background: var(--ab-scrollbar);
   border-radius: 3px;
 }
 
@@ -300,14 +408,15 @@
 }
 
 .agent-msg-content {
-  background-color: rgba(0,0,0,0.3);
+  background-color: var(--ab-msg-bg);
   padding: 8px 12px;
   border-radius: 8px;
   max-width: 80%;
+  color: var(--ab-text-strong);
 }
 
 .agent-msg-row.user .agent-msg-content {
-  background-color: rgba(33, 150, 243, 0.15);
+  background-color: var(--ab-user-msg-bg);
   margin-right: 8px;
 }
 

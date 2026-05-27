@@ -37,9 +37,11 @@ interface Asset {
 }
 ```
 
-## Adapter Functions
+## Mapper Functions
 
-The `dataModelAdapter.ts` module provides conversion functions:
+The `dataModelMapper.ts` module provides conversion functions
+(renamed from `dataModelAdapter.ts` — the term "Adapter" is reserved for LLM Plugin
+implementations per [CONCEPTS.md](../../../docs/CONCEPTS.md)):
 
 ### specificationToValue / valueToSpecification
 Convert between formats (note: these are structurally identical):
@@ -106,7 +108,7 @@ const reordered = reorderSpecifications(specifications);
 import { 
   specificationsToValues, 
   updateAssetSpecifications 
-} from './dataModelAdapter';
+} from './dataModelMapper';
 
 // Convert asset specifications to values for display
 const specValues = specificationsToValues(asset.specifications);

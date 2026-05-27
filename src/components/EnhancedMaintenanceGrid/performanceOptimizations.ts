@@ -81,7 +81,8 @@ export class ScaleChangeOptimizer {
       operations.forEach(operation => {
         try {
           operation();
-        } catch (error) {
+        // eslint-disable-next-line no-empty
+        } catch (_error) {
                   }
       });
     });
@@ -150,7 +151,8 @@ export class RenderOptimizer {
       renders.forEach(render => {
         try {
           render();
-        } catch (error) {
+        // eslint-disable-next-line no-empty
+        } catch (_error) {
                   }
       });
 
@@ -188,7 +190,7 @@ export class RenderOptimizer {
  * メモリ使用量最適化ユーティリティ
  */
 export class MemoryOptimizer {
-  private cache: Map<string, { data: any; timestamp: number; size: number }> = new Map();
+  private cache: Map<string, { data: unknown; timestamp: number; size: number }> = new Map();
   private maxCacheSize: number = 50 * 1024 * 1024; // 50MB
   private currentCacheSize: number = 0;
   private cleanupInterval: NodeJS.Timeout | null = null;
@@ -201,7 +203,7 @@ export class MemoryOptimizer {
   /**
    * データをキャッシュに保存
    */
-  cacheData(key: string, data: any): void {
+  cacheData(key: string, data: unknown): void {
     const size = this.estimateSize(data);
     
     // キャッシュサイズが上限を超える場合は古いエントリを削除
@@ -220,7 +222,7 @@ export class MemoryOptimizer {
   /**
    * キャッシュからデータを取得
    */
-  getFromCache(key: string): any | null {
+  getFromCache(key: string): unknown | null {
     const entry = this.cache.get(key);
     if (entry) {
       // アクセス時刻を更新
@@ -264,7 +266,7 @@ export class MemoryOptimizer {
   /**
    * データサイズを推定
    */
-  private estimateSize(data: any): number {
+  private estimateSize(data: unknown): number {
     try {
       return JSON.stringify(data).length * 2; // 文字列の概算バイト数
     } catch {
@@ -345,7 +347,7 @@ export class PerformanceManager {
   /**
    * データをキャッシュ
    */
-  cacheData(key: string, data: any): void {
+  cacheData(key: string, data: unknown): void {
     if (this.config.enableMemoization) {
       this.memoryOptimizer.cacheData(key, data);
     }
@@ -354,7 +356,7 @@ export class PerformanceManager {
   /**
    * キャッシュからデータを取得
    */
-  getCachedData(key: string): any | null {
+  getCachedData(key: string): unknown | null {
     if (this.config.enableMemoization) {
       return this.memoryOptimizer.getFromCache(key);
     }
@@ -408,7 +410,7 @@ export const usePerformanceOptimization = (config?: Partial<PerformanceConfig>) 
     endScaleChange: () => manager.endScaleChange(),
     optimizeRender: (key: string, renderFunction: () => void) => 
       manager.optimizeRender(key, renderFunction),
-    cacheData: (key: string, data: any) => manager.cacheData(key, data),
+    cacheData: (key: string, data: unknown) => manager.cacheData(key, data),
     getCachedData: (key: string) => manager.getCachedData(key),
     updateConfig: (newConfig: Partial<PerformanceConfig>) => 
       manager.updateConfig(newConfig),

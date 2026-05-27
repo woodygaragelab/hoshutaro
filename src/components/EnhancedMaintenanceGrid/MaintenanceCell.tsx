@@ -5,17 +5,17 @@ import CircleIcon from '@mui/icons-material/Circle';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import { HierarchicalData } from '../../types';
 import { GridColumn } from './types';
-import { getDisplaySymbolWithCount } from '../../utils/dataAggregation';
 import type { AggregatedStatus } from '../../types/maintenanceTask';
 
 interface MaintenanceCellProps {
   item: HierarchicalData;
   column: GridColumn;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   viewMode: 'status' | 'cost';
   isSelected: boolean;
   isEditing: boolean;
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onCellClick: () => void;
   onCellDoubleClick: (event: React.MouseEvent<HTMLElement>) => void;
   readOnly: boolean;
@@ -96,7 +96,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     if (hasChanged) {
       onCellEdit(item.id, column.id, finalValue);
     }
-  }, [currentValue, value, onCellEdit, item.id, column.id, column.type]);
+  }, [currentValue, value, editValue, onCellEdit, item.id, column.id, column.type]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -364,16 +364,8 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
 
   // Handle single click
   const handleClick = useCallback(() => {
-    // In equipment-based mode, clicking on time columns (status/cost) should open TaskEditDialog
+    // 装置ベースモードかつ時刻カラムは、データの有無によらず TaskEditDialog を開けるようにする。
     if (isEquipmentBasedMode && (column.type === 'status' || column.type === 'cost')) {
-      // Check if there's any data to edit
-      const hasData = value && (
-        (typeof value === 'object' && ('count' in value || 'planned' in value || 'actual' in value)) ||
-        (typeof value === 'string' && value.length > 0)
-      );
-      
-      // Always allow clicking in equipment-based mode for time columns
-      // This allows adding new tasks even if no tasks exist yet
       if (column.id.startsWith('time_')) {
         onCellClick();
         return;
@@ -382,7 +374,7 @@ const MaintenanceCellComponent: React.FC<MaintenanceCellProps> = ({
     
     // Default click behavior
     onCellClick();
-  }, [onCellClick, isEquipmentBasedMode, column.type, column.id, value]);
+  }, [onCellClick, isEquipmentBasedMode, column.type, column.id]);
 
   return (
     <Box

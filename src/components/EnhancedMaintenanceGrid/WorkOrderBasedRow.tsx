@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-import { WorkOrderBasedRow as WorkOrderBasedRowData, AggregatedStatus } from '../../types/maintenanceTask';
-import { GridColumn, GridState } from './types';
+import { GridColumn, GridState, GridDerivedRow } from './types';
 import { HierarchicalData } from '../../types';
 import MaintenanceCell from './MaintenanceCell';
 
@@ -10,11 +9,12 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import IconButton from '@mui/material/IconButton';
 
 interface WorkOrderBasedRowProps {
-  row: WorkOrderBasedRowData;
+  row: GridDerivedRow;
   columns: GridColumn[];
   viewMode: 'status' | 'cost';
   gridState: GridState;
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  // value は status / cost / string 等が混在 (consumer 側 narrow)
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onCellClick?: (rowId: string, columnId: string) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
@@ -84,11 +84,14 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
   const getRowId = useCallback(() => {
     // If the row already has an ID assigned by the ViewModeManager or App.tsx, USE IT EXACTLY.
     // Overwriting it causes complete lookup failures in copyPasteManager because it retains the original ID.
-    if ((row as any).id) {
-      return (row as any).id;
+    // GridDerivedRow extends WorkOrderBasedRow which has `id: string` (required) → 直接参照可能。
+    if (row.id) {
+      return row.id;
     }
     return 'unknown';
-  }, [row.type, row.assetId, row.workOrderId, (row as any).id]);
+    // 旧コードは row.type / row.assetId / row.workOrderId も deps に含めていたが、
+    // 関数本体は row.id しか read しないため exhaustive-deps の正規 dep のみに整理。
+  }, [row.id]);
 
   const rowId = getRowId();
 
@@ -157,7 +160,7 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
     }
 
     return '';
-  }, [row, columns, viewMode]);
+  }, [row, viewMode]);
 
   // Calculate indentation based on level
   const indentWidth = row.type === 'assetChild' ? 32 : 0; 
@@ -225,8 +228,6 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
         // For task rows, render with indentation in first column
         // Only show task name in fixed area, hide in scrollable area
         if (isFirstColumn) {
-          const isHierarchyRow = row.type === 'hierarchy' || row.type === 'workOrder';
-          
           let cellWidth = width;
           let cellMinWidth = width;
           let cellMaxWidth = width;
@@ -319,16 +320,20 @@ const WorkOrderBasedRowComponent: React.FC<WorkOrderBasedRowProps> = ({
         }
 
         // For other columns in task rows, use MaintenanceCell for schedule display
-        // Create a mock item for MaintenanceCell compatibility
+        // Create a mock item for MaintenanceCell compatibility.
+        // MaintenanceCell consumer は item.id しか read しないため results/rolledUpResults は
+        // 空オブジェクトで OK。旧コードは AggregatedStatus (totalPlanCost/totalActualCost/count) を
+        // HierarchicalData の entry shape (planCost/actualCost) に強制キャストしていたが、
+        // shape 不一致を隠していた死フィールド。
         const mockItem: HierarchicalData = {
           id: rowId,
           task: row.workOrderName || '',
           bomCode: row.assetId || '',
           specifications: [],
-          results: (row.aggregatedSchedule || {}) as any,
+          results: {},
           level: row.level,
           children: [],
-          rolledUpResults: (row.aggregatedSchedule || {}) as any
+          rolledUpResults: {}
         };
 
         return (

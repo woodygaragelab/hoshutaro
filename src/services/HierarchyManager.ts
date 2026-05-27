@@ -235,13 +235,13 @@ export class HierarchyManager {
     }
 
     // Check if value already exists
-    if (level.values.includes(value)) {
+    if (level.values.some(v => v.value === value)) {
       throw new Error(`値 "${value}" は階層レベル "${levelKey}" に既に存在します。`);
     }
 
     // Add value
-    level.values.push(value);
-    level.values.sort();
+    level.values.push({ value });
+    level.values.sort((a, b) => a.value.localeCompare(b.value));
 
     // Push state to undo/redo manager
     if (this.undoRedoManager) {
@@ -285,19 +285,19 @@ export class HierarchyManager {
     }
 
     // Check if old value exists
-    const valueIndex = level.values.indexOf(oldValue);
+    const valueIndex = level.values.findIndex(v => v.value === oldValue);
     if (valueIndex === -1) {
       throw new Error(`値 "${oldValue}" は階層レベル "${levelKey}" に見つかりません。`);
     }
 
     // Check if new value already exists (unless it's the same as old value)
-    if (oldValue !== newValue && level.values.includes(newValue)) {
+    if (oldValue !== newValue && level.values.some(v => v.value === newValue)) {
       throw new Error(`値 "${newValue}" は階層レベル "${levelKey}" に既に存在します。`);
     }
 
-    // Update value in hierarchy definition
-    level.values[valueIndex] = newValue;
-    level.values.sort();
+    // Update value in hierarchy definition (preserve parentValue if any)
+    level.values[valueIndex] = { ...level.values[valueIndex], value: newValue };
+    level.values.sort((a, b) => a.value.localeCompare(b.value));
 
     // Update all assets that use this value
     const allAssets = this.assetManager.getAllAssets();
@@ -350,7 +350,7 @@ export class HierarchyManager {
     }
 
     // Check if value exists
-    const valueIndex = level.values.indexOf(value);
+    const valueIndex = level.values.findIndex(v => v.value === value);
     if (valueIndex === -1) {
       throw new Error(`値 "${value}" は階層レベル "${levelKey}" に見つかりません。`);
     }
@@ -450,7 +450,7 @@ export class HierarchyManager {
       }
 
       // Check if value exists in level's allowed values
-      if (level.values.length > 0 && !level.values.includes(path[level.key])) {
+      if (level.values.length > 0 && !level.values.some(v => v.value === path[level.key])) {
         return false;
       }
     }
@@ -517,7 +517,7 @@ export class HierarchyManager {
    */
   getHierarchyValues(levelKey: string): string[] {
     const level = this.hierarchy.levels.find(l => l.key === levelKey);
-    return level ? [...level.values] : [];
+    return level ? level.values.map(v => v.value) : [];
   }
 
   /**
@@ -603,6 +603,7 @@ export class HierarchyManager {
       }
     }
 
+    // eslint-disable-next-line no-empty
     if (errors.length > 0) {
           }
 

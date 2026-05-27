@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   IconButton,
-  TextField,
   Button,
   Paper,
   Avatar,
@@ -26,7 +25,7 @@ import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelI
 import './AIAssistantPanel.css';
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
-  isOpen,
+  isOpen: _isOpen,
   onClose,
   onSuggestionApply,
   onExcelImport,
@@ -99,11 +98,12 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           ]
         };
         setMessages(prev => [...prev, aiResponse]);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         const errorResponse: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
-          content: `[エラー]: ${error.message}`,
+          content: `[エラー]: ${errMsg}`,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, errorResponse]);
@@ -230,10 +230,11 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         if (result.data_model && onImportComplete) {
           onImportComplete(result.data_model);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         setMessages(prev => prev.map(m => {
           if (m.id === statusMsg.id) {
-            return { ...m, content: `[エラー]: ${error.message}` };
+            return { ...m, content: `[エラー]: ${errMsg}` };
           }
           return m;
         }));

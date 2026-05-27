@@ -7,7 +7,7 @@
  * Requirements: 3.1, 3.2, 7.1
  */
 
-import { Asset, HierarchyPath, AssetClassificationPath, Specification } from '../types/maintenanceTask';
+import type { Asset, HierarchyPath, Specification } from '../types/maintenanceTask';
 import { UndoRedoManager } from './UndoRedoManager';
 
 /**
@@ -321,6 +321,7 @@ export class AssetManager {
       }
     }
 
+    // eslint-disable-next-line no-empty
     if (errors.length > 0) {
           }
 

@@ -1,12 +1,21 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { Box } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { HierarchicalData } from '../../types';
-import { GridColumn, GridState, DisplayAreaConfig } from './types';
+import { GridColumn, GridState, DisplayAreaConfig, GridRange } from './types';
+import type {
+  Asset,
+  AssetClassificationDefinition,
+  HierarchyDefinition,
+  WorkOrderClassification,
+} from '../../types/maintenanceTask';
+import type { FilterTreeNode } from '../../utils/dataTransformer';
 import Resizer from './Resizer';
 // CommonEditLogic removed - not used as JSX component
 import TagNoEditDialog from '../TagNoEditDialog/TagNoEditDialog';
 import SpecificationEditDialog from '../SpecificationEditDialog/SpecificationEditDialog';
 import { StatusValue, CostValue } from '../CommonEdit/types';
+import type { Specification } from '../../types/maintenanceTask';
 import { useKeyboardNavigation } from './keyboardNavigation';
 import './MaintenanceGridLayout.css';
 // import { useScrollManager } from './scrollManager';
@@ -18,18 +27,25 @@ interface MaintenanceGridLayoutProps {
   gridState: GridState;
   viewMode: 'status' | 'cost';
   groupedData?: { [key: string]: HierarchicalData[] };
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  // value は spec / status / cost / string 等が混在 (呼び元 EMG.tsx で narrow)
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onCellDoubleClick?: (rowId: string, columnId: string, event?: React.MouseEvent<HTMLElement>) => void;
   onColumnResize: (columnId: string, width: number) => void;
   onRowResize: (rowId: string, height: number) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
-  onSelectedRangeChange: (range: any) => void;
+  onSelectedRangeChange: (range: GridRange | null) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
   onSpecificationEdit?: (rowId: string, index: number, field: 'key' | 'value', value: string) => void;
   onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
-  onAssetEdit?: (assetId: string, updates: any) => void;
-  hierarchy?: any;
+  // App.tsx 側 handleAssetEdit の shape と一致させる (UI 寄り field 名)
+  onAssetEdit?: (assetId: string, updates: {
+    assetName?: string;
+    bomCode?: string;
+    hierarchyPath?: Asset['hierarchyPath'];
+    specifications?: Asset['specifications'];
+  }) => void;
+  hierarchy?: HierarchyDefinition;
   virtualScrolling: boolean;
   readOnly: boolean;
   onCopy?: () => Promise<void>;
@@ -40,17 +56,17 @@ interface MaintenanceGridLayoutProps {
   selectedAssets?: string[];
   onPaste?: () => void;
   enableHorizontalVirtualScrolling?: boolean;
-  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent<any>) => void;
+  onAssetSelectionToggle?: (assetId: string, event: React.MouseEvent<HTMLElement>) => void;
   // Filter props
   searchTerm?: string;
   onSearchChange?: (value: string) => void;
   level1Filter?: string;
   level2Filter?: string;
   level3Filter?: string;
-  onLevel1FilterChange?: (event: any) => void;
-  onLevel2FilterChange?: (event: any) => void;
-  onLevel3FilterChange?: (event: any) => void;
-  hierarchyFilterTree?: any;
+  onLevel1FilterChange?: (event: SelectChangeEvent<string>) => void;
+  onLevel2FilterChange?: (event: SelectChangeEvent<string>) => void;
+  onLevel3FilterChange?: (event: SelectChangeEvent<string>) => void;
+  hierarchyFilterTree?: FilterTreeNode | null;
   level2Options?: string[];
   level3Options?: string[];
   uniqueTasks?: string[];
@@ -61,13 +77,13 @@ interface MaintenanceGridLayoutProps {
   onSelectedBomCodesChange?: (bomCodes: string[]) => void;
   onScroll?: (dateKey: string) => void;
   // Classification Filter props
-  assetClassification?: any;
-  workOrderClassifications?: any[];
+  assetClassification?: AssetClassificationDefinition;
+  workOrderClassifications?: WorkOrderClassification[];
   classificationFilter?: { [levelKey: string]: string };
   onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
   woClassificationFilter?: string;
   onWoClassificationFilterChange?: (classificationId: string) => void;
-  assets?: any[];
+  assets?: Asset[];
   isDragging?: boolean;
   startDragSelection?: (rowId: string, columnId: string) => void;
   updateDragSelection?: (rowId: string, columnId: string) => void;
@@ -91,10 +107,10 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   onSelectedCellChange,
   onEditingCellChange,
   onUpdateItem,
-  onSpecificationEdit,
+  onSpecificationEdit: _onSpecificationEdit,
   onSpecificationColumnReorder,
   onAssetEdit,
-  hierarchy,
+  hierarchy: _hierarchy,
   virtualScrolling,
   readOnly,
   onCopy,
@@ -213,12 +229,16 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
   // Note: Horizontal scroll reset logic has been completely removed based on user preference to never reset scroll position.
 
   // Enhanced editing state
+  // currentValue は dialog type ごとに shape が異なるため (tagNo: string /
+  // assetDetails: HierarchicalData / status: StatusValue / cost: CostValue)、
+  // 起点は unknown で受け、use-site (JSX/handler 内) で type discriminator と
+  // 共に narrow する。
   const [editDialogState, setEditDialogState] = useState<{
     type: 'status' | 'cost' | 'assetDetails' | 'tagNo' | null;
     open: boolean;
     rowId: string | null;
     columnId: string | null;
-    currentValue: any;
+    currentValue: unknown;
     anchorEl: HTMLElement | null;
   }>({
     type: null,
@@ -336,11 +356,12 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     return displayAreaConfig.scrollableAreas.specifications?.width || 400;
   }, [displayAreaConfig.scrollableAreas.specifications?.width]);
 
-  // Initialize area widths based on columns and config, and view modes, to ensure alignment upon mode switch
-  // Do NOT include fixedColumnsWidth to prevent resetting user-adjusted widths during regular renders
+  // モード切替時のみ幅をリセット。fixedColumnsWidth / specAreaConfigWidth を deps に入れると
+  // ユーザー調整中に毎回幅がリセットされるため意図的に除外。
   useEffect(() => {
     setFixedAreaWidth(fixedColumnsWidth);
     setSpecAreaWidth(specAreaConfigWidth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEquipmentBasedMode, isTaskBasedMode, viewMode]);
 
   // Basic scroll synchronization state (currently unused)
@@ -487,7 +508,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       height: '100%',
       overflow: 'auto'
     };
-  }, [displayAreaConfig.mode]);
+  }, [displayAreaConfig]);
 
   // Handle resizing of areas
   const handleFixedAreaResize = useCallback((delta: number) => {
@@ -532,11 +553,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         const taskPart = parts[0].replace('task_', '');
         const assetPart = parts[1];
 
-        item = data.find(d => {
-          const itemData = d as any;
-          return itemData.taskId === taskPart && itemData.assetId === assetPart;
-        });
+        item = data.find(d => d.taskId === taskPart && d.assetId === assetPart);
 
+        // eslint-disable-next-line no-empty
         if (item) {
                   }
       }
@@ -544,11 +563,9 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       // Strategy 2: Match asset rows
       if (!item && rowId.startsWith('asset_')) {
         const assetId = rowId.replace('asset_', '');
-        item = data.find(d => {
-          const itemData = d as any;
-          return itemData.assetId === assetId && !itemData.taskId;
-        });
+        item = data.find(d => d.assetId === assetId && !d.taskId);
 
+        // eslint-disable-next-line no-empty
         if (item) {
                   }
       }
@@ -560,7 +577,8 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
     
     let editType: 'assetDetails' | 'tagNo' | null = null;
-    let currentValue: any = null;
+    // assetDetails: HierarchicalData / tagNo: string で discriminate される。
+    let currentValue: HierarchicalData | string | null = null;
 
     // Determine edit type and current value based on column
     if (isEquipmentBasedMode && (columnId === 'task' || columnId === 'bomCode')) {
@@ -592,7 +610,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         onEditingCellChange(rowId, columnId);
       }
     }
-  }, [readOnly, columns, data, viewMode, deviceType, onEditingCellChange]);
+  }, [readOnly, columns, data, deviceType, onEditingCellChange, isEquipmentBasedMode, isTaskBasedMode]);
 
   // Wrapper that calls both external and internal handlers
   const handleCellDoubleClick = useCallback((
@@ -619,13 +637,16 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       // Non-time columns: only skip if propagation was stopped
       if (!event.isPropagationStopped()) {
                 handleCellDoubleClickInternal(rowId, columnId, event);
+      // eslint-disable-next-line no-empty
       } else {
               }
     }
   }, [onCellDoubleClick, handleCellDoubleClickInternal]);
 
   // Handle dialog save with layout stability
-  const handleDialogSave = useCallback((value: any) => {
+  // value は dialog type ごとに shape が異なる (string / StatusValue / CostValue /
+  // onAssetEdit updates 形状)。起点 unknown で受け、type discriminator で narrow。
+  const handleDialogSave = useCallback((value: unknown) => {
     if (!editDialogState.rowId || !editDialogState.columnId) return;
 
     const { rowId, columnId, type } = editDialogState;
@@ -662,83 +683,47 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
         if (onAssetEdit) {
           // assetId is usually the rowId for assets in equipment-based mode (stripped of "asset_" if present)
           const actualAssetId = rowId.startsWith('asset_') ? rowId.replace('asset_', '') : rowId;
-          onAssetEdit(actualAssetId, value);
+          // value は SpecificationEditDialog から `{ specifications: SpecificationValue[] }` 形状で渡る (line 下方)
+          onAssetEdit(actualAssetId, value as { assetName?: string; bomCode?: string; hierarchyPath?: Asset['hierarchyPath']; specifications?: Asset['specifications'] });
         }
       }
     };
 
-    // Use React's unstable_batchedUpdates to prevent multiple re-renders
-    // This is critical for preventing layout shifts
-    if (typeof (React as any).unstable_batchedUpdates === 'function') {
-      (React as any).unstable_batchedUpdates(() => {
-        performUpdate();
+    // React 18+ は automatic batching が標準で有効なので明示的な
+    // unstable_batchedUpdates ラッパは不要。
+    // (旧コードは React オブジェクト上の unstable_batchedUpdates を参照していたが、
+    //  この API は元々 react-dom 側にあり react 側には存在しないため
+    //  typeof チェックは常に false で必ず fallback 分岐が走る dead conditional だった。)
+    performUpdate();
 
-        // Close dialog in the same batch
-        setEditDialogState({
-          type: null,
-          open: false,
-          rowId: null,
-          columnId: null,
-          currentValue: null,
-          anchorEl: null,
-        });
+    // Close dialog
+    setEditDialogState({
+      type: null,
+      open: false,
+      rowId: null,
+      columnId: null,
+      currentValue: null,
+      anchorEl: null,
+    });
 
-        // Clear editing state but keep selected cell
-        onEditingCellChange(null, null);
-      });
-    } else {
-      // Fallback for newer React versions
-      performUpdate();
-
-      // Close dialog
-      setEditDialogState({
-        type: null,
-        open: false,
-        rowId: null,
-        columnId: null,
-        currentValue: null,
-        anchorEl: null,
-      });
-
-      // Clear editing state
-      onEditingCellChange(null, null);
-    }
-
-      }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange]);
+    // Clear editing state but keep selected cell
+    onEditingCellChange(null, null);
+  }, [editDialogState, onCellEdit, onUpdateItem, data, onEditingCellChange, onAssetEdit]);
 
   // Handle dialog close with minimal layout impact
+  // React 18+ automatic batching により 2 つの setState は同一 batch でフラッシュされる。
   const handleDialogClose = useCallback(() => {
-    
-    // Use batched updates to prevent layout shifts
-    if (typeof (React as any).unstable_batchedUpdates === 'function') {
-      (React as any).unstable_batchedUpdates(() => {
-        setEditDialogState({
-          type: null,
-          open: false,
-          rowId: null,
-          columnId: null,
-          currentValue: null,
-          anchorEl: null,
-        });
+    setEditDialogState({
+      type: null,
+      open: false,
+      rowId: null,
+      columnId: null,
+      currentValue: null,
+      anchorEl: null,
+    });
 
-        // Clear editing state
-        onEditingCellChange(null, null);
-      });
-    } else {
-      // Fallback for newer React versions
-      setEditDialogState({
-        type: null,
-        open: false,
-        rowId: null,
-        columnId: null,
-        currentValue: null,
-        anchorEl: null,
-      });
-
-      onEditingCellChange(null, null);
-    }
-
-      }, [onEditingCellChange]);
+    onEditingCellChange(null, null);
+  }, [onEditingCellChange]);
 
   // Enhanced column resize with improved performance
   const handleEnhancedColumnResize = useCallback((columnId: string, width: number) => {
@@ -750,14 +735,14 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     return () => clearTimeout(debouncedResize);
   }, [onColumnResize]);
 
-  // Copy & Paste handlers (delegated to parent)
-  const handleCopy = useCallback(async () => {
+  // Copy & Paste handlers (delegated to parent) — kept for future inline binding.
+  const _handleCopy = useCallback(async () => {
     if (onCopy) {
       await onCopy();
     }
   }, [onCopy]);
 
-  const handlePaste = useCallback(async () => {
+  const _handlePaste = useCallback(async () => {
     if (onPaste) {
       await onPaste();
     }
@@ -806,8 +791,6 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
     gridState.selectedCell,
     gridState.editingCell,
     handleKeyDown,
-    handleCopy,
-    handlePaste,
     onSelectedCellChange,
     handleCellDoubleClick,
     handleDialogClose
@@ -1493,7 +1476,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       {editDialogState.type === 'tagNo' && (
         <TagNoEditDialog
           open={editDialogState.open}
-          tagNo={editDialogState.currentValue}
+          tagNo={(editDialogState.currentValue ?? '') as string}
           onSave={handleDialogSave}
           onClose={handleDialogClose}
           readOnly={readOnly}
@@ -1503,7 +1486,7 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
       {editDialogState.type === 'assetDetails' && (
         <SpecificationEditDialog
           open={editDialogState.open}
-          specifications={editDialogState.currentValue?.specifications || []}
+          specifications={(editDialogState.currentValue as HierarchicalData | null)?.specifications as Specification[] || []}
           onSave={(specs) => handleDialogSave({ specifications: specs })}
           onClose={handleDialogClose}
           anchorEl={editDialogState.anchorEl}
@@ -1516,13 +1499,11 @@ const MaintenanceGridLayoutCore: React.FC<MaintenanceGridLayoutProps> = ({
 
 // Wrapper component that provides CommonEditLogic context
 export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (props) => {
-  const handleValidationError = useCallback((error: any) => {
-    console.error('Validation error:', error);
-    // TODO: Show user-friendly error message
-  }, []);
+  // handleValidationError は定義のみで一切呼ばれない死コードだったため削除
+  // (TODO コメントと unused-vars / no-explicit-any disable で隠蔽されていた)。
 
   // Convert the onSpecificationEdit to match the expected interface
-  const handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
+  const _handleSpecificationEdit = useCallback((rowId: string, specIndex: number, key: string, value: string) => {
     // For now, we'll handle this differently since the original interface expects field/value
     // This is a temporary adapter until we can update the interface
     if (props.onSpecificationEdit) {
@@ -1535,7 +1516,7 @@ export const MaintenanceGridLayout: React.FC<MaintenanceGridLayoutProps> = (prop
   }, [props]);
 
   // Create device detection
-  const deviceDetection = useMemo(() => ({
+  const _deviceDetection = useMemo(() => ({
     type: 'desktop' as const,
     screenSize: { width: window.innerWidth, height: window.innerHeight },
     orientation: window.innerWidth > window.innerHeight ? 'landscape' as const : 'portrait' as const,

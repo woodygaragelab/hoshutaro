@@ -16,7 +16,7 @@ export interface ErrorBoundaryProps {
   onRecovery?: () => void;
   onRetry?: () => void;
   onErrorReport?: (errorDetails: ErrorDetails) => void;
-  onFeedback?: (feedbackData: any) => void;
+  onFeedback?: (feedbackData: Record<string, unknown>) => void;
 }
 
 // Error Boundary State
@@ -70,10 +70,18 @@ export interface ErrorContext {
   sessionId?: string;
 }
 
+// Offline Queue Entry (wraps the operation payload stored in OfflineData)
+export interface OfflineQueueEntry {
+  operation: 'create' | 'update' | 'delete';
+  itemId: string;
+  data: { type: string; [key: string]: unknown };
+  timestamp: number;
+}
+
 // Offline Data
 export interface OfflineData {
   key: string;
-  data: any;
+  data: OfflineQueueEntry;
   timestamp: number;
   deviceType: 'desktop' | 'tablet' | 'mobile';
   syncStatus: 'pending' | 'synced' | 'error';
@@ -97,10 +105,10 @@ export enum GridErrorType {
 export interface GridError extends Error {
   type: GridErrorType;
   deviceType: 'desktop' | 'tablet' | 'mobile';
-  context?: any;
+  context?: Record<string, unknown>;
   recoverable: boolean;
   userMessage: string;
-  technicalDetails: any;
+  technicalDetails: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -164,7 +172,7 @@ export interface ErrorReport {
   error: GridError;
   context: ErrorContext;
   userActions: string[];
-  systemState: any;
+  systemState: Record<string, unknown>;
   recoveryAttempts: RecoveryAttempt[];
   resolution: 'recovered' | 'unresolved' | 'user_action';
 }

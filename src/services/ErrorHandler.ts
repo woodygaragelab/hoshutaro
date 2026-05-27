@@ -14,7 +14,7 @@ export interface ValidationError {
   type: 'VALIDATION_ERROR';
   field: string;
   message: string;
-  value: any;
+  value: unknown;
 }
 
 /**
@@ -37,7 +37,7 @@ export interface MigrationError {
   type: 'MIGRATION_ERROR';
   source: string;
   message: string;
-  data: any;
+  data: unknown;
 }
 
 /**
@@ -273,7 +273,9 @@ export class ErrorHandler implements IErrorHandler {
     // Always log to console for debugging
     if (severity === 'error') {
       console.error(message);
+     
     } else if (severity === 'warning') {
+          // eslint-disable-next-line no-empty
           } else {
           }
   }
@@ -331,7 +333,7 @@ export const errorHandler = new ErrorHandler();
 export function createValidationError(
   field: string,
   message: string,
-  value: any
+  value: unknown
 ): ValidationError {
   return {
     type: 'VALIDATION_ERROR',
@@ -359,7 +361,7 @@ export function createReferenceError(
 export function createMigrationError(
   source: string,
   message: string,
-  data: any
+  data: unknown
 ): MigrationError {
   return {
     type: 'MIGRATION_ERROR',

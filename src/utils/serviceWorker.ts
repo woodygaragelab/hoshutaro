@@ -21,7 +21,7 @@ const getPublicUrl = () => {
   }
 };
 
-const isDevelopment = () => {
+const _isDevelopment = () => {
   try {
     return import.meta.env?.DEV || false;
   } catch {

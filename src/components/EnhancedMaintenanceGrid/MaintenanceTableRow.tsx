@@ -1,5 +1,5 @@
-import React, { useCallback, useState, useRef, useEffect } from 'react';
-import { Box, TextField, Checkbox } from '@mui/material';
+import React, { useCallback, useRef, useEffect } from 'react';
+import { Box } from '@mui/material';
 import { HierarchicalData } from '../../types';
 import { GridColumn, GridState } from './types';
 
@@ -8,7 +8,8 @@ interface MaintenanceTableRowProps {
   columns: GridColumn[];
   viewMode: 'status' | 'cost';
   gridState: GridState;
-  onCellEdit: (rowId: string, columnId: string, value: any) => void;
+  // value は status / cost / string 等 (consumer 側 narrow)
+  onCellEdit: (rowId: string, columnId: string, value: unknown) => void;
   onSelectedCellChange: (rowId: string | null, columnId: string | null) => void;
   onEditingCellChange: (rowId: string | null, columnId: string | null) => void;
   onUpdateItem: (updatedItem: HierarchicalData) => void;
@@ -38,7 +39,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   onCellEdit,
   onSelectedCellChange,
   onEditingCellChange,
-  onUpdateItem,
+  onUpdateItem: _onUpdateItem,
   onCellDoubleClick,
   readOnly,
   draggedColumnIndex,
@@ -47,7 +48,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   virtualOffset = 0,
   displayColumns,
   isEquipmentBasedMode = false,
-  isTaskBasedMode = false,
+  isTaskBasedMode: _isTaskBasedMode = false,
   isFixedArea = false,
   isDragging,
   startDragSelection,
@@ -66,7 +67,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
   }, [readOnly]);
 
   // Get cell value based on column accessor
-  const getCellValue = useCallback((column: any) => {
+  const getCellValue = useCallback((column: GridColumn) => {
     const { id } = column;
     
     if (id === 'task') return item.task;
@@ -292,7 +293,7 @@ const MaintenanceTableRowComponent: React.FC<MaintenanceTableRowProps> = ({
                   startDragSelection(item.id, column.id);
                 }
               }}
-              onMouseEnter={(e: React.MouseEvent) => {
+              onMouseEnter={() => {
                 if (isDragging && updateDragSelection) {
                   updateDragSelection(item.id, column.id);
                 }

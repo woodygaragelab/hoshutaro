@@ -106,9 +106,8 @@ export function useHorizontalVirtualScrolling(
 
   const totalWidth = cumulativeWidths[cumulativeWidths.length - 1];
 
-  // Handle scroll - no-op since we use scrollLeft from config
-  const handleScroll = useCallback((newScrollLeft: number) => {
-    // This is handled by the parent component passing scrollLeft to config
+  // Handle scroll - no-op since scrollLeft is passed via config from the parent.
+  const handleScroll = useCallback((_newScrollLeft: number) => {
   }, []);
 
   return {

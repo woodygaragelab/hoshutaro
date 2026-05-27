@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 // HMR Cache Invalidation Touch: Vite requires this to clear the module graph after deep component deletion
-import { Box, Paper, Snackbar, Alert, Typography, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import { Box, Paper, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import { EnhancedMaintenanceGridProps, DisplayAreaConfig, GridColumn } from './types';
 import MaintenanceGridLayout from './MaintenanceGridLayout';
 import { useMaintenanceGridState } from './hooks/useMaintenanceGridState';
@@ -11,13 +11,17 @@ import {
   Asset,
   WorkOrderLine,
   HierarchyDefinition,
+  AssetClassificationDefinition,
+  WorkOrderClassification,
   WorkOrderLineUpdate,
-  WorkOrderBasedRow,
   TimeScale,
   SpecificationChange,
+  WorkOrderBasedRow,
+  AggregatedStatus,
 } from '../../types/maintenanceTask';
-import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
+import { HierarchicalData } from '../../types';
+import type { FilterTreeNode } from '../../utils/dataTransformer';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import './EnhancedMaintenanceGrid.css';
 import { writeToClipboard, readFromClipboard, generateTSV, parseTSV } from './utils/clipboardUtils';
 import { extractIdsFromRowId } from './utils/gridIdUtils';
@@ -55,7 +59,13 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   onHierarchyEdit?: (hierarchy: HierarchyDefinition) => void;
   onOpenAssetReassignDialog?: () => void;
   onOpenTaskEditDialog?: (assetId: string, dateKey: string, taskId?: string) => void;
-  onAssetEdit?: (assetId: string, updates: any) => void;
+  // App.tsx 側 handleAssetEdit と shape を揃える (UI 寄り field 名 assetName / bomCode を含む)
+  onAssetEdit?: (assetId: string, updates: {
+    assetName?: string;
+    bomCode?: string;
+    hierarchyPath?: Asset['hierarchyPath'];
+    specifications?: Asset['specifications'];
+  }) => void;
 
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
   canUndo?: boolean;
@@ -66,13 +76,14 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   // Additional props from usage
   displayMode?: 'both' | 'specifications' | 'maintenance';
   showBomCode?: boolean;
-  onSpecificationEdit?: (rowId: string, specIndex: number, field: string, value: any) => void;
+  // value は spec field によって string / number 等に変わるため unknown を使用
+  onSpecificationEdit?: (rowId: string, specIndex: number, field: string, value: unknown) => void;
   onSpecificationBatchUpdate?: (changes: SpecificationChange[]) => void;
   onSpecificationColumnReorder?: (fromIndex: number, toIndex: number) => void;
   onColumnResize?: (columnId: string, width: number) => void;
   onRowResize?: (rowId: string, height: number) => void;
   className?: string;
-  groupedData?: { [key: string]: any[] };
+  groupedData?: { [key: string]: HierarchicalData[] };
   searchTerm?: string;
   onSearchChange?: (value: string) => void;
   uniqueTasks?: string[];
@@ -84,10 +95,11 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   level1Filter?: string;
   level2Filter?: string;
   level3Filter?: string;
-  onLevel1FilterChange?: (event: any) => void;
-  onLevel2FilterChange?: (event: any) => void;
-  onLevel3FilterChange?: (event: any) => void;
-  hierarchyFilterTree?: any;
+  // EMG 内で SelectChangeEvent を unpack してから string で呼び出す
+  onLevel1FilterChange?: (value: string) => void;
+  onLevel2FilterChange?: (value: string) => void;
+  onLevel3FilterChange?: (value: string) => void;
+  hierarchyFilterTree?: FilterTreeNode | null;
   level2Options?: string[];
   level3Options?: string[];
   onShowBomCodeChange?: (checked: boolean) => void;
@@ -103,10 +115,15 @@ export interface ExtendedMaintenanceGridProps extends Omit<EnhancedMaintenanceGr
   // Project Name Props
   projectName?: string;
   onProjectNameChange?: (newName: string) => void;
+  onAddYear?: () => void;
+  onDeleteYear?: () => void;
+  onExportData?: () => void;
+  onImportData?: () => void;
+  onResetData?: () => void;
 
   // Classification Filter props
-  assetClassification?: any;
-  workOrderClassifications?: any[];
+  assetClassification?: AssetClassificationDefinition;
+  workOrderClassifications?: WorkOrderClassification[];
   classificationFilter?: { [levelKey: string]: string };
   onClassificationFilterChange?: (filter: { [levelKey: string]: string }) => void;
   woClassificationFilter?: string;
@@ -126,7 +143,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onColumnResize,
   onRowResize,
   onUpdateItem,
-  virtualScrolling = false,
+  virtualScrolling: _virtualScrolling = false,
   readOnly = false,
   className = '',
   groupedData,
@@ -139,22 +156,22 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   onTaskAssociationUpdate,
   // Data view mode props - Requirements 6.1, 6.2, 6.5
   dataViewMode = 'asset-based',
-  onDataViewModeChange,
+  onDataViewModeChange: _onDataViewModeChange,
   // Edit scope props - Requirements 4.8, 5.7
-  editScope = 'single-asset',
-  onEditScopeChange,
+  editScope: _editScope = 'single-asset',
+  onEditScopeChange: _onEditScopeChange,
   // Hierarchy management props - Requirements 3.1, 3.2
   selectedAssets = [],
   onAssetSelectionChange,
-  onHierarchyEdit,
-  onOpenAssetReassignDialog,
+  onHierarchyEdit: _onHierarchyEdit,
+  onOpenAssetReassignDialog: _onOpenAssetReassignDialog,
   onOpenTaskEditDialog,
   onAssetEdit,
   // Undo/Redo props - Requirements 8.1, 8.2, 8.3
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
+  canUndo: _canUndo,
+  canRedo: _canRedo,
+  onUndo: _onUndo,
+  onRedo: _onRedo,
   // Integrated toolbar props
   searchTerm = '',
   onSearchChange,
@@ -167,13 +184,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   hierarchyFilterTree,
   level2Options = [],
   level3Options = [],
-  onViewModeChange,
-  timeScale = 'year',
-  onTimeScaleChange,
-  onShowBomCodeChange,
-  onDisplayModeChange,
-  currentYear,
-  onJumpToDate,
+  // onViewModeChange / onTimeScaleChange は EMG 内で binding 先 UI 要素が無く
+  // 親から渡されても呼ばれない。dead prop だが API surface のため受理だけする。
+  onViewModeChange: _onViewModeChange,
+  timeScale: _timeScale = 'year',
+  onTimeScaleChange: _onTimeScaleChange,
+  onShowBomCodeChange: _onShowBomCodeChange,
+  onDisplayModeChange: _onDisplayModeChange,
+  currentYear: _currentYear,
+  onJumpToDate: _onJumpToDate,
   onCellCopy,
   onCellPaste,
   onTimeCellsDelete,
@@ -308,65 +327,34 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
     // Task-based mode conversion (only if no data from parent)
     if (isTaskBasedMode && taskBasedData.length > 0) {
-      return taskBasedData.map((row: any) => {
-        if (row.type === 'hierarchy') {
-          // Hierarchy header row (帯部分)
-          return {
-            id: `hierarchy_${row.hierarchyKey}_${row.hierarchyValue}`,
-            task: row.hierarchyValue!,
-            bomCode: '',
-            specifications: [],
-            results: {},
-            rolledUpResults: {},
-            isGroupHeader: true,
-            level: row.level,
-            // Add type information for WorkOrderBasedRow
-            type: 'hierarchy',
-            rowType: 'hierarchy'
-          };
-        } else if (row.type === 'asset') {
-          // Asset row (機器)
-          return {
-            id: `asset_${row.assetId}`,
-            task: row.assetName!,
-            bomCode: row.assetId!,
-            specifications: [],
-            results: {},
-            rolledUpResults: {},
-            isGroupHeader: false,
-            level: row.level,
-            assetId: row.assetId,
-            hierarchyPath: row.hierarchyPath,
-            // Add type information for WorkOrderBasedRow
-            type: 'asset',
-            rowType: 'asset'
-          };
-        } else {
-          // Task row under asset with schedule information (作業)
-          let results: any = {};
-          let rolledUpResults: any = {};
+      // WorkOrderBasedRow.type は canonical な 'workOrder' | 'assetChild' のみ。
+      // PR #18 で type union がスリム化された結果、旧 'hierarchy' / 'asset' 分岐は
+      // dead code となり any によって隠蔽されていた → 削除し canonical 2 値で処理する。
+      return taskBasedData.map((row: WorkOrderBasedRow) => {
+        const scheduleSnapshot: { [timeKey: string]: AggregatedStatus } = row.aggregatedSchedule
+          ? { ...row.aggregatedSchedule }
+          : {};
+        // HierarchyPath は { [levelKey: string]: string } のオブジェクト。
+        // HierarchicalData.hierarchyPath は breadcrumb 表示用 string なので join する。
+        const hierarchyPathStr = row.hierarchyPath
+          ? Object.values(row.hierarchyPath).join(' > ')
+          : undefined;
 
-          if (row.aggregatedSchedule) {
-            results = { ...row.aggregatedSchedule };
-            rolledUpResults = { ...row.aggregatedSchedule };
-          }
-
-          return {
-            id: `task_${row.workOrderId}_asset_${row.assetId}`,
-            task: row.workOrderName || '',
-            bomCode: row.assetId!,
-            specifications: [],
-            results,
-            rolledUpResults,
-            hierarchyPath: row.hierarchyPath,
-            level: row.level,
-            assetId: row.assetId,
-            taskId: row.workOrderId,
-            schedule: row.aggregatedSchedule,
-            type: 'workOrderLine',
-            rowType: 'workOrderLine'
-          };
-        }
+        return {
+          id: `task_${row.workOrderId}_asset_${row.assetId}`,
+          task: row.workOrderName || '',
+          bomCode: row.assetId!,
+          specifications: [],
+          results: scheduleSnapshot,
+          rolledUpResults: scheduleSnapshot,
+          hierarchyPath: hierarchyPathStr,
+          level: row.level,
+          assetId: row.assetId,
+          taskId: row.workOrderId,
+          schedule: row.aggregatedSchedule,
+          type: 'workOrderLine',
+          rowType: 'workOrderLine'
+        };
       });
     }
 
@@ -390,6 +378,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
           };
         } else {
           // Asset row (帯) - No aggregated schedule natively
+          // HierarchyPath (object) を HierarchicalData.hierarchyPath (string) 形式に変換。
+          const hierarchyPathStr = row.hierarchyPath
+            ? Object.values(row.hierarchyPath).join(' > ')
+            : undefined;
           return {
             id: row.assetId!,
             task: row.assetName!,
@@ -397,13 +389,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             specifications: row.specifications || [],
             results: {},
             rolledUpResults: {},
-            hierarchyPath: row.hierarchyPath,
-            tasks: [],
-
+            hierarchyPath: hierarchyPathStr,
+            level: row.level ?? 0,
             // Add type information
             type: 'asset' as const,
-            rowType: 'asset' as const
-          } as any;
+            rowType: 'asset' as const,
+          };
         }
       });
     }
@@ -522,13 +513,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
     return cols;
   }, [
-    timeScale, 
-    displayMode, 
-    showBomCode, 
-    memoizedTimeHeaders, 
-    viewMode, 
-    data, 
-    isTaskBasedMode, 
+    displayMode,
+    showBomCode,
+    memoizedTimeHeaders,
+    viewMode,
+    data,
+    isTaskBasedMode,
     isEquipmentBasedMode
   ]);
 
@@ -562,23 +552,27 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   const visibleRowIds = useMemo(() => {
     const ids: string[] = [];
     if (isTaskBasedMode && taskBasedData.length > 0) {
+      // taskBasedData は ViewModeManager.getWorkOrderBasedData() の出力で type は
+      // canonical な 'workOrder' | 'assetChild' のみ。
       const visibleRows = taskBasedData.filter(row => {
-        if (row.type === 'hierarchy' || row.type === 'asset' || row.type === 'workOrder') return true;
-        if ((row.type === 'workOrderLine' || row.type === 'assetChild') && row.workOrderId) {
+        if (row.type === 'workOrder') return true;
+        if (row.type === 'assetChild' && row.workOrderId) {
           return expandedWorkOrders?.has(row.workOrderId);
         }
-        return true; 
+        return true;
       });
       visibleRows.forEach(row => ids.push(row.id));
     } else {
-      const renderData = groupedData ? Object.entries(groupedData) : [['', data]];
+      const renderData: [string, HierarchicalData[]][] = groupedData
+        ? Object.entries(groupedData)
+        : [['', data]];
       renderData.forEach(([hierarchyPath, items]) => {
         if (hierarchyPath) {
           // Add group header if visual match
           // IDs of group headers aren't selectable via specifications usually, but necessary for accurate distance
-          ids.push(`hierarchy_${hierarchyPath}`); 
+          ids.push(`hierarchy_${hierarchyPath}`);
         }
-        items.forEach((item: HierarchicalData) => {
+        items.forEach(item => {
           ids.push(item.id);
         });
       });
@@ -601,15 +595,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     isCellInSelectedRange
   } = useMaintenanceGridState(columns, visibleRowIds);
 
-  // Auto-enable virtual scrolling for large column counts (week/day views)
-  const autoVirtualScrolling = useMemo(() => {
-    return true; // Use virtual scrolling for performance stability natively
-  }, [columns, virtualScrolling]);
+  // 仮想スクロールは常に有効（パフォーマンス安定性のため定数）。
+  const autoVirtualScrolling = useMemo(() => true, []);
 
   // Performance optimization hooks - use appropriate data based on mode
-  const dataForProcessing = useMemo(() => {
-    // Use convertedData (which now includes data from parent)
-    return convertedData as any;
+  // convertedData は taskBased / equipmentBased / parent data から派生する派生行配列。
+  // 内部表現としては HierarchicalData[] のスーパーセット相当のフィールドを持つため
+  // 下流の処理 (clipboard / find / spec edit) では HierarchicalData[] として扱う。
+  const dataForProcessing = useMemo<HierarchicalData[]>(() => {
+    return convertedData as HierarchicalData[];
   }, [convertedData]);
 
   const processedData = dataForProcessing;
@@ -690,7 +684,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     // For non-time columns, let MaintenanceGridLayout handle (specifications, etc.)
-      }, [isEquipmentBasedMode, isTaskBasedMode, dataViewMode, onOpenTaskEditDialog]);
+  }, [onOpenTaskEditDialog]);
 
   // Handle task association updates from dialog
   const handleTaskAssociationUpdate = useCallback((updates: WorkOrderLineUpdate[]) => {
@@ -701,17 +695,13 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     // Close dialog with minimal state change to prevent layout issues
     setTaskEditDialogOpen(false);
 
-    // Show success message after a brief delay to ensure smooth transition
-    setTimeout(() => {
-      setClipboardMessage({
-        message: '作業の関連付けを更新しました',
-        severity: 'success'
-      });
-    }, 100);
+    // (元コードは存在しない setClipboardMessage を呼んでおり死コードだったため削除)
   }, [onTaskAssociationUpdate]);
 
   // Handle cell editing with support for both regular cells and specifications
-  const handleCellEdit = useCallback((rowId: string, columnId: string, value: any) => {
+  // value は呼び出し元 (MaintenanceGridLayout) から spec 編集の string / time セル編集の
+  // string シンボル ('◎' 等) / 数値などが混在して流れてくるため unknown を起点に narrow する。
+  const handleCellEdit = useCallback((rowId: string, columnId: string, value: unknown) => {
     if (readOnly) return;
 
     // In equipment-based mode, time cells editing is handled by double-click dialog
@@ -724,6 +714,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     // Check if this is a specification edit
     if (columnId.startsWith('spec_')) {
       const specKey = columnId.replace('spec_', '');
+      // spec.value の正規型は string なので、unknown を防御的に string 化する
+      const specValue: string = typeof value === 'string' ? value : String(value ?? '');
 
       if (onSpecificationEdit) {
         debouncedUpdate(() => {
@@ -737,20 +729,20 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               // Update existing specification
               newSpecs[existingSpecIndex] = {
                 ...newSpecs[existingSpecIndex],
-                value: value
+                value: specValue
               };
             } else {
               // Add new specification
               newSpecs.push({
                 key: specKey,
-                value: value,
+                value: specValue,
                 order: newSpecs.length + 1
               });
             }
 
             // Call the specification edit handler with the spec index
             const specIndex = existingSpecIndex >= 0 ? existingSpecIndex : newSpecs.length - 1;
-            onSpecificationEdit(rowId, specIndex, 'value', value);
+            onSpecificationEdit(rowId, specIndex, 'value', specValue);
 
             // Update the item
             if (onUpdateItem) {
@@ -777,7 +769,8 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               const timeHeader = columnId.replace('time_', '');
 
               // Convert string status symbols to status object if needed
-              let statusValue = value;
+              type StatusEntry = { planned: boolean; actual: boolean; planCost: number; actualCost: number };
+              let statusValue: StatusEntry;
               if (typeof value === 'string') {
                 switch (value) {
                   case '◎':
@@ -793,6 +786,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
                   default:
                     statusValue = { planned: false, actual: false, planCost: 0, actualCost: 0 };
                 }
+              } else {
+                // 非 string 値はクリップボード由来等で既に status オブジェクト形状を仮定
+                statusValue = value as StatusEntry;
               }
 
               const updatedResults = {
@@ -816,7 +812,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
         });
       }
     }
-  }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode, isTaskBasedMode]);
+  }, [readOnly, onCellEdit, onSpecificationEdit, debouncedUpdate, processedData, onUpdateItem, isEquipmentBasedMode]);
 
 
 
@@ -837,26 +833,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     setCurrentDisplayAreaConfig(null); // Reset to use the computed displayAreaConfig
   }, [displayMode]);
 
-  // Determine current display area based on selected cell
-  const getCurrentDisplayArea = useCallback((): 'specifications' | 'maintenance' => {
-    if (!gridState.selectedCell) return 'maintenance';
-
-    const column = processedColumns.find(col => col.id === gridState.selectedCell?.columnId);
-    if (!column) return 'maintenance';
-
-    // Check if column is in specifications area
-    const specColumns = displayAreaConfig.scrollableAreas.specifications?.columns || [];
-    if (specColumns.includes(column.id)) {
-      return 'specifications';
-    }
-
-    return 'maintenance';
-  }, [gridState.selectedCell, processedColumns, displayAreaConfig]);
-
-  // Handle copy operation with cross-area support
   const handleSystemCopy = useCallback(async () => {
     if (!gridState.selectedCell) return;
-    const { rowId, columnId } = gridState.selectedCell;
+    const { columnId } = gridState.selectedCell;
 
     // Is it a specification string?
     if (columnId.startsWith('spec_')) {
@@ -884,17 +863,17 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
         for (let r = minRow; r <= maxRow; r++) {
           const targetRowId = visibleRowIds[r];
-          const rowData = processedData.find((d: any) => d.id === targetRowId);
+          const rowData = processedData.find(d => d.id === targetRowId);
           if (!rowData) continue; // Skip group header rows that don't have specifications
-          
+
           const rowValues: string[] = [];
           const currentInternalRow: { relativeColIdx: number; specKey: string; specName: string; value: string }[] = [];
-          
+
           for (let c = minCol; c <= maxCol; c++) {
             const colDef = processedColumns[c];
             if (colDef.id.startsWith('spec_')) {
               const specKey = colDef.id.replace('spec_', '');
-              const spec = rowData.specifications?.find((s: any) => s.key === specKey);
+              const spec = rowData.specifications?.find(s => s.key === specKey);
               const val = spec?.value || '';
               rowValues.push(val);
               currentInternalRow.push({
@@ -929,9 +908,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     if (onCellCopy) {
-      onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode as any);
+      onCellCopy(gridState.selectedCell.rowId, gridState.selectedCell.columnId, viewMode);
     }
-  }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns]);
+  }, [gridState.selectedCell, gridState.selectedRange, onCellCopy, viewMode, processedData, processedColumns, visibleRowIds]);
 
   // Handle paste operation with cross-area support
   const handleSystemPaste = useCallback(async () => {
@@ -953,14 +932,14 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               if (targetRowIdx >= visibleRowIds.length) return;
               
               const targetRowId = visibleRowIds[targetRowIdx];
-              const targetRow = processedData.find((d: any) => d.id === targetRowId);
+              const targetRow = processedData.find(d => d.id === targetRowId);
               if (!targetRow) return;
 
               // Parse asset ID robustly using common utility
               const { assetId: actualAssetId } = extractIdsFromRowId(targetRow.id, targetRow.assetId);
 
               let rowModified = false;
-              let newSpecs = [...(targetRow.specifications || [])];
+              const newSpecs = [...(targetRow.specifications || [])];
 
               srcRow.specs.forEach((srcSpec) => {
                 const targetColIdx = startColIdx + srcSpec.relativeColIdx;
@@ -974,7 +953,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
                   if (existingIndex >= 0) {
                     newSpecs[existingIndex] = { ...newSpecs[existingIndex], value: srcSpec.value };
                   } else {
-                    newSpecs.push({ key: specKey, name: targetCol.header, value: srcSpec.value, order: newSpecs.length + 1 });
+                    // canonical Specification 型は { key, value, order } のみ。
+                    // `name` は any によって紛れ込んでいた死フィールドで read 元なし。
+                    newSpecs.push({ key: specKey, value: srcSpec.value, order: newSpecs.length + 1 });
                   }
                   rowModified = true;
                 }
@@ -1000,15 +981,15 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
               const targetRowIdx = startRowIdx + rOffset;
               if (targetRowIdx >= visibleRowIds.length) return;
               const targetRowId = visibleRowIds[targetRowIdx];
-              const targetRow = processedData.find((d: any) => d.id === targetRowId);
+              const targetRow = processedData.find(d => d.id === targetRowId);
               if (!targetRow) return;
-              
+
               // Parse asset ID robustly using common utility
               const { assetId: actualAssetId } = extractIdsFromRowId(targetRow.id, targetRow.assetId);
 
               let rowModified = false;
-              let newSpecs = [...(targetRow.specifications || [])];
-              
+              const newSpecs = [...(targetRow.specifications || [])];
+
               rowVals.forEach((val, cOffset) => {
                 const targetColIdx = startColIdx + cOffset;
                 if (targetColIdx >= processedColumns.length) return;
@@ -1028,7 +1009,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
                     if (existingIndex >= 0) {
                       newSpecs[existingIndex] = { ...newSpecs[existingIndex], value: val };
                     } else {
-                      newSpecs.push({ key: specKey, name: targetCol.header, value: val, order: newSpecs.length + 1 });
+                      newSpecs.push({ key: specKey, value: val, order: newSpecs.length + 1 });
                     }
                     rowModified = true;
                   }
@@ -1051,7 +1032,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
             // Legacy fallback if App didn't pass the new prop
             console.warn('onSpecificationBatchUpdate is missing, falling back to sequential UI updates (Undo/Redo disabled)');
             batchChanges.forEach(change => {
-              const legacyRow = processedData.find((d: any) => d.id === targetRowId || d.assetId === change.assetId); // approximate
+              const legacyRow = processedData.find(d => d.assetId === change.assetId); // approximate
               if (legacyRow) onUpdateItem({ ...legacyRow, specifications: change.specifications });
             });
           }
@@ -1063,10 +1044,10 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     }
 
     if (onCellPaste) {
-      onCellPaste(rowId, columnId, viewMode as any);
+      onCellPaste(rowId, columnId, viewMode);
       // Optional: notification will be triggered internally by App.tsx if successful
     }
-  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem]);
+  }, [gridState.selectedCell, readOnly, onCellPaste, viewMode, processedData, processedColumns, specClipboard, onSpecificationBatchUpdate, onUpdateItem, visibleRowIds]);
 
   // Handle delete operation
   const handleSystemDelete = useCallback(() => {
@@ -1095,14 +1076,14 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
 
         for (let r = minRow; r <= maxRow; r++) {
           const targetRowId = visibleRowIds[r];
-          const targetRow = processedData.find((d: any) => d.id === targetRowId);
+          const targetRow = processedData.find(d => d.id === targetRowId);
           if (!targetRow) continue; // Skip group headers
           
           // Parse asset ID robustly
           const { assetId: actualAssetId } = extractIdsFromRowId(targetRow.id, targetRow.assetId);
 
           let rowModified = false;
-          let newSpecs = [...(targetRow.specifications || [])];
+          const newSpecs = [...(targetRow.specifications || [])];
           
           for (let c = minCol; c <= maxCol; c++) {
             const colDef = processedColumns[c];
@@ -1129,7 +1110,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
           onSpecificationBatchUpdate(batchChanges);
         } else if (batchChanges.length > 0 && onUpdateItem) {
           batchChanges.forEach(change => {
-            const legacyRow = processedData.find((d: any) => d.id === rowId || d.assetId === change.assetId);
+            const legacyRow = processedData.find(d => d.id === rowId || d.assetId === change.assetId);
             if (legacyRow) onUpdateItem({ ...legacyRow, specifications: change.specifications });
           });
         }
@@ -1176,14 +1157,12 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     readOnly,
     processedColumns,
     processedData,
-    onSpecificationEdit,
     onUpdateItem,
-    onCellEdit,
     handleCellEdit,
-    isTaskBasedMode,
-    convertedData,
-    associations,
-    onTaskAssociationUpdate
+    gridState.selectedRange?.end,
+    gridState.selectedRange?.start,
+    onSpecificationBatchUpdate,
+    visibleRowIds,
   ]);
 
   // Handle keyboard navigation
@@ -1254,6 +1233,7 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       case 'Enter':
         e.preventDefault();
         // If the current cell is editable and not readonly, start editing
+        // eslint-disable-next-line no-case-declarations
         const currentColumn = processedColumns.find(col => col.id === gridState.selectedCell?.columnId);
         if (currentColumn?.editable && !readOnly) {
           setEditingCell(gridState.selectedCell.rowId, gridState.selectedCell.columnId);
@@ -1326,9 +1306,9 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
     } else if (event.shiftKey && currentSelected.length > 0) {
       // Shift+Click: Range selection
       const lastSelected = currentSelected[currentSelected.length - 1];
-      const assetIds = convertedData
-        .filter((row: any) => !row.isGroupHeader)
-        .map((row: any) => row.id);
+      const assetIds = (convertedData as HierarchicalData[])
+        .filter(row => !row.isGroupHeader)
+        .map(row => row.id);
 
       const lastIndex = assetIds.indexOf(lastSelected);
       const currentIndex = assetIds.indexOf(assetId);
@@ -1346,35 +1326,28 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
       // Regular click: Single selection
       onAssetSelectionChange([assetId]);
     }
-  }, [selectedAssets, onAssetSelectionChange, processedData]);
+  }, [selectedAssets, onAssetSelectionChange, convertedData]);
 
 
 
   // Stable callback handlers to prevent infinite re-renders
-  const handleLevel1FilterChange = useCallback((e: any) => {
+  const handleLevel1FilterChange = useCallback((e: SelectChangeEvent<string>) => {
     onLevel1FilterChange?.(e.target.value);
   }, [onLevel1FilterChange]);
 
-  const handleLevel2FilterChange = useCallback((e: any) => {
+  const handleLevel2FilterChange = useCallback((e: SelectChangeEvent<string>) => {
     onLevel2FilterChange?.(e.target.value);
   }, [onLevel2FilterChange]);
 
-  const handleLevel3FilterChange = useCallback((e: any) => {
+  const handleLevel3FilterChange = useCallback((e: SelectChangeEvent<string>) => {
     onLevel3FilterChange?.(e.target.value);
   }, [onLevel3FilterChange]);
 
-  const handleViewModeChange = useCallback((e: any) => {
-    onViewModeChange?.(e.target.checked ? 'cost' : 'status');
-  }, [onViewModeChange]);
-
-  const handleTimeScaleChange = useCallback((e: any) => {
-    onTimeScaleChange?.(e.target.value as TimeScale);
-  }, [onTimeScaleChange]);
+  // handleViewModeChange / handleTimeScaleChange は本コンポーネント内で binding 先が無く
+  // 死コードだったため削除。viewMode / timeScale の切替 UI は親側 (App.tsx) に存在する。
 
   // Stable empty function references with useMemo to prevent re-creation
   const stableOnSearchChange = useMemo(() => onSearchChange || (() => { }), [onSearchChange]);
-  const stableOnShowBomCodeChange = useMemo(() => onShowBomCodeChange || (() => { }), [onShowBomCodeChange]);
-  const stableOnDisplayModeChange = useMemo(() => onDisplayModeChange || (() => { }), [onDisplayModeChange]);
 
   // Desktop-only view
   const renderGridView = useMemo(() => {
@@ -1448,13 +1421,18 @@ export const EnhancedMaintenanceGrid: React.FC<ExtendedMaintenanceGridProps> = (
   }, [
     processedData, processedColumns, currentDisplayAreaConfig, displayAreaConfig,
     gridState, viewMode, groupedData, handleCellEdit, handleCellDoubleClick, isEquipmentBasedMode, isTaskBasedMode,
-    onSpecificationEdit, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
-    handleSystemCopy, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
+    onSpecificationEdit, onSpecificationColumnReorder, handleColumnResize, handleRowResize, setSelectedCell, setEditingCell,
+    setSelectedRange, onUpdateItem,
+    autoVirtualScrolling, shouldUseVirtualScrolling, readOnly,
+    handleSystemCopy, handleSystemPaste, selectedAssets, handleAssetSelectionToggle, hierarchy, onAssetEdit,
     expandedWorkOrders, toggleWorkOrderExpanded,
+    isDragging, startDragSelection, updateDragSelection, endDragSelection, isCellInSelectedRange,
     searchTerm, stableOnSearchChange, level1Filter, level2Filter, level3Filter,
     handleLevel1FilterChange, handleLevel2FilterChange, handleLevel3FilterChange,
     hierarchyFilterTree, level2Options, level3Options, uniqueTasks, selectedTasks,
-    onSelectedTasksChange, uniqueBomCodes, selectedBomCodes, onSelectedBomCodesChange
+    onSelectedTasksChange, uniqueBomCodes, selectedBomCodes, onSelectedBomCodesChange,
+    assetClassification, workOrderClassifications, classificationFilter, onClassificationFilterChange,
+    woClassificationFilter, onWoClassificationFilterChange, assets, onScroll,
   ]);
 
 

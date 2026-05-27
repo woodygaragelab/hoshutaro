@@ -14,6 +14,10 @@ export default defineConfig({
           'mui-vendor': ['@mui/material', '@mui/icons-material'],
           'utils-vendor': ['axios', 'xlsx', 'framer-motion'],
           'query-vendor': ['@tanstack/react-query', 'zustand'],
+          // Track D Sprint 5-D: Cognito 認証 + MFA QR コードを別 chunk に分離
+          // → App.tsx の初期ロード時 gzip サイズを ~40 KB 削減 + 認証関連の更新時
+          //   キャッシュ無効化が App 本体に波及しない
+          'auth-vendor': ['aws-amplify', 'qrcode.react'],
         },
       },
     },

@@ -25,9 +25,6 @@ import {
   SmartToy as AIIcon,
   Integration as IntegrationIcon,
   CloudUpload as UploadIcon,
-  TableChart as TableIcon,
-  AutoFixHigh as MappingIcon,
-  Assessment as AnalysisIcon,
   CheckCircle as CheckIcon,
   Psychology as BrainIcon,
   Sync as SyncIcon,
@@ -131,7 +128,7 @@ const AIAssistantIntegrationDemo: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
     switch (status) {
       case 'completed':
         return 'success';
@@ -286,7 +283,7 @@ const AIAssistantIntegrationDemo: React.FC = () => {
                               <Chip
                                 label={feature.status === 'completed' ? '完了' : '進行中'}
                                 size="small"
-                                color={getStatusColor(feature.status) as any}
+                                color={getStatusColor(feature.status)}
                                 variant="outlined"
                               />
                             </Box>

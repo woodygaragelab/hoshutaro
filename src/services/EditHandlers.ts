@@ -12,6 +12,7 @@ import {
 } from '../types/maintenanceTask';
 import { WorkOrderLineManager } from './WorkOrderLineManager';
 import { AssetManager } from './AssetManager';
+import type { UndoRedoManager } from './UndoRedoManager';
 
 export class EditHandlers {
   private workOrderLineManager: WorkOrderLineManager;
@@ -88,7 +89,7 @@ export class EditHandlers {
     specIndex: number,
     field: 'key' | 'value',
     value: string,
-    undoRedoManager?: any
+    undoRedoManager?: UndoRedoManager
   ): void {
     const asset = assetManager.getAsset(assetId);
     if (!asset) {
@@ -128,7 +129,7 @@ export class EditHandlers {
   handleBatchSpecificationUpdate(
     assetManager: AssetManager,
     changes: SpecificationChange[],
-    undoRedoManager?: any
+    undoRedoManager?: UndoRedoManager
   ): void {
     if (changes.length === 0) return;
 

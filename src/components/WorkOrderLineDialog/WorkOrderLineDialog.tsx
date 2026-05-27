@@ -11,27 +11,15 @@ import {
   IconButton,
   List,
   ListItem,
-  Divider,
   Chip,
-  Tabs,
-  Tab,
   Checkbox,
   FormControlLabel,
   InputAdornment,
   Alert,
-  Autocomplete,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  Collapse,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -40,10 +28,6 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   CurrencyYen as YenIcon,
-  CheckCircle as CheckCircleIcon,
-  RadioButtonUnchecked as RadioButtonUncheckedIcon,
-  Link as LinkIcon,
-  Schedule as ScheduleIcon,
   ExpandMore as ExpandMoreIcon,
   ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
@@ -81,7 +65,7 @@ interface TabPanelProps {
   value: number;
 }
 
-function TabPanel(props: TabPanelProps) {
+function _TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
     <div
@@ -160,13 +144,13 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   associations,
   allWorkOrders,
   allAssets,
-  allWorkOrderLines,
+  allWorkOrderLines: _allWorkOrderLines,
   onSave,
-  onUpdateWorkOrder,
+  onUpdateWorkOrder: _onUpdateWorkOrder,
   onClose,
   readOnly = false,
-  editScope = 'single-asset',
-  dataViewMode = 'asset-based',
+  editScope: _editScope = 'single-asset',
+  dataViewMode: _dataViewMode = 'asset-based',
   workOrderClassifications,
 }) => {
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
@@ -209,7 +193,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         if (contextWorkOrderId && assoc.WorkOrderId !== contextWorkOrderId) return;
 
         // Helper to format date values to YYYY-MM-DD strings
-        const formatDate = (dateValue: any) => {
+        const formatDate = (dateValue: Date | string | null | undefined) => {
           if (!dateValue) return '';
           const d = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
           if (isNaN(d.getTime())) return '';
@@ -226,7 +210,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         else if (dateKey.length === 7) inferredTimeScale = 'month';
 
         // Use getTimeKey for proper ISO week matching (prefix matching fails for "YYYY-Www" format)
-        const matchesByTimeKey = (dateValue: any) => {
+        const matchesByTimeKey = (dateValue: Date | string | null | undefined) => {
           if (!dateValue) return false;
           const d = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
           if (isNaN(d.getTime())) return false;
@@ -393,10 +377,10 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [maintenanceRecords]);
 
   // Handle editing a maintenance record field
-  const handleEditRecord = useCallback((
+  const handleEditRecord = useCallback(<K extends keyof MaintenanceRecord>(
     index: number,
-    field: keyof MaintenanceRecord,
-    value: any
+    field: K,
+    value: MaintenanceRecord[K]
   ) => {
     const newRecords = [...maintenanceRecords];
     newRecords[index] = {
@@ -409,7 +393,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [maintenanceRecords]);
 
   // Handle adding a new task association
-  const handleAddTask = useCallback((wo: WorkOrder | null) => {
+  const _handleAddTask = useCallback((wo: WorkOrder | null) => {
     if (!wo) return;
 
     // Check if task already exists
@@ -442,7 +426,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle deleting a task association
-  const handleDeleteTask = useCallback((index: number) => {
+  const _handleDeleteTask = useCallback((index: number) => {
     const newItems = [...editItems];
     newItems[index] = { ...newItems[index], isDeleted: true };
     setEditItems(newItems);
@@ -450,7 +434,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle editing task schedule
-  const handleEditSchedule = useCallback((
+  const _handleEditSchedule = useCallback((
     index: number,
     field: 'planned' | 'actual' | 'planCost' | 'actualCost',
     value: boolean | number
@@ -476,7 +460,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle editing default schedule pattern
-  const handleEditDefaultPattern = useCallback((
+  const _handleEditDefaultPattern = useCallback((
     index: number,
     field: 'frequency' | 'interval',
     value: string | number
@@ -511,7 +495,7 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
   }, [editItems]);
 
   // Handle toggling pattern editor
-  const handleTogglePatternEditor = useCallback((index: number) => {
+  const _handleTogglePatternEditor = useCallback((index: number) => {
     setExpandedPatternIndex(expandedPatternIndex === index ? null : index);
   }, [expandedPatternIndex]);
 
@@ -540,9 +524,12 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
 
       const draft = workOrderDrafts[record.workOrderId!];
 
-      const lineData: Partial<WorkOrderLine> & { __workOrderDraft?: any } = {
+      // CLAUDE.md パターン: 内部 field __workOrderDraft は App.tsx 側で取り出して削除する
+      // 一時 piggyback 領域。Partial<WorkOrderLine> に拡張型を交差させる。
+      type DataWithDraft = Partial<WorkOrderLine> & { __workOrderDraft?: WorkOrderDraft };
+      const lineData: DataWithDraft = {
          WorkOrderId: record.workOrderId,
-         name: record.lineName, 
+         name: record.lineName,
          AssetId: record.assetId || assetId,
          PlanScheduleStart: toDate(record.planStartDate),
          PlanScheduleEnd: toDate(record.planEndDate),
@@ -559,11 +546,11 @@ export const WorkOrderLineDialog: React.FC<WorkOrderLineDialogProps> = ({
         updates.push({ lineId: record.associationId, action: 'update', data: { ...lineData, UpdatedAt: new Date() } });
         processedAssocIds.add(record.associationId);
       } else {
-        updates.push({ lineId: `assoc-${Date.now()}-${Math.random()}`, action: 'create', data: { ...lineData, CreatedAt: new Date(), UpdatedAt: new Date() } as any });
+        updates.push({ lineId: `assoc-${Date.now()}-${Math.random()}`, action: 'create', data: { ...lineData, CreatedAt: new Date(), UpdatedAt: new Date() } });
       }
     });
     return updates;
-  }, [maintenanceRecords, assetId, dateKey, associations, contextWorkOrderId, workOrderDrafts]);
+  }, [maintenanceRecords, assetId, workOrderDrafts]);
 
   // Handle save - execute flat record updates directly
   const handleSave = useCallback(() => {

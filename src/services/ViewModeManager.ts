@@ -26,7 +26,7 @@ import {
   EditContext,
 } from '../types/maintenanceTask';
 import { memoizeDeep, MemoizationBatch } from '../utils/memoization';
-import { getISOWeek, generateTimeRange, getTimeKey } from '../utils/dateUtils';
+import { generateTimeRange, getTimeKey } from '../utils/dateUtils';
 
 interface HierarchyNode {
   key: string;

@@ -126,8 +126,8 @@ export function extractPlannedActual(status: StatusValue): {
  * Check if status transition is valid
  */
 export function isValidStatusTransition(
-  from: StatusValue,
-  to: StatusValue
+  _from: StatusValue,
+  _to: StatusValue
 ): boolean {
   // All transitions are valid in this system
   // This function exists for future business rule enforcement

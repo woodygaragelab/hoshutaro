@@ -86,13 +86,14 @@ const ViewModeDemo: React.FC = () => {
     }
   };
 
-  const handleCellEdit = (rowId: string, columnId: string, value: any) => {
+  // 引数は受けるが body は空の no-op handler (デモ用)
+  const handleCellEdit = (_rowId: string, _columnId: string, _value: unknown) => {
       };
 
-  const handleSpecificationEdit = (rowId: string, specIndex: number, key: string, value: string) => {
+  const _handleSpecificationEdit = (_rowId: string, _specIndex: number, _key: string, _value: string) => {
       };
 
-  const handleUpdateItem = (updatedItem: HierarchicalData) => {
+  const _handleUpdateItem = (_updatedItem: HierarchicalData) => {
       };
 
   return (

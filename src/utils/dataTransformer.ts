@@ -1,21 +1,53 @@
 import { HierarchicalData, RawEquipment } from '../types';
+import { getTimeKey } from './dateUtils';
 
-import { getTimeKey, getISOWeek } from './dateUtils';
+export interface FilterTreeNode {
+  name: string;
+  children: { [name: string]: FilterTreeNode };
+}
 
-export const transformData = (data: { [id: string]: RawEquipment } | any, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], any] => {
-  // Validate input data
+interface V2ScheduleEntry {
+  planned?: boolean;
+  actual?: boolean;
+  planCost?: number;
+  actualCost?: number;
+}
+
+interface V2Association {
+  assetId?: string;
+  schedule?: { [dateStr: string]: V2ScheduleEntry };
+}
+
+interface V2Asset {
+  id: string;
+  name?: string;
+  hierarchyPath?: { [key: string]: string };
+  specifications?: { key: string; value: string; order: number }[];
+}
+
+interface V2Data {
+  version: '2.0.0';
+  assets?: { [id: string]: V2Asset };
+  associations?: { [id: string]: V2Association };
+  tasks?: { [id: string]: unknown };
+}
+
+type TransformerInput = { [id: string]: RawEquipment } | V2Data | Record<string, unknown>;
+
+const isV2Data = (data: TransformerInput): data is V2Data =>
+  typeof data === 'object' && data !== null && (data as V2Data).version === '2.0.0' && !!(data as V2Data).assets;
+
+export const transformData = (data: TransformerInput, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], FilterTreeNode] => {
   if (!data || typeof data !== 'object') {
-        return [[], [], { name: 'root', children: {} }];
+    return [[], [], { name: 'root', children: {} }];
   }
 
-  // Check if this is v2.0.0 data structure
-  if (data.version === '2.0.0' && data.assets) {
-        return transformV2Data(data, timeScale);
+  if (isV2Data(data)) {
+    return transformV2Data(data, timeScale);
   }
 
-  // Legacy data processing
-    const flatEquipmentList: HierarchicalData[] = [];
-  const hierarchyFilterTree = { name: 'root', children: {} };
+  const flatEquipmentList: HierarchicalData[] = [];
+  const hierarchyFilterTree: FilterTreeNode = { name: 'root', children: {} };
 
   let minDate = new Date();
   let maxDate = new Date(1970, 0, 1);
@@ -43,7 +75,7 @@ export const transformData = (data: { [id: string]: RawEquipment } | any, timeSc
     // a. Build hierarchy path and populate filter tree
     const hierarchyKeys = Object.keys(equipment.hierarchy).sort();
     const pathParts: string[] = [];
-    let currentFilterNode: any = hierarchyFilterTree;
+    let currentFilterNode: FilterTreeNode = hierarchyFilterTree;
 
     hierarchyKeys.forEach(key => {
       const name = equipment.hierarchy[key];
@@ -132,23 +164,18 @@ export const transformData = (data: { [id: string]: RawEquipment } | any, timeSc
   return [flatEquipmentList, timeHeaders, hierarchyFilterTree];
 };
 
-// Transform v2.0.0 data structure
-const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], any] => {
+const transformV2Data = (data: V2Data, timeScale: 'year' | 'month' | 'week' | 'day'): [HierarchicalData[], string[], FilterTreeNode] => {
   const flatEquipmentList: HierarchicalData[] = [];
-  const hierarchyFilterTree = { name: 'root', children: {} };
+  const hierarchyFilterTree: FilterTreeNode = { name: 'root', children: {} };
 
-  // Extract assets and associations
   const assets = data.assets || {};
   const associations = data.associations || {};
-  const tasks = data.tasks || {};
 
-  
   let minDate = new Date();
   let maxDate = new Date(1970, 0, 1);
   let hasDateData = false;
 
-  // 1. Find date range from associations
-  Object.values(associations).forEach((assoc: any) => {
+  Object.values(associations).forEach((assoc: V2Association) => {
     if (assoc && assoc.schedule) {
       for (const dateStr in assoc.schedule) {
         const date = new Date(dateStr);
@@ -161,26 +188,23 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
     }
   });
 
-  // If no date data found, use current year range
   if (!hasDateData) {
     const currentYear = new Date().getFullYear();
     minDate = new Date(currentYear, 0, 1);
     maxDate = new Date(currentYear + 2, 11, 31);
   }
 
-  // 2. Process each asset
-  Object.values(assets).forEach((asset: any) => {
+  Object.values(assets).forEach((asset: V2Asset) => {
     if (!asset || !asset.hierarchyPath || typeof asset.hierarchyPath !== 'object') {
-            return;
+      return;
     }
 
-    // Build hierarchy path and populate filter tree
     const hierarchyKeys = Object.keys(asset.hierarchyPath).sort();
     const pathParts: string[] = [];
-    let currentFilterNode: any = hierarchyFilterTree;
+    let currentFilterNode: FilterTreeNode = hierarchyFilterTree;
 
     hierarchyKeys.forEach(key => {
-      const name = asset.hierarchyPath[key];
+      const name = asset.hierarchyPath![key];
       pathParts.push(name);
 
       if (!currentFilterNode.children[name]) {
@@ -190,7 +214,6 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
     });
     const hierarchyPath = pathParts.join(' > ');
 
-    // Create the equipment node
     const equipmentNode: HierarchicalData = {
       id: asset.id,
       task: asset.name || asset.id,
@@ -203,8 +226,7 @@ const transformV2Data = (data: any, timeScale: 'year' | 'month' | 'week' | 'day'
       hierarchyPath: hierarchyPath,
     };
 
-    // 3. Populate results from associations
-    Object.values(associations).forEach((assoc: any) => {
+    Object.values(associations).forEach((assoc: V2Association) => {
       if (assoc && assoc.assetId === asset.id && assoc.schedule) {
         for (const dateStr in assoc.schedule) {
           const date = new Date(dateStr);

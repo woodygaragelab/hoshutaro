@@ -1,20 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Box, IconButton, Typography, CircularProgress, Avatar, Paper, Button, Chip
+  IconButton, Typography, CircularProgress, Avatar, Button, Chip,
+  Dialog, DialogContent, DialogTitle
 } from '@mui/material';
 import {
   Send as SendIcon,
   AttachFile as AttachFileIcon,
-  Settings as SettingsIcon,
   CalendarMonth as CalendarIcon,
   ViewList as DisplayModeIcon,
   SwapHoriz as ViewModeIcon,
   Star as AIIcon,
   Person as PersonIcon,
-  CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
   AccountTree as HierarchyIcon,
-  ImportExport as SyncIcon,
   FileUpload as UploadFileIcon,
   FileDownload as DownloadFileIcon,
   ChatBubbleOutline as ChatIcon,
@@ -23,14 +21,17 @@ import {
   Undo as UndoIcon,
   Redo as RedoIcon,
   BarChart as BarChartIcon,
-  Extension as ExtensionIcon,
-  AutoFixHigh as SkillIcon
 } from '@mui/icons-material';
 import type { ChatMessage, MaintenanceSuggestion } from '../AIAssistant/types';
+import type { Asset, WorkOrder, WorkOrderLine, DataModel } from '../../types/maintenanceTask';
 import { startChatStream, SSEEvent } from '../../services/sseClient';
+import { useUIContextStore } from '../../state/uiContextStore';
 import { uploadExcelFile, confirmExcelImport, formatMappingSummary, cancelExcelImport } from '../../services/ExcelProcessingService';
 import { LLMSettingsDialog } from '../AIAssistant/components/LLMSettingsDialog';
 import DateJumpDialog from '../DateJumpDialog/DateJumpDialog';
+import { useAuth } from '../../hooks/useAuth';
+import { ProfileScreen } from '../Auth/ProfileScreen';
+import { MfaSetupScreen } from '../Auth/MfaSetupScreen';
 import './AgentBar.css';
 
 interface AgentBarProps {
@@ -52,8 +53,12 @@ interface AgentBarProps {
   // AI related passing upwards if necessary
   onSuggestionApply: (suggestion: MaintenanceSuggestion) => void;
   onExcelImport: (file: File) => void;
-  onImportComplete: (dataModel: any) => void;
-  dataContext: any;
+  onImportComplete: (dataModel: DataModel) => void;
+  dataContext: {
+    assets: Asset[];
+    workOrders: WorkOrder[];
+    workOrderLines: WorkOrderLine[];
+  };
   timeHeaders?: string[];
   activeTimeHeaders?: string[];
 
@@ -70,6 +75,12 @@ interface AgentBarProps {
   // Plugin & Skill
   onPluginManager?: () => void;
   onSkillRunner?: () => void;
+
+  // Date jump current focus
+  currentVisibleDate?: string;
+
+  // Knowledge Base (Project Mu)
+  onKnowledgeBase?: () => void;
 }
 
 export const AgentBar: React.FC<AgentBarProps> = ({
@@ -84,7 +95,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   onHierarchyEdit,
   onAssetClassificationEdit,
   onWorkOrderClassificationEdit,
-  onSuggestionApply,
+  onSuggestionApply: _onSuggestionApply,
   onExcelImport,
   onImportComplete,
   dataContext,
@@ -97,13 +108,17 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   showGraph = false,
   onToggleGraph,
   onPluginManager,
-  onSkillRunner
+  onSkillRunner,
+  onKnowledgeBase
 }) => {
   // --- AI Assistant State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [mfaSetupOpen, setMfaSetupOpen] = useState(false);
   const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).substr(2, 9));
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,7 +130,6 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   // --- Hover Menu States ---
   const [showTimeScaleMenu, setShowTimeScaleMenu] = useState(false);
   const [showDisplayModeMenu, setShowDisplayModeMenu] = useState(false);
-  const [showDataSyncMenu, setShowDataSyncMenu] = useState(false);
   const [showDateJumpMenu, setShowDateJumpMenu] = useState(false);
   const [showMasterMenu, setShowMasterMenu] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
@@ -134,12 +148,14 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   }, [messages]);
 
   // AI Send logic (Adapted from AIAssistantPanel)
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() && !pendingFile) return;
+  // overrideText 指定時はテキスト送信を強制（提案確認ボタン等から利用、プラン WS1-9）
+  const handleSendMessage = async (overrideText?: string) => {
+    const hasOverride = typeof overrideText === 'string' && overrideText.trim().length > 0;
+    if (!hasOverride && !inputMessage.trim() && !pendingFile) return;
     if (isLoading) return;
 
-    const currentInput = inputMessage;
-    const currentFile = pendingFile;
+    const currentInput = hasOverride ? overrideText! : inputMessage;
+    const currentFile = hasOverride ? null : pendingFile;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -175,11 +191,12 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           ]
         };
         setMessages(prev => [...prev, aiResponse]);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
-          content: `[エラー]: ${error.message}`,
+          content: `[エラー]: ${errMsg}`,
           timestamp: new Date()
         }]);
       } finally {
@@ -221,11 +238,53 @@ export const AgentBar: React.FC<AgentBarProps> = ({
           setMessages(prev => prev.map(m => {
             if (m.id === assistantMsgId) {
               const suggestions = m.suggestions ? [...m.suggestions] : [];
-              suggestions.push(event.suggestion);
+              // SSE-borne payload comes through as `unknown`; assume backend-issued shape matches MaintenanceSuggestion
+              suggestions.push(event.suggestion as MaintenanceSuggestion);
               return { ...m, suggestions };
             }
             return m;
           }));
+        } else if (event.type === 'intent_classified') {
+          // UI コンテキスト外の指示は out_of_scope_reason を表示（プラン WS1-10）
+          if (event.out_of_scope_reason) {
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId
+                ? { ...m, content: m.content + `\n\n⚠️ ${event.out_of_scope_reason}` }
+                : m
+            ));
+          }
+        } else if (event.type === 'dialog_open_request' && event.dialog) {
+          // バックエンドの要求で該当ダイアログを起動（プラン WS1-10）
+          openDialogByKey(event.dialog);
+        } else if (event.type === 'proposal_pending') {
+          // 計画推論などユーザー確認待ちの提案 — 確認/取消ボタンを表示（プラン WS1-9）
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  actions: [
+                    { id: 'confirm_proposal', label: 'この内容で実行', variant: 'confirm' },
+                    { id: 'cancel_proposal', label: 'キャンセル', variant: 'cancel' },
+                  ],
+                }
+              : m
+          ));
+        } else if (event.type === 'tool_result') {
+          // ダイアログ操作などの構造化結果を補足表示
+          const ops = event.operations as { dialog?: string; action?: string }[] | undefined;
+          if (ops && ops.length > 0 && ops[0]?.action) {
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId
+                ? { ...m, content: m.content + `\n\n🔧 提案された操作: ${ops[0].action}` }
+                : m
+            ));
+          }
+        } else if (event.type === 'proposal_executed') {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMsgId
+              ? { ...m, content: m.content + '\n\n✅ 実行しました。' }
+              : m
+          ));
         }
       },
       () => setIsLoading(false),
@@ -238,7 +297,9 @@ export const AgentBar: React.FC<AgentBarProps> = ({
         }));
         setIsLoading(false);
       },
-      dataContext
+      dataContext,
+      // プラン WS1-10: 現在の UI コンテキスト（開いているダイアログ + グリッド状態）を送信
+      useUIContextStore.getState().snapshot()
     );
   };
 
@@ -256,9 +317,48 @@ export const AgentBar: React.FC<AgentBarProps> = ({
     }
   };
 
+  // バックエンドの dialog_open_request に応じて該当ダイアログを起動（プラン WS1-10）
+  const openDialogByKey = (dialogKey: string) => {
+    switch (dialogKey) {
+      case 'hierarchy':
+        onHierarchyEdit?.();
+        break;
+      case 'assetClassification':
+        onAssetClassificationEdit?.();
+        break;
+      case 'workOrderClassification':
+        onWorkOrderClassificationEdit?.();
+        break;
+      default:
+        // workOrderLine / specification / assetReassign はグリッド操作起点のため
+        // AgentBar から直接は開けない。ユーザーに導線を案内する。
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          type: 'assistant',
+          content: `「${dialogKey}」の編集はグリッド上の対象セル/機器から開いてください。`,
+          timestamp: new Date(),
+        }]);
+    }
+  };
+
   const handleAction = async (actionId: string, messageId: string) => {
     // Hide actions for clicked message
     setMessages(prev => prev.map(m => m.id === messageId ? { ...m, actions: undefined } : m));
+
+    if (actionId === 'confirm_proposal') {
+      // 提案の確認 — 確認メッセージを送信し、orchestrator 側で pending 操作を実行させる
+      await handleSendMessage('はい、お願いします');
+      return;
+    }
+    if (actionId === 'cancel_proposal') {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        type: 'assistant',
+        content: '提案をキャンセルしました。',
+        timestamp: new Date(),
+      }]);
+      return;
+    }
 
     if (actionId === 'confirm_import') {
       setIsLoading(true);
@@ -271,18 +371,27 @@ export const AgentBar: React.FC<AgentBarProps> = ({
       setMessages(prev => [...prev, statusMsg]);
 
       try {
-        const result = await confirmExcelImport(sessionId);
+        const result = await confirmExcelImport(sessionId) as {
+          imported_assets?: number;
+          imported_work_orders?: number;
+          imported_lines?: number;
+          error_count?: number;
+          data_model?: unknown;
+        };
         setMessages(prev => prev.map(m => m.id === statusMsg.id ? {
           ...m,
           content: `✅ インポート完了！\n機器: ${result.imported_assets}件\n作業: ${result.imported_work_orders}件\n明細: ${result.imported_lines}件`
-            + (result.error_count > 0 ? `\n⚠️ エラー: ${result.error_count}件` : '')
+            + ((result.error_count ?? 0) > 0 ? `\n⚠️ エラー: ${result.error_count}件` : '')
         } : m));
 
         if (result.data_model && onImportComplete) {
-          onImportComplete(result.data_model);
+          // confirmExcelImport の戻り data_model は API 由来の unknown。
+          // 実体は DataModel 形状を前提に渡しているので boundary 越しに cast する。
+          onImportComplete(result.data_model as DataModel);
         }
-      } catch (error: any) {
-        setMessages(prev => prev.map(m => m.id === statusMsg.id ? { ...m, content: `[エラー]: ${error.message}` } : m));
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        setMessages(prev => prev.map(m => m.id === statusMsg.id ? { ...m, content: `[エラー]: ${errMsg}` } : m));
       } finally {
         setIsLoading(false);
       }
@@ -299,6 +408,40 @@ export const AgentBar: React.FC<AgentBarProps> = ({
   return (
     <>
       <LLMSettingsDialog open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+
+      <Dialog
+        open={profileOpen || mfaSetupOpen}
+        onClose={() => {
+          setProfileOpen(false);
+          setMfaSetupOpen(false);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          {mfaSetupOpen ? '多要素認証 (MFA) の設定' : 'プロフィール'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {mfaSetupOpen && user ? (
+            <MfaSetupScreen
+              noLayout
+              username={user.username}
+              onSetupSuccess={() => {
+                setMfaSetupOpen(false);
+                setProfileOpen(true);
+              }}
+            />
+          ) : (
+            <ProfileScreen
+              onMfaSetupRequested={() => {
+                setProfileOpen(false);
+                setMfaSetupOpen(true);
+              }}
+              onClose={() => setProfileOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Floating Agent Bar */}
       <div className="agent-bar-container">
@@ -415,7 +558,7 @@ export const AgentBar: React.FC<AgentBarProps> = ({
 
               <IconButton
                 className="send-btn"
-                onClick={handleSendMessage}
+                onClick={() => handleSendMessage()}
                 disabled={(!inputMessage.trim() && !pendingFile) || isLoading}
               >
                 <SendIcon fontSize="small" />
@@ -441,10 +584,39 @@ export const AgentBar: React.FC<AgentBarProps> = ({
                 </IconButton>
                 {showToolsMenu && (
                   <div className="hover-menu-vertical plugin-menu-override">
+                    <div
+                      className="menu-mode"
+                      title={user ? `クラウドモード${user.email ? ` — ${user.email}` : ''}` : 'ローカルモード（未ログイン）'}
+                    >
+                      <span className={`menu-mode-dot ${user ? 'cloud' : 'local'}`} />
+                      {user ? 'クラウドモード' : 'ローカルモード'}
+                    </div>
+                    <div className="menu-separator" />
                     <div className="menu-item" onClick={() => { setIsSettingsOpen(true); setShowToolsMenu(false); }}>LLM設定</div>
-                    <div className="menu-item" onClick={() => { alert('Maximo等の外部API連携設定画面（準備中）'); setShowToolsMenu(false); }}>外部連携</div>
                     <div className="menu-item" onClick={() => { onSkillRunner?.(); setShowToolsMenu(false); }}>スキル設定</div>
-                    <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>MCP管理</div>
+                    <div className="menu-item" onClick={() => { onPluginManager?.(); setShowToolsMenu(false); }}>プラグイン管理</div>
+                    <div className="menu-item" onClick={() => { onKnowledgeBase?.(); setShowToolsMenu(false); }}>ナレッジベース</div>
+                    <div className="menu-separator" />
+                    <div
+                      className="menu-item"
+                      onClick={() => {
+                        setProfileOpen(true);
+                        setShowToolsMenu(false);
+                      }}
+                      title={user?.email ?? 'プロフィール'}
+                    >
+                      プロフィール
+                    </div>
+                    <div
+                      className="menu-item"
+                      onClick={() => {
+                        void signOut();
+                        setShowToolsMenu(false);
+                      }}
+                      title={user?.email ? `サインアウト (${user.email})` : 'サインアウト'}
+                    >
+                      サインアウト
+                    </div>
                   </div>
                 )}
               </div>

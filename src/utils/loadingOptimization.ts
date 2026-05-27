@@ -5,6 +5,10 @@
 import React from 'react';
 
 // Simple lazy loading wrapper
+// T は任意 props を取りうる React component 型なので any で受け入れる。
+// (React.ComponentType の generic は通常 any 推奨。代替の unknown を入れると
+//  createElement 側で IntrinsicAttributes との比較が壊れる。)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const LazyWrapper = <T extends React.ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
   fallback?: React.ReactNode
@@ -243,6 +247,8 @@ export const useProgressiveLoading = <T>(
     return () => {
       cancelled = true;
     };
+    // dependencies は呼び出し側が指定するカスタムフックの仕様で、loadFn は dependencies に含めて呼び出し側が管理する。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, dependencies);
 
   return { data, loading, error, progress };

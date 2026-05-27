@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { Storage as DataIcon, NoteAdd as FileIcon } from '@mui/icons-material';
 
 interface EmptyStateProps {
   onImportClick: () => void;
