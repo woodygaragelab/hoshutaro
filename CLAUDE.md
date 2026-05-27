@@ -47,3 +47,35 @@ producer に追加したが consumer 未対応、config 値を定義したが呼
 - コミット/PR/コード内に model 識別子（`claude-opus-...` 等）を書かない。
 - 作業ブランチは指示されたものを使う。push 後は draft PR を用意（既存があれば積む）。
 - モック実装（ダミーデータ）は作らない方針。未実装は honest な `NotImplementedError`。
+
+---
+
+## リポジトリ運用（2 リポ体制）
+
+| リポ | 役割 | 触る頻度 |
+|---|---|---|
+| **`mushitaro/hoshutaro-mu`** (この private リポ) | 開発本拠地。Claude Code と一緒の日常コミット先 | 毎日 |
+| **`woodygaragelab/hoshutaro`** (public) | 公式リリース配布 (GitHub Releases / .msi) | リリース時のみ |
+
+両 `hoshutaro` リポの `main` ブランチは **常に同じ SHA に同期している**。日常コミットは `mushitaro/hoshutaro-mu/main` に直 push で OK（リリースは発火しない）。
+
+関連: ランディングページは別リポ `mushitaro/hoshutaro-delivery`（AWS S3+CloudFront）で運用。
+
+## リリース運用（明示トリガー型）
+
+ユーザが次のような指示を出したときだけリリースを実行する。**それ以外は絶対にタグを打たない**：
+
+- 「リリース v0.2.0」「リリース v X.Y.Z」
+- 「release v X.Y.Z」
+- 「v X.Y.Z を出して」「v X.Y.Z を配布」
+
+実行手順の単一情報源 = **[`docs/RELEASE_PROCEDURE.md`](docs/RELEASE_PROCEDURE.md)**。
+
+リリース手順を改修するときはこのファイルを必ず先に読み・更新する。両リポで内容は同一に保つ。
+
+## 既知の状態（一回限りの記録、変わったら更新する）
+
+- Tauri Updater 署名鍵: 生成済み。両リポの GitHub Secrets (`TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) に登録済み。公開鍵は [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json) の `plugins.updater.pubkey` に埋め込み済み。ローカルバックアップは `~/.hoshutaro/keys/`
+- Windows Authenticode 署名: **未調達**（コスト保留中）。配布バイナリは unsigned。SmartScreen 警告は「詳細情報 → 実行」で進められる
+- Updater 配信元: `woodygaragelab/hoshutaro` の Releases（public）。`plugins.updater.endpoints` で参照
+- ランディング Download URL: バージョン非依存 `https://github.com/woodygaragelab/hoshutaro/releases/latest/download/hoshutaro-windows.msi`（毎リリースで `hoshutaro-windows.msi` という名前のコピーを `gh release upload` する）
